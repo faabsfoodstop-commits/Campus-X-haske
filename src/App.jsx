@@ -13,6 +13,10 @@ import SpinWheel from './pages/SpinWheel';
 import DailyMissions from './pages/DailyMissions';
 import Trivia from './pages/Trivia';
 import Achievements from './pages/Achievements';
+import VideoAds from './pages/VideoAds';
+import InstagramFollow from './pages/InstagramFollow';
+import Referrals from './pages/Referrals';
+import Leaderboards from './pages/Leaderboards';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -73,6 +77,22 @@ function App() {
         <Route
           path="/achievements"
           element={<PrivateRoute user={user}><Achievements /></PrivateRoute>}
+        />
+        <Route
+          path="/video-ads"
+          element={<PrivateRoute user={user}><VideoAds /></PrivateRoute>}
+        />
+        <Route
+          path="/instagram-follow"
+          element={<PrivateRoute user={user}><InstagramFollow /></PrivateRoute>}
+        />
+        <Route
+          path="/referrals"
+          element={<PrivateRoute user={user}><Referrals /></PrivateRoute>}
+        />
+        <Route
+          path="/leaderboards"
+          element={<PrivateRoute user={user}><Leaderboards /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>

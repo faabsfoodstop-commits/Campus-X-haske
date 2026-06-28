@@ -193,6 +193,36 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Earn More */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">💰 Earn More</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/video-ads')}>
+              <h3 className="text-xl font-bold text-white mb-2">📺 Watch & Earn</h3>
+              <p className="text-red-50 mb-4">Watch short video ads and earn 50-100 points per video!</p>
+              <p className="text-red-100 font-semibold">Start watching →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/instagram-follow')}>
+              <h3 className="text-xl font-bold text-white mb-2">📱 Follow & Earn</h3>
+              <p className="text-pink-50 mb-4">Follow brands on Instagram and earn instant points!</p>
+              <p className="text-pink-100 font-semibold">Start following →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/referrals')}>
+              <h3 className="text-xl font-bold text-white mb-2">👑 Referrals</h3>
+              <p className="text-green-50 mb-4">Invite friends and earn 100-250 points per referral!</p>
+              <p className="text-green-100 font-semibold">Share your code →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/leaderboards')}>
+              <h3 className="text-xl font-bold text-white mb-2">🏆 Leaderboards</h3>
+              <p className="text-purple-50 mb-4">Compete with others and win weekly prizes!</p>
+              <p className="text-purple-100 font-semibold">View rankings →</p>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
