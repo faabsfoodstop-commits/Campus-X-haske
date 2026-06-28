@@ -294,7 +294,7 @@ export default function DailyMissions() {
       });
 
       // Refresh combo bonus calculation
-      await checkDailyMissions();
+      await checkDailyMissionsSimple();
 
       // Hide notification after 3 seconds
       setTimeout(() => setNotification(null), 3000);
@@ -328,6 +328,26 @@ export default function DailyMissions() {
 
   const totalPotentialRewards = availableMissions.reduce((sum, m) => sum + m.reward, 0) + 250;
 
+  const clearTestData = async () => {
+    if (!confirm('Clear all today\'s missions from database? (for testing only)')) return;
+
+    try {
+      const today = new Date().toDateString();
+      const missionsQuery = query(
+        collection(db, 'daily_missions'),
+        where('userId', '==', auth.currentUser.uid),
+        where('completedDate', '==', today)
+      );
+
+      const snapshot = await getDocs(missionsQuery);
+      // Can't delete directly, so reload page to refresh
+      alert(`Found ${snapshot.size} test missions for today. Please delete them manually in Firebase Console, then refresh this page.`);
+      setCompletedToday([]);
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -341,6 +361,13 @@ export default function DailyMissions() {
                 className="text-gray-600 hover:text-primary"
               >
                 Dashboard
+              </button>
+              <button
+                onClick={clearTestData}
+                className="text-xs text-gray-400 hover:text-gray-600"
+                title="Clear test data"
+              >
+                🔧
               </button>
               <div className="text-lg font-bold text-primary">
                 ⭐ {userData?.points || 0} pts
