@@ -10,6 +10,7 @@ export default function DailyMissions() {
   const [completedToday, setCompletedToday] = useState([]);
   const [loading, setLoading] = useState(true);
   const [comboBonus, setComboBonus] = useState(0);
+  const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
 
   const availableMissions = [
@@ -171,10 +172,20 @@ export default function DailyMissions() {
         timestamp: new Date()
       });
 
-      alert(`Mission completed! +${mission.reward} pts${comboBonus > 0 ? ` (+${comboBonus} bonus)` : ''}`);
+      // Show notification instead of alert
+      const totalRewardNotif = mission.reward + comboBonus;
+      setNotification({
+        type: 'success',
+        title: 'Mission Completed! 🎉',
+        message: `${mission.name}\n+${mission.reward} pts${comboBonus > 0 ? ` + ${comboBonus} bonus!` : ''}\nTotal: +${totalRewardNotif} pts`,
+        reward: totalRewardNotif
+      });
 
       // Refresh combo bonus calculation
       await checkDailyMissions();
+
+      // Hide notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error('Error completing mission:', err);
       // Revert optimistic update on error
@@ -183,7 +194,15 @@ export default function DailyMissions() {
         ...prev,
         points: (prev?.points || 0) - mission.reward
       }));
-      alert(`Failed to complete mission: ${err.message}`);
+
+      // Show error notification
+      setNotification({
+        type: 'error',
+        title: 'Mission Failed ❌',
+        message: `${err.message}\nPlease try again.`
+      });
+
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -218,6 +237,21 @@ export default function DailyMissions() {
           </div>
         </div>
       </nav>
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-6 rounded-lg shadow-lg text-white max-w-sm animate-pulse ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          <p className="text-xl font-bold mb-2">{notification.title}</p>
+          <p className="whitespace-pre-wrap text-sm">{notification.message}</p>
+          {notification.reward && (
+            <div className="mt-3 text-center bg-white bg-opacity-20 rounded py-2">
+              <p className="text-2xl font-bold">+{notification.reward} Points!</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Header */}
