@@ -9,6 +9,10 @@ import Dashboard from './pages/Dashboard';
 import Wallet from './pages/Wallet';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
+import SpinWheel from './pages/SpinWheel';
+import DailyMissions from './pages/DailyMissions';
+import Trivia from './pages/Trivia';
+import Achievements from './pages/Achievements';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -53,6 +57,22 @@ function App() {
         <Route
           path="/admin"
           element={<PrivateRoute user={user}><Admin /></PrivateRoute>}
+        />
+        <Route
+          path="/spin-wheel"
+          element={<PrivateRoute user={user}><SpinWheel /></PrivateRoute>}
+        />
+        <Route
+          path="/daily-missions"
+          element={<PrivateRoute user={user}><DailyMissions /></PrivateRoute>}
+        />
+        <Route
+          path="/trivia"
+          element={<PrivateRoute user={user}><Trivia /></PrivateRoute>}
+        />
+        <Route
+          path="/achievements"
+          element={<PrivateRoute user={user}><Achievements /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>

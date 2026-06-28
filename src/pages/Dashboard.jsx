@@ -163,6 +163,36 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Games & Activities */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">Play & Earn</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/spin-wheel')}>
+              <h3 className="text-xl font-bold text-white mb-2">🎡 Lucky Spin</h3>
+              <p className="text-yellow-50 mb-4">Spin daily for random rewards. Earn up to 500 points!</p>
+              <p className="text-yellow-100 font-semibold">Free spins reset daily →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/daily-missions')}>
+              <h3 className="text-xl font-bold text-white mb-2">📋 Daily Missions</h3>
+              <p className="text-blue-50 mb-4">Complete tasks and earn bonus points. Chain them for multipliers!</p>
+              <p className="text-blue-100 font-semibold">Start missions →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/trivia')}>
+              <h3 className="text-xl font-bold text-white mb-2">🧠 Trivia Quiz</h3>
+              <p className="text-purple-50 mb-4">Test your campus knowledge. Earn points for correct answers!</p>
+              <p className="text-purple-100 font-semibold">Play trivia →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/achievements')}>
+              <h3 className="text-xl font-bold text-white mb-2">🏆 Achievements</h3>
+              <p className="text-pink-50 mb-4">Unlock badges and special rewards as you progress!</p>
+              <p className="text-pink-100 font-semibold">View achievements →</p>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">

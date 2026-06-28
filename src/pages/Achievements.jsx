@@ -1,0 +1,373 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from '../config/firebase';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+
+export default function Achievements() {
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [unlockedAchievements, setUnlockedAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const allAchievements = [
+    {
+      id: 'first_spin',
+      name: 'Spinner',
+      description: 'Spin the wheel 1 time',
+      icon: '🎡',
+      requirement: 'spins',
+      threshold: 1,
+      reward: 100,
+      category: 'Games'
+    },
+    {
+      id: 'spin_master',
+      name: 'Spin Master',
+      description: 'Spin the wheel 50 times',
+      icon: '🎰',
+      requirement: 'spins',
+      threshold: 50,
+      reward: 500,
+      category: 'Games'
+    },
+    {
+      id: 'trivia_pro',
+      name: 'Trivia Pro',
+      description: 'Score 100/100 on a trivia game',
+      icon: '🧠',
+      requirement: 'trivia_perfect',
+      threshold: 1,
+      reward: 250,
+      category: 'Games'
+    },
+    {
+      id: 'mission_master',
+      name: 'Mission Master',
+      description: 'Complete all daily missions 5 times',
+      icon: '📋',
+      requirement: 'missions_completed',
+      threshold: 5,
+      reward: 300,
+      category: 'Missions'
+    },
+    {
+      id: 'checkin_streak',
+      name: 'Streak Master',
+      description: 'Check in 7 days in a row',
+      icon: '🔥',
+      requirement: 'checkin_streak',
+      threshold: 7,
+      reward: 250,
+      category: 'Engagement'
+    },
+    {
+      id: 'social_butterfly',
+      name: 'Social Butterfly',
+      description: 'Follow 5 brands on Instagram',
+      icon: '🦋',
+      requirement: 'instagram_follows',
+      threshold: 5,
+      reward: 150,
+      category: 'Social'
+    },
+    {
+      id: 'referral_king',
+      name: 'Referral King',
+      description: 'Refer 5 friends who sign up',
+      icon: '👑',
+      requirement: 'successful_referrals',
+      threshold: 5,
+      reward: 500,
+      category: 'Growth'
+    },
+    {
+      id: 'points_millionaire',
+      name: 'Millionaire',
+      description: 'Earn 1,000,000 total points',
+      icon: '💎',
+      requirement: 'total_points',
+      threshold: 1000000,
+      reward: 1000,
+      category: 'Milestones'
+    },
+    {
+      id: 'early_adopter',
+      name: 'Early Adopter',
+      description: 'Be among the first 100 users',
+      icon: '🚀',
+      requirement: 'early_adopter',
+      threshold: 1,
+      reward: 200,
+      category: 'Special'
+    },
+    {
+      id: 'marketplace_seller',
+      name: 'Marketplace Seller',
+      description: 'List your first item',
+      icon: '🛍️',
+      requirement: 'marketplace_seller',
+      threshold: 1,
+      reward: 150,
+      category: 'Marketplace'
+    },
+    {
+      id: 'level5',
+      name: 'Legend',
+      description: 'Reach Level 5',
+      icon: '⭐',
+      requirement: 'user_level',
+      threshold: 5,
+      reward: 750,
+      category: 'Progression'
+    },
+    {
+      id: 'collector',
+      name: 'Collector',
+      description: 'Unlock 10 achievements',
+      icon: '🏆',
+      requirement: 'achievements_unlocked',
+      threshold: 10,
+      reward: 300,
+      category: 'Meta'
+    }
+  ];
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
+        setUser(auth.currentUser);
+      }
+      await checkAchievements(userDoc.data());
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching user:', err);
+      setLoading(false);
+    }
+  };
+
+  const checkAchievements = async (userData_temp) => {
+    try {
+      const userData = userData_temp || (await getDoc(doc(db, 'users', auth.currentUser.uid))).data();
+      const unlocked = [];
+
+      // Check each achievement
+      for (let achievement of allAchievements) {
+        let isUnlocked = false;
+
+        switch (achievement.requirement) {
+          case 'spins':
+            // Count spins from spin_history
+            const spinQuery = query(
+              collection(db, 'spin_history'),
+              where('userId', '==', auth.currentUser.uid)
+            );
+            const spinSnapshot = await getDocs(spinQuery);
+            isUnlocked = spinSnapshot.size >= achievement.threshold;
+            break;
+
+          case 'trivia_perfect':
+            // Check for perfect trivia score
+            const triviaQuery = query(
+              collection(db, 'trivia_results'),
+              where('userId', '==', auth.currentUser.uid)
+            );
+            const triviaSnapshot = await getDocs(triviaQuery);
+            isUnlocked = triviaSnapshot.docs.some(doc => doc.data().score === 100);
+            break;
+
+          case 'missions_completed':
+            // Count completed missions
+            const missionsQuery = query(
+              collection(db, 'daily_missions'),
+              where('userId', '==', auth.currentUser.uid)
+            );
+            const missionsSnapshot = await getDocs(missionsQuery);
+            const uniqueDays = new Set(missionsSnapshot.docs.map(doc => doc.data().completedDate));
+            isUnlocked = uniqueDays.size >= achievement.threshold;
+            break;
+
+          case 'total_points':
+            isUnlocked = (userData?.points || 0) >= achievement.threshold;
+            break;
+
+          case 'user_level':
+            const level = Math.floor((userData?.points || 0) / 500) + 1;
+            isUnlocked = level >= achievement.threshold;
+            break;
+
+          case 'early_adopter':
+            // Assume anyone using this is an early adopter
+            isUnlocked = true;
+            break;
+
+          case 'marketplace_seller':
+          case 'instagram_follows':
+          case 'successful_referrals':
+          case 'checkin_streak':
+          case 'achievements_unlocked':
+            // These would be tracked in user document
+            isUnlocked = (userData?.[achievement.requirement] || 0) >= achievement.threshold;
+            break;
+
+          default:
+            isUnlocked = false;
+        }
+
+        if (isUnlocked) {
+          unlocked.push(achievement);
+        }
+      }
+
+      setUnlockedAchievements(unlocked);
+    } catch (err) {
+      console.error('Error checking achievements:', err);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  const categories = [...new Set(allAchievements.map(a => a.category))];
+  const userLevel = Math.floor((userData?.points || 0) / 500) + 1;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <h1 className="text-2xl font-bold text-primary">HASKE</h1>
+            <div className="flex gap-4 items-center">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-gray-600 hover:text-primary"
+              >
+                Dashboard
+              </button>
+              <div className="text-lg font-bold text-primary">
+                ⭐ {userData?.points || 0} pts
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg shadow p-8 mb-8">
+          <h1 className="text-4xl font-bold mb-2">🏆 Achievements</h1>
+          <p className="text-pink-100 mb-6">Unlock badges and special rewards as you progress!</p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-pink-100">Level</p>
+              <p className="text-4xl font-bold">{userLevel}</p>
+            </div>
+            <div>
+              <p className="text-sm text-pink-100">Unlocked</p>
+              <p className="text-4xl font-bold">{unlockedAchievements.length}/{allAchievements.length}</p>
+            </div>
+            <div>
+              <p className="text-sm text-pink-100">Total Points</p>
+              <p className="text-4xl font-bold">{userData?.points || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-pink-100">Completion</p>
+              <p className="text-4xl font-bold">{Math.round((unlockedAchievements.length / allAchievements.length) * 100)}%</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Level Info */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Your Level Progress</h2>
+          <div className="mb-4">
+            <div className="flex justify-between mb-2">
+              <span className="text-gray-600">Level {userLevel}</span>
+              <span className="text-gray-600">{(userData?.points || 0) % 500} / 500 points</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className="bg-gradient-to-r from-pink-500 to-pink-600 h-3 rounded-full transition-all"
+                style={{ width: `${((userData?.points || 0) % 500) / 500 * 100}%` }}
+              ></div>
+            </div>
+          </div>
+          <p className="text-gray-600">
+            {500 - ((userData?.points || 0) % 500)} points until next level
+          </p>
+        </div>
+
+        {/* Achievements by Category */}
+        {categories.map(category => (
+          <div key={category} className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">{category}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allAchievements
+                .filter(a => a.category === category)
+                .map(achievement => {
+                  const isUnlocked = unlockedAchievements.some(a => a.id === achievement.id);
+                  return (
+                    <div
+                      key={achievement.id}
+                      className={`rounded-lg shadow p-6 transition ${
+                        isUnlocked
+                          ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-400'
+                          : 'bg-gray-100'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className={`text-6xl mb-2 ${isUnlocked ? 'opacity-100' : 'opacity-30'}`}>
+                          {achievement.icon}
+                        </div>
+                        <h3 className={`text-lg font-bold mb-1 ${isUnlocked ? 'text-gray-800' : 'text-gray-500'}`}>
+                          {achievement.name}
+                        </h3>
+                        <p className={`text-sm mb-3 ${isUnlocked ? 'text-gray-700' : 'text-gray-400'}`}>
+                          {achievement.description}
+                        </p>
+                        <div className={`text-lg font-bold mb-2 ${isUnlocked ? 'text-yellow-600' : 'text-gray-400'}`}>
+                          +{achievement.reward} pts
+                        </div>
+                        <div>
+                          {isUnlocked ? (
+                            <span className="inline-block bg-green-500 text-white px-4 py-2 rounded-full text-sm font-bold">
+                              ✓ Unlocked
+                            </span>
+                          ) : (
+                            <span className="inline-block bg-gray-300 text-gray-600 px-4 py-2 rounded-full text-sm font-bold">
+                              Locked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+
+        {/* Back Button */}
+        <div className="text-center mt-12">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="bg-primary hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg transition text-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
