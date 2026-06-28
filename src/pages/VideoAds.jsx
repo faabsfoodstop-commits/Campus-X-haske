@@ -11,6 +11,8 @@ export default function VideoAds() {
   const [watchingAd, setWatchingAd] = useState(false);
   const [adResult, setAdResult] = useState(null);
   const [todayStats, setTodayStats] = useState({ watched: 0, earned: 0 });
+  const [activeAdModal, setActiveAdModal] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   const navigate = useNavigate();
 
   const videoAds = [
@@ -19,48 +21,71 @@ export default function VideoAds() {
       title: 'Learn JavaScript in 30 Seconds',
       duration: 30,
       network: 'YouTube',
-      reward: 50
+      reward: 50,
+      youtubeId: 'PFmuCDHWQH8'
     },
     {
       id: 'ad_2',
       title: 'Best Pizza in Lagos',
       duration: 45,
       network: 'Brand Ad',
-      reward: 50
+      reward: 50,
+      youtubeId: 'jNQXAC9IVRw'
     },
     {
       id: 'ad_3',
       title: 'New Fashion Collection',
       duration: 40,
       network: 'E-commerce',
-      reward: 50
+      reward: 50,
+      youtubeId: 'dQw4w9WgXcQ'
     },
     {
       id: 'ad_4',
       title: 'Mobile App Launch',
       duration: 35,
       network: 'Tech',
-      reward: 50
+      reward: 50,
+      youtubeId: 'aqz-KE-bpKQ'
     },
     {
       id: 'ad_5',
       title: 'Fitness Training Guide',
       duration: 50,
       network: 'Lifestyle',
-      reward: 75
+      reward: 75,
+      youtubeId: '9bZkp7q19f0'
     },
     {
       id: 'ad_6',
       title: 'Learn Python Basics',
       duration: 60,
       network: 'Education',
-      reward: 100
+      reward: 100,
+      youtubeId: '_uQrJ0TkSAc'
     }
   ];
 
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  useEffect(() => {
+    if (!activeAdModal) return;
+
+    setTimeRemaining(activeAdModal.duration);
+    const interval = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeAdModal]);
 
   const fetchUserData = async () => {
     if (!auth.currentUser) return;
@@ -99,14 +124,14 @@ export default function VideoAds() {
     }
   };
 
-  const watchAd = async (ad) => {
-    if (watchingAd) return;
-
-    setWatchingAd(true);
+  const watchAd = (ad) => {
+    setActiveAdModal(ad);
     setAdResult(null);
+  };
 
-    // Simulate ad playing
-    await new Promise(resolve => setTimeout(resolve, ad.duration * 1000));
+  const completeVideoWatch = async (ad) => {
+    if (watchingAd) return;
+    setWatchingAd(true);
 
     try {
       const today = new Date().toDateString();
@@ -152,6 +177,9 @@ export default function VideoAds() {
       });
 
       await checkDailyAdStats();
+
+      // Close modal after result
+      setActiveAdModal(null);
 
       // Auto-hide result after 2 seconds
       setTimeout(() => setAdResult(null), 2000);
@@ -232,19 +260,6 @@ export default function VideoAds() {
           </ul>
         </div>
 
-        {/* Result Notification */}
-        {adResult && (
-          <div className={`mb-8 p-6 rounded-lg text-white text-center ${adResult.success ? 'bg-green-500' : 'bg-red-500'}`}>
-            {adResult.success ? (
-              <>
-                <p className="text-2xl font-bold">✓ Ad Watched!</p>
-                <p className="text-lg">You earned +{adResult.reward} points for "{adResult.title}"</p>
-              </>
-            ) : (
-              <p className="text-xl font-bold">{adResult.error}</p>
-            )}
-          </div>
-        )}
 
         {/* Video Ads Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -318,6 +333,75 @@ export default function VideoAds() {
           </p>
         </div>
       </div>
+
+      {/* Video Player Modal */}
+      {activeAdModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="bg-black rounded-lg shadow-2xl max-w-2xl w-full mx-4">
+            <div className="relative">
+              {/* YouTube Embed */}
+              <div className="relative w-full aspect-video">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${activeAdModal.youtubeId}?autoplay=1`}
+                  title={activeAdModal.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute top-0 left-0"
+                />
+              </div>
+
+              {/* Countdown Timer */}
+              <div className="bg-gray-900 p-4 text-center">
+                <p className="text-white text-sm mb-3">
+                  {timeRemaining > 0 ? (
+                    <>
+                      Watch video to earn <span className="font-bold text-green-400">+{activeAdModal.reward} pts</span>
+                      <br />
+                      <span className="text-lg font-bold text-yellow-400">{timeRemaining}s remaining</span>
+                    </>
+                  ) : (
+                    <span className="text-lg font-bold text-green-400">✓ Video watched! Claiming reward...</span>
+                  )}
+                </p>
+
+                {timeRemaining === 0 ? (
+                  <button
+                    onClick={() => completeVideoWatch(activeAdModal)}
+                    disabled={watchingAd}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition"
+                  >
+                    {watchingAd ? 'Processing...' : 'Claim Reward'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setActiveAdModal(null)}
+                    className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition"
+                  >
+                    Close (won't count)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Result Notification */}
+      {adResult && (
+        <div className={`fixed bottom-4 right-4 p-6 rounded-lg text-white text-center ${adResult.success ? 'bg-green-500' : 'bg-red-500'}`}>
+          {adResult.success ? (
+            <>
+              <p className="text-2xl font-bold">✓ Ad Watched!</p>
+              <p className="text-lg">You earned +{adResult.reward} points for "{adResult.title}"</p>
+            </>
+          ) : (
+            <p className="text-xl font-bold">{adResult.error}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
