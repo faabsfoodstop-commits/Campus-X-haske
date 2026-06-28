@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 export default function Dashboard() {
@@ -42,10 +42,11 @@ export default function Dashboard() {
     try {
       const today = new Date().toDateString();
       const pointsEarned = 10;
+      const userRef = doc(db, 'users', auth.currentUser.uid);
 
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      await setDoc(userRef, {
         points: (userData?.points || 0) + pointsEarned,
-      });
+      }, { merge: true });
 
       localStorage.setItem('lastCheckIn', today);
       setUserData((prev) => ({
@@ -57,7 +58,7 @@ export default function Dashboard() {
       alert(`Check-in successful! You earned ${pointsEarned} points!`);
     } catch (err) {
       console.error('Error checking in:', err);
-      alert('Failed to check in. Please try again.');
+      alert(`Failed to check in: ${err.message}`);
     }
   };
 
