@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 
 export default function DailyMissions() {
   const [user, setUser] = useState(null);
@@ -329,7 +329,7 @@ export default function DailyMissions() {
   const totalPotentialRewards = availableMissions.reduce((sum, m) => sum + m.reward, 0) + 250;
 
   const clearTestData = async () => {
-    if (!confirm('Clear all today\'s missions from database? (for testing only)')) return;
+    if (!confirm('Delete all test missions for today? This resets the daily missions so you can test fresh.')) return;
 
     try {
       const today = new Date().toDateString();
@@ -340,11 +340,19 @@ export default function DailyMissions() {
       );
 
       const snapshot = await getDocs(missionsQuery);
-      // Can't delete directly, so reload page to refresh
-      alert(`Found ${snapshot.size} test missions for today. Please delete them manually in Firebase Console, then refresh this page.`);
+      const batch = writeBatch(db);
+
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
       setCompletedToday([]);
+      setComboBonus(0);
+      alert(`✓ Deleted ${snapshot.size} test missions. Refresh the page to see the clean slate.`);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error deleting test data:', err);
+      alert(`Error: ${err.message}`);
     }
   };
 
