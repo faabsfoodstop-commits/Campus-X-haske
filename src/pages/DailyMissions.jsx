@@ -123,6 +123,7 @@ export default function DailyMissions() {
   const checkDailyMissionsSimple = async () => {
     try {
       const today = new Date().toDateString();
+      console.log('📅 Checking for missions completed on:', today);
       const missionsQuery = query(
         collection(db, 'daily_missions'),
         where('userId', '==', auth.currentUser.uid),
@@ -131,6 +132,7 @@ export default function DailyMissions() {
 
       const snapshot = await getDocs(missionsQuery);
       const completed = snapshot.docs.map(doc => doc.data().missionId);
+      console.log('📋 Found completed missions:', completed);
       setCompletedToday(completed);
 
       // Calculate combo bonus
@@ -328,6 +330,13 @@ export default function DailyMissions() {
 
   const totalPotentialRewards = availableMissions.reduce((sum, m) => sum + m.reward, 0) + 250;
 
+  const handleStartMission = (mission) => {
+    console.log('🎯 Starting mission:', mission.id, mission.name);
+    console.log('📍 Navigating to:', mission.link);
+    console.log('✅ Completed missions:', completedToday);
+    navigate(mission.link);
+  };
+
   const clearTestData = async () => {
     if (!confirm('Delete all test missions for today? This resets the daily missions so you can test fresh.')) return;
 
@@ -445,7 +454,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => navigate(mission.link)}
+                    onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
@@ -485,7 +494,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => navigate(mission.link)}
+                    onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
@@ -525,7 +534,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => navigate(mission.link)}
+                    onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
