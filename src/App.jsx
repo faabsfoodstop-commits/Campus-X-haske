@@ -1,0 +1,62 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { auth } from './config/firebase';
+
+import Landing from './pages/Landing';
+import SignUp from './pages/SignUp';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Wallet from './pages/Wallet';
+import Admin from './pages/Admin';
+import Profile from './pages/Profile';
+
+function PrivateRoute({ children, user }) {
+  return user ? children : <Navigate to="/login" />;
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/login" element={<Login />} />
+
+        <Route
+          path="/dashboard"
+          element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>}
+        />
+        <Route
+          path="/wallet"
+          element={<PrivateRoute user={user}><Wallet /></PrivateRoute>}
+        />
+        <Route
+          path="/profile"
+          element={<PrivateRoute user={user}><Profile /></PrivateRoute>}
+        />
+        <Route
+          path="/admin"
+          element={<PrivateRoute user={user}><Admin /></PrivateRoute>}
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;

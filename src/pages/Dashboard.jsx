@@ -1,0 +1,190 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
+
+export default function Dashboard() {
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [checkedInToday, setCheckedInToday] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!auth.currentUser) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
+          setUser(auth.currentUser);
+          checkTodayCheckIn();
+        }
+      } catch (err) {
+        console.error('Error fetching user:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const checkTodayCheckIn = () => {
+    const today = new Date().toDateString();
+    const lastCheckIn = localStorage.getItem('lastCheckIn');
+    setCheckedInToday(lastCheckIn === today);
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      const today = new Date().toDateString();
+      const pointsEarned = 10;
+
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        points: (userData?.points || 0) + pointsEarned,
+      });
+
+      localStorage.setItem('lastCheckIn', today);
+      setUserData((prev) => ({
+        ...prev,
+        points: (prev?.points || 0) + pointsEarned,
+      }));
+      setCheckedInToday(true);
+
+      alert(`Check-in successful! You earned ${pointsEarned} points!`);
+    } catch (err) {
+      console.error('Error checking in:', err);
+      alert('Failed to check in. Please try again.');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <h1 className="text-2xl font-bold text-primary">HASKE</h1>
+            <div className="flex gap-4 items-center">
+              <button
+                onClick={() => navigate('/profile')}
+                className="text-gray-600 hover:text-primary"
+              >
+                Profile
+              </button>
+              <button
+                onClick={() => navigate('/wallet')}
+                className="text-gray-600 hover:text-primary"
+              >
+                Wallet
+              </button>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-gradient-to-r from-primary to-secondary text-white rounded-lg p-8 mb-8">
+          <h2 className="text-3xl font-bold mb-2">Welcome, {user?.displayName || 'User'}!</h2>
+          <p className="text-blue-100">{userData?.university || 'Campus'}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Points Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-gray-600 font-semibold mb-2">Your Points</h3>
+            <p className="text-4xl font-bold text-primary">{userData?.points || 0}</p>
+            <p className="text-gray-500 text-sm mt-2">Redeemable rewards</p>
+          </div>
+
+          {/* Wallet Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-gray-600 font-semibold mb-2">Wallet Balance</h3>
+            <p className="text-4xl font-bold text-primary">₦{userData?.wallet || 0}</p>
+            <button
+              onClick={() => navigate('/wallet')}
+              className="text-primary hover:text-blue-600 text-sm mt-2 font-semibold"
+            >
+              View Wallet →
+            </button>
+          </div>
+
+          {/* Referrals Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-gray-600 font-semibold mb-2">Referral Code</h3>
+            <p className="text-lg font-mono text-primary font-bold">
+              {auth.currentUser?.uid?.substring(0, 8).toUpperCase()}
+            </p>
+            <p className="text-gray-500 text-sm mt-2">Share to earn bonus</p>
+          </div>
+        </div>
+
+        {/* Daily Check-In */}
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Daily Check-In</h3>
+          <p className="text-gray-600 mb-6">
+            Check in daily to earn points and maintain your streak!
+          </p>
+
+          <button
+            onClick={handleCheckIn}
+            disabled={checkedInToday}
+            className={`px-8 py-3 rounded-lg font-semibold text-white ${
+              checkedInToday
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-primary hover:bg-blue-600'
+            }`}
+          >
+            {checkedInToday ? '✓ Checked In Today' : 'Check In Now'}
+          </button>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Marketplace</h3>
+            <p className="text-gray-600 mb-4">
+              Browse and list items for sale on the campus marketplace.
+            </p>
+            <button className="text-primary hover:text-blue-600 font-semibold">
+              Open Marketplace →
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">P2P Transfers</h3>
+            <p className="text-gray-600 mb-4">
+              Send money to other students quickly and securely.
+            </p>
+            <button className="text-primary hover:text-blue-600 font-semibold">
+              Send Money →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
