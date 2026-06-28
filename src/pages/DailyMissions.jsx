@@ -20,7 +20,8 @@ export default function DailyMissions() {
       description: 'Check in before 9 AM',
       reward: 50,
       difficulty: 'easy',
-      icon: '🌅'
+      icon: '🌅',
+      link: '/dashboard'
     },
     {
       id: 'video_ad',
@@ -28,7 +29,8 @@ export default function DailyMissions() {
       description: 'Watch 1 video ad',
       reward: 50,
       difficulty: 'easy',
-      icon: '📺'
+      icon: '📺',
+      link: '/video-ads'
     },
     {
       id: 'instagram',
@@ -36,7 +38,8 @@ export default function DailyMissions() {
       description: 'Follow @haske_campus on Instagram',
       reward: 75,
       difficulty: 'easy',
-      icon: '📱'
+      icon: '📱',
+      link: '/instagram-follow'
     },
     {
       id: 'profile',
@@ -44,7 +47,8 @@ export default function DailyMissions() {
       description: 'Add university & course info',
       reward: 150,
       difficulty: 'medium',
-      icon: '👤'
+      icon: '👤',
+      link: '/profile'
     },
     {
       id: 'invite',
@@ -52,7 +56,8 @@ export default function DailyMissions() {
       description: 'Send referral to 2 friends',
       reward: 100,
       difficulty: 'medium',
-      icon: '👫'
+      icon: '👫',
+      link: '/referrals'
     },
     {
       id: 'explore',
@@ -60,7 +65,8 @@ export default function DailyMissions() {
       description: 'Browse 3+ marketplace items',
       reward: 75,
       difficulty: 'medium',
-      icon: '🛍️'
+      icon: '🛍️',
+      link: '/marketplace'
     },
     {
       id: 'share',
@@ -68,7 +74,8 @@ export default function DailyMissions() {
       description: 'Share to WhatsApp & get 1 signup',
       reward: 250,
       difficulty: 'hard',
-      icon: '📤'
+      icon: '📤',
+      link: '/referrals'
     },
     {
       id: 'watch_videos',
@@ -76,12 +83,23 @@ export default function DailyMissions() {
       description: 'Complete 3 video ads today',
       reward: 200,
       difficulty: 'hard',
-      icon: '🎬'
+      icon: '🎬',
+      link: '/video-ads'
     }
   ];
 
   useEffect(() => {
     fetchUserData();
+  }, []);
+
+  // Refresh missions when user returns to page (from activity)
+  useEffect(() => {
+    const handleFocus = async () => {
+      await checkDailyMissions();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const fetchUserData = async () => {
@@ -104,14 +122,80 @@ export default function DailyMissions() {
   const checkDailyMissions = async () => {
     try {
       const today = new Date().toDateString();
+      const completed = [];
+
+      // Check daily_missions collection (already completed)
       const missionsQuery = query(
         collection(db, 'daily_missions'),
         where('userId', '==', auth.currentUser.uid),
         where('completedDate', '==', today)
       );
 
-      const snapshot = await getDocs(missionsQuery);
-      const completed = snapshot.docs.map(doc => doc.data().missionId);
+      const missionsSnapshot = await getDocs(missionsQuery);
+      const existingCompleted = missionsSnapshot.docs.map(doc => doc.data().missionId);
+      completed.push(...existingCompleted);
+
+      // Auto-check if activities were completed (mark mission as done)
+      // Check video ads watched
+      const adsQuery = query(
+        collection(db, 'video_ads_watched'),
+        where('userId', '==', auth.currentUser.uid),
+        where('watchedDate', '==', today)
+      );
+      const adsSnapshot = await getDocs(adsQuery);
+      if (adsSnapshot.size > 0 && !completed.includes('video_ad')) {
+        completed.push('video_ad');
+        // Auto-record mission completion
+        if (!existingCompleted.includes('video_ad')) {
+          await addDoc(collection(db, 'daily_missions'), {
+            userId: auth.currentUser.uid,
+            missionId: 'video_ad',
+            missionName: 'Watch an Ad',
+            pointsEarned: 50,
+            comboBonus: 0,
+            completedDate: today,
+            timestamp: new Date()
+          });
+        }
+      }
+
+      if (adsSnapshot.size >= 3 && !completed.includes('watch_videos')) {
+        completed.push('watch_videos');
+        if (!existingCompleted.includes('watch_videos')) {
+          await addDoc(collection(db, 'daily_missions'), {
+            userId: auth.currentUser.uid,
+            missionId: 'watch_videos',
+            missionName: 'Watch 3 Videos',
+            pointsEarned: 200,
+            comboBonus: 0,
+            completedDate: today,
+            timestamp: new Date()
+          });
+        }
+      }
+
+      // Check Instagram follows
+      const igQuery = query(
+        collection(db, 'instagram_follows'),
+        where('userId', '==', auth.currentUser.uid),
+        where('verified', '==', true)
+      );
+      const igSnapshot = await getDocs(igQuery);
+      if (igSnapshot.size > 0 && !completed.includes('instagram')) {
+        completed.push('instagram');
+        if (!existingCompleted.includes('instagram')) {
+          await addDoc(collection(db, 'daily_missions'), {
+            userId: auth.currentUser.uid,
+            missionId: 'instagram',
+            missionName: 'Follow a Brand',
+            pointsEarned: 75,
+            comboBonus: 0,
+            completedDate: today,
+            timestamp: new Date()
+          });
+        }
+      }
+
       setCompletedToday(completed);
 
       // Calculate combo bonus
@@ -298,7 +382,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => completeMission(mission)}
+                    onClick={() => navigate(mission.link)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
@@ -306,7 +390,7 @@ export default function DailyMissions() {
                         : 'bg-primary text-white hover:bg-blue-600'
                     }`}
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start'}
+                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
                   </button>
                 </div>
               </div>
@@ -338,7 +422,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => completeMission(mission)}
+                    onClick={() => navigate(mission.link)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
@@ -346,7 +430,7 @@ export default function DailyMissions() {
                         : 'bg-primary text-white hover:bg-blue-600'
                     }`}
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start'}
+                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
                   </button>
                 </div>
               </div>
@@ -378,7 +462,7 @@ export default function DailyMissions() {
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
                   <button
-                    onClick={() => completeMission(mission)}
+                    onClick={() => navigate(mission.link)}
                     disabled={completedToday.includes(mission.id)}
                     className={`px-4 py-2 rounded-lg font-semibold transition ${
                       completedToday.includes(mission.id)
@@ -386,7 +470,7 @@ export default function DailyMissions() {
                         : 'bg-primary text-white hover:bg-blue-600'
                     }`}
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start'}
+                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
                   </button>
                 </div>
               </div>
