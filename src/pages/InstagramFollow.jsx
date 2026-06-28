@@ -210,6 +210,12 @@ export default function InstagramFollow() {
             <h1 className="text-2xl font-bold text-primary">HASKE</h1>
             <div className="flex gap-4 items-center">
               <button
+                onClick={() => navigate('/daily-missions')}
+                className="text-gray-600 hover:text-primary text-sm font-semibold"
+              >
+                ← Missions
+              </button>
+              <button
                 onClick={() => navigate('/dashboard')}
                 className="text-gray-600 hover:text-primary"
               >
