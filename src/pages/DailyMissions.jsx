@@ -95,7 +95,7 @@ export default function DailyMissions() {
   // Refresh missions when user returns to page (from activity)
   useEffect(() => {
     const handleFocus = async () => {
-      await checkDailyMissions();
+      await checkDailyMissionsWithAutoDetect();
     };
 
     window.addEventListener('focus', handleFocus);
@@ -111,7 +111,7 @@ export default function DailyMissions() {
         setUserData(userDoc.data());
         setUser(auth.currentUser);
       }
-      await checkDailyMissions();
+      await checkDailyMissionsSimple();
       setLoading(false);
     } catch (err) {
       console.error('Error fetching user:', err);
@@ -119,7 +119,35 @@ export default function DailyMissions() {
     }
   };
 
-  const checkDailyMissions = async () => {
+  // Simple check - just get completed missions (for initial load)
+  const checkDailyMissionsSimple = async () => {
+    try {
+      const today = new Date().toDateString();
+      const missionsQuery = query(
+        collection(db, 'daily_missions'),
+        where('userId', '==', auth.currentUser.uid),
+        where('completedDate', '==', today)
+      );
+
+      const snapshot = await getDocs(missionsQuery);
+      const completed = snapshot.docs.map(doc => doc.data().missionId);
+      setCompletedToday(completed);
+
+      // Calculate combo bonus
+      const easyCount = availableMissions.filter(m => m.difficulty === 'easy' && completed.includes(m.id)).length;
+      const mediumCount = availableMissions.filter(m => m.difficulty === 'medium' && completed.includes(m.id)).length;
+      const allCompleted = completed.length === availableMissions.length;
+
+      if (easyCount === 3) setComboBonus(prev => Math.max(prev, 50));
+      if (mediumCount === 3) setComboBonus(prev => Math.max(prev, 100));
+      if (allCompleted) setComboBonus(250);
+    } catch (err) {
+      console.error('Error checking missions:', err);
+    }
+  };
+
+  // Full check with auto-detect (when user returns from activity)
+  const checkDailyMissionsWithAutoDetect = async () => {
     try {
       const today = new Date().toDateString();
       const completed = [];
