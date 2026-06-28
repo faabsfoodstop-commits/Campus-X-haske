@@ -125,29 +125,11 @@ export default function InstagramFollow() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // In production, this would verify via Instagram Graph API
-      // For now, we simulate successful follow verification
-      const success = Math.random() > 0.1; // 90% success rate
+      // For now, we simulate successful follow verification (always success for UX)
+      const success = true; // Auto-success for better UX
 
       if (success) {
-        // Record the follow
-        await addDoc(collection(db, 'instagram_follows'), {
-          userId: auth.currentUser.uid,
-          brandId: brand.id,
-          brandHandle: brand.handle,
-          brandName: brand.name,
-          reward: brand.reward,
-          verified: true,
-          verificationMethod: 'simulated', // In production: 'api'
-          timestamp: new Date()
-        });
-
-        // Update user points
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        await setDoc(userRef, {
-          points: (userData?.points || 0) + brand.reward,
-          instagram_follows: (userData?.instagram_follows || 0) + 1
-        }, { merge: true });
-
+        // Immediately update UI (optimistic)
         setUserData(prev => ({
           ...prev,
           points: (prev?.points || 0) + brand.reward,
@@ -159,6 +141,35 @@ export default function InstagramFollow() {
         setVerificationResult({
           success: true,
           message: `✓ Successfully followed ${brand.handle}! +${brand.reward} pts`
+        });
+
+        // Update Firestore in background
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userRef);
+
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            points: brand.reward,
+            instagram_follows: 1,
+            createdAt: new Date()
+          });
+        } else {
+          await setDoc(userRef, {
+            points: (userDoc.data().points || 0) + brand.reward,
+            instagram_follows: (userDoc.data().instagram_follows || 0) + 1
+          }, { merge: true });
+        }
+
+        // Record the follow
+        await addDoc(collection(db, 'instagram_follows'), {
+          userId: auth.currentUser.uid,
+          brandId: brand.id,
+          brandHandle: brand.handle,
+          brandName: brand.name,
+          reward: brand.reward,
+          verified: true,
+          verificationMethod: 'simulated', // In production: 'api'
+          timestamp: new Date()
         });
       } else {
         setVerificationResult({
@@ -172,7 +183,7 @@ export default function InstagramFollow() {
       console.error('Error verifying follow:', err);
       setVerificationResult({
         success: false,
-        message: 'Verification failed. Please try again.'
+        message: `Error: ${err.message}`
       });
       setTimeout(() => setVerificationResult(null), 3000);
     }

@@ -136,7 +136,31 @@ export default function DailyMissions() {
       const today = new Date().toDateString();
       const totalReward = mission.reward + comboBonus;
 
-      // Add mission record
+      // Immediately update UI (optimistic update)
+      setCompletedToday([...completedToday, mission.id]);
+      setUserData(prev => ({
+        ...prev,
+        points: (prev?.points || 0) + totalReward
+      }));
+
+      // Update Firestore in background
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+
+      // First ensure user document exists
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          points: totalReward,
+          createdAt: new Date()
+        });
+      } else {
+        // User exists, just update points
+        await setDoc(userRef, {
+          points: (userDoc.data().points || 0) + totalReward
+        }, { merge: true });
+      }
+
+      // Add mission record to tracking collection
       await addDoc(collection(db, 'daily_missions'), {
         userId: auth.currentUser.uid,
         missionId: mission.id,
@@ -147,25 +171,19 @@ export default function DailyMissions() {
         timestamp: new Date()
       });
 
-      // Update user points
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await setDoc(userRef, {
-        points: (userData?.points || 0) + totalReward
-      }, { merge: true });
-
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + totalReward
-      }));
-
-      setCompletedToday([...completedToday, mission.id]);
       alert(`Mission completed! +${mission.reward} pts${comboBonus > 0 ? ` (+${comboBonus} bonus)` : ''}`);
 
-      // Check for new combo bonus
+      // Refresh combo bonus calculation
       await checkDailyMissions();
     } catch (err) {
       console.error('Error completing mission:', err);
-      alert('Failed to complete mission');
+      // Revert optimistic update on error
+      setCompletedToday(completedToday.filter(id => id !== mission.id));
+      setUserData(prev => ({
+        ...prev,
+        points: (prev?.points || 0) - mission.reward
+      }));
+      alert(`Failed to complete mission: ${err.message}`);
     }
   };
 

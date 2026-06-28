@@ -111,24 +111,7 @@ export default function VideoAds() {
     try {
       const today = new Date().toDateString();
 
-      // Record ad watched
-      await addDoc(collection(db, 'video_ads_watched'), {
-        userId: auth.currentUser.uid,
-        adId: ad.id,
-        adTitle: ad.title,
-        reward: ad.reward,
-        watchedDate: today,
-        timestamp: new Date(),
-        duration: ad.duration
-      });
-
-      // Update user points
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await setDoc(userRef, {
-        points: (userData?.points || 0) + ad.reward,
-        lastAdWatched: new Date()
-      }, { merge: true });
-
+      // Immediately update UI (optimistic)
       setUserData(prev => ({
         ...prev,
         points: (prev?.points || 0) + ad.reward
@@ -140,6 +123,34 @@ export default function VideoAds() {
         title: ad.title
       });
 
+      // Update Firestore in background
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          points: ad.reward,
+          createdAt: new Date(),
+          lastAdWatched: new Date()
+        });
+      } else {
+        await setDoc(userRef, {
+          points: (userDoc.data().points || 0) + ad.reward,
+          lastAdWatched: new Date()
+        }, { merge: true });
+      }
+
+      // Record ad watched
+      await addDoc(collection(db, 'video_ads_watched'), {
+        userId: auth.currentUser.uid,
+        adId: ad.id,
+        adTitle: ad.title,
+        reward: ad.reward,
+        watchedDate: today,
+        timestamp: new Date(),
+        duration: ad.duration
+      });
+
       await checkDailyAdStats();
 
       // Auto-hide result after 2 seconds
@@ -148,7 +159,7 @@ export default function VideoAds() {
       console.error('Error recording ad:', err);
       setAdResult({
         success: false,
-        error: 'Failed to record ad'
+        error: `Failed: ${err.message}`
       });
     }
 

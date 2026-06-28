@@ -146,14 +146,36 @@ export default function SpinWheel() {
 
     setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
 
-    // Update user data
+    // Update user data with optimistic updates
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
 
-      await setDoc(userRef, {
-        points: (userData?.points || 0) + earnedPoints,
-        lastSpin: new Date()
-      }, { merge: true });
+      // Immediately update UI (optimistic)
+      setUserData(prev => ({
+        ...prev,
+        points: (prev?.points || 0) + earnedPoints,
+        wallet: useFreeSpins ? prev?.wallet : ((prev?.wallet || 0) - 50)
+      }));
+
+      if (useFreeSpins) {
+        setFreeSpin(freeSpin - 1);
+      }
+
+      // Update Firestore in background
+      // Ensure user doc exists before updating
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          points: earnedPoints,
+          createdAt: new Date(),
+          lastSpin: new Date()
+        });
+      } else {
+        await setDoc(userRef, {
+          points: (userDoc.data().points || 0) + earnedPoints,
+          lastSpin: new Date()
+        }, { merge: true });
+      }
 
       // Log spin history
       await addDoc(collection(db, 'spin_history'), {
@@ -166,27 +188,31 @@ export default function SpinWheel() {
 
       // Update spin counts
       const spinsRef = doc(db, 'user_spins', auth.currentUser.uid);
+      const spinsDoc = await getDoc(spinsRef);
+
       if (useFreeSpins) {
-        await updateDoc(spinsRef, {
-          remainingSpins: freeSpin - 1,
-          totalSpinsUsed: (userData_temp?.totalSpinsUsed || 0) + 1
-        });
-        setFreeSpin(freeSpin - 1);
+        if (spinsDoc.exists()) {
+          await updateDoc(spinsRef, {
+            remainingSpins: freeSpin - 1,
+            totalSpinsUsed: (spinsDoc.data().totalSpinsUsed || 0) + 1
+          });
+        } else {
+          await setDoc(spinsRef, {
+            remainingSpins: 1,
+            totalSpinsUsed: 1,
+            lastResetDate: new Date().toDateString()
+          });
+        }
       } else {
         await setDoc(userRef, {
-          wallet: (userData?.wallet || 0) - 50
+          wallet: (userDoc?.data().wallet || 0) - 50
         }, { merge: true });
       }
-
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + earnedPoints,
-        wallet: useFreeSpins ? prev?.wallet : ((prev?.wallet || 0) - 50)
-      }));
 
       await fetchSpinHistory();
     } catch (err) {
       console.error('Error processing spin:', err);
+      alert(`Spin recorded but had an error: ${err.message}`);
     }
 
     setIsSpinning(false);
