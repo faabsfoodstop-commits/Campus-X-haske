@@ -28,6 +28,7 @@ import PointMarket from './pages/PointMarket';
 import SellPoints from './pages/SellPoints';
 import AchievementsPage from './pages/AchievementsPage';
 import WeeklyChallenges from './pages/WeeklyChallenges';
+import Menu from './pages/Menu';
 import TransactionHistory from './pages/TransactionHistory';
 import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
@@ -198,6 +199,10 @@ function App() {
           <Route
             path="/admin/partnerships"
             element={<PrivateRoute user={user}><BrandPartnershipPortal /></PrivateRoute>}
+          />
+          <Route
+            path="/menu"
+            element={<PrivateRoute user={user}><Menu /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
