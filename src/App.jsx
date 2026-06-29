@@ -19,6 +19,7 @@ import Referrals from './pages/Referrals';
 import Leaderboards from './pages/Leaderboards';
 import Rewards from './pages/Rewards';
 import AdminRedemptions from './pages/AdminRedemptions';
+import Marketplace from './pages/Marketplace';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -103,6 +104,10 @@ function App() {
         <Route
           path="/admin/redemptions"
           element={<PrivateRoute user={user}><AdminRedemptions /></PrivateRoute>}
+        />
+        <Route
+          path="/marketplace"
+          element={<PrivateRoute user={user}><Marketplace /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>

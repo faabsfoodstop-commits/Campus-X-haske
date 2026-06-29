@@ -223,15 +223,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Redeem Rewards */}
+        {/* Marketplace */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">🎁 Redeem Rewards</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">🛍️ Rewards Marketplace</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/rewards')}>
-              <h3 className="text-xl font-bold text-white mb-2">💰 Redeem Points</h3>
-              <p className="text-purple-50 mb-4">Exchange your points for real airtime, mobile data, and gift cards!</p>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/marketplace')}>
+              <h3 className="text-xl font-bold text-white mb-2">💎 Explore Marketplace</h3>
+              <p className="text-purple-50 mb-4">Browse rewards by tier level. Exchange points for airtime, data, and gift cards!</p>
               <div className="mb-3 text-2xl font-bold text-white">{userData?.points || 0} pts</div>
-              <p className="text-purple-100 font-semibold">Redeem now →</p>
+              <p className="text-purple-100 font-semibold">Shop now →</p>
             </div>
           </div>
         </div>
