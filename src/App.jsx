@@ -31,6 +31,7 @@ import WeeklyChallenges from './pages/WeeklyChallenges';
 import TransactionHistory from './pages/TransactionHistory';
 import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
+import StreakManager from './pages/StreakManager';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -153,6 +154,10 @@ function App() {
           <Route
             path="/premium"
             element={<PrivateRoute user={user}><PremiumTier /></PrivateRoute>}
+          />
+          <Route
+            path="/streak"
+            element={<PrivateRoute user={user}><StreakManager /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />

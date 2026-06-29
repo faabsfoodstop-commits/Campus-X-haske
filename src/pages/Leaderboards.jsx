@@ -1,91 +1,108 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
+import Button from '../components/Button';
+import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
 
-export default function Leaderboards() {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
-  const [leaderboards, setLeaderboards] = useState({
-    points: [],
-    weekly: [],
-    referrals: []
-  });
-  const [userRank, setUserRank] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('points');
+export default function Leaderboard() {
   const navigate = useNavigate();
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [timeframe, setTimeframe] = useState('week'); // week, month, all-time
+  const [userRank, setUserRank] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    fetchLeaderboard();
+    if (auth.currentUser) {
+      fetchUserRank();
+    }
+  }, [timeframe]);
 
-  const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+  const fetchLeaderboard = async () => {
+    try {
+      const usersRef = collection(db, 'users');
+      let q;
 
+      if (timeframe === 'week') {
+        q = query(usersRef, orderBy('weeklyPoints', 'desc'), limit(100));
+      } else if (timeframe === 'month') {
+        q = query(usersRef, orderBy('monthlyPoints', 'desc'), limit(100));
+      } else {
+        q = query(usersRef, orderBy('points', 'desc'), limit(100));
+      }
+
+      const snapshot = await getDocs(q);
+      const users = snapshot.docs.map((doc, idx) => ({
+        ...doc.data(),
+        uid: doc.id,
+        rank: idx + 1,
+      }));
+
+      setLeaderboard(users);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
+      setLoading(false);
+    }
+  };
+
+  const fetchUserRank = async () => {
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+        setCurrentUser(userDoc.data());
       }
-      await fetchLeaderboards();
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching user:', err);
-      setLoading(false);
-    }
-  };
 
-  const fetchLeaderboards = async () => {
-    try {
-      // Fetch all users for leaderboards
-      const usersQuery = query(
-        collection(db, 'users'),
-        orderBy('points', 'desc'),
-        limit(100)
-      );
+      const usersRef = collection(db, 'users');
+      let q;
 
-      const snapshot = await getDocs(usersQuery);
+      if (timeframe === 'week') {
+        q = query(usersRef, orderBy('weeklyPoints', 'desc'));
+      } else if (timeframe === 'month') {
+        q = query(usersRef, orderBy('monthlyPoints', 'desc'));
+      } else {
+        q = query(usersRef, orderBy('points', 'desc'));
+      }
+
+      const snapshot = await getDocs(q);
       const users = snapshot.docs.map((doc, idx) => ({
-        id: doc.id,
-        ...doc.data(),
-        rank: idx + 1
+        uid: doc.id,
+        rank: idx + 1,
       }));
 
-      setLeaderboards({
-        points: users,
-        weekly: [...users].sort((a, b) => (b.weeklyPoints || 0) - (a.weeklyPoints || 0)),
-        referrals: [...users].sort((a, b) => (b.successful_referrals || 0) - (a.successful_referrals || 0))
-      });
-
-      // Find current user's rank
-      const userRankInfo = users.find(u => u.id === auth.currentUser.uid);
-      setUserRank(userRankInfo);
+      const userIndex = users.findIndex(u => u.uid === auth.currentUser.uid);
+      if (userIndex !== -1) {
+        setUserRank(users[userIndex].rank);
+      }
     } catch (err) {
-      console.error('Error fetching leaderboards:', err);
+      console.error('Error fetching user rank:', err);
     }
   };
 
-  const getMedalEmoji = (rank) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
+  const getMedalIcon = (rank) => {
+    switch (rank) {
+      case 1:
+        return '🥇';
+      case 2:
+        return '🥈';
+      case 3:
+        return '🥉';
+      default:
+        return null;
+    }
   };
 
-  const getRewardColor = (rank) => {
-    if (rank === 1) return 'from-yellow-400 to-yellow-500';
-    if (rank === 2) return 'from-gray-400 to-gray-500';
-    if (rank === 3) return 'from-orange-400 to-orange-500';
-    return 'from-blue-400 to-blue-500';
+  const getPointsForTimeframe = (user) => {
+    if (timeframe === 'week') return user.weeklyPoints || 0;
+    if (timeframe === 'month') return user.monthlyPoints || 0;
+    return user.points || 0;
   };
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
-
-  const currentLeaderboard = leaderboards[activeTab];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,202 +110,143 @@ export default function Leaderboards() {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-2xl font-bold text-primary">HASKE</h1>
-            <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/dashboard')}
-                className="text-gray-600 hover:text-primary"
+                className="p-2 hover:bg-gray-100 rounded transition"
               >
-                Dashboard
+                <IconArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <div className="text-lg font-bold text-primary">
-                ⭐ {userData?.points || 0} pts
+              <div className="flex items-center gap-2">
+                <IconTrophy className="w-6 h-6 text-primary" />
+                <h1 className="text-2xl font-bold text-primary">Leaderboard</h1>
               </div>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg shadow p-8 mb-8">
-          <h1 className="text-4xl font-bold mb-2">🏆 Leaderboards</h1>
-          <p className="text-purple-100">Compete with other students and climb the rankings!</p>
-        </div>
-
-        {/* Your Rank */}
-        {userRank && (
-          <div className={`mb-8 rounded-lg shadow-lg p-8 text-white text-center bg-gradient-to-r ${getRewardColor(userRank.rank)}`}>
-            <p className="text-lg mb-2">Your Rank</p>
-            <p className="text-5xl font-bold mb-4">{getMedalEmoji(userRank.rank)}</p>
-            <p className="text-2xl font-bold">
-              {userRank.rank === 1 && 'TOP OF THE LEADERBOARD! 🎉'}
-              {userRank.rank <= 10 && userRank.rank !== 1 && `Top 10! Keep it up! 💪`}
-              {userRank.rank <= 50 && userRank.rank > 10 && `Top 50! You're doing great! ⭐`}
-              {userRank.rank > 50 && `Keep climbing! 🚀`}
-            </p>
-            <p className="text-lg mt-2">{userRank.points || 0} points</p>
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* User's Rank Card */}
+        {auth.currentUser && userRank && (
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg p-8 mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-blue-100 mb-2">Your Rank</p>
+                <h2 className="text-5xl font-bold mb-2">#<span className="text-yellow-300">{userRank}</span></h2>
+                <p className="text-blue-100">{currentUser?.displayName || 'User'}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-blue-100 mb-2">Points This {timeframe === 'week' ? 'Week' : timeframe === 'month' ? 'Month' : 'All Time'}</p>
+                <p className="text-4xl font-bold text-yellow-300">{getPointsForTimeframe(currentUser || {}).toLocaleString()}</p>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-8 flex-wrap">
-          {[
-            { id: 'points', label: '⭐ All-Time Points', icon: '📊' },
-            { id: 'weekly', label: '🔥 This Week', icon: '📈' },
-            { id: 'referrals', label: '👥 Top Referrers', icon: '🤝' }
-          ].map(tab => (
+        {/* Timeframe Selector */}
+        <div className="flex gap-4 mb-8 justify-center">
+          {['week', 'month', 'all-time'].map(tf => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-lg font-bold transition ${
-                activeTab === tab.id
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-6 py-2 rounded-lg font-semibold transition ${
+                timeframe === tf
                   ? 'bg-primary text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  : 'bg-white text-gray-800 hover:bg-gray-100 border-2 border-primary'
               }`}
             >
-              {tab.label}
+              {tf === 'all-time' ? 'All Time' : tf === 'week' ? 'This Week' : 'This Month'}
             </button>
           ))}
         </div>
 
-        {/* Leaderboard */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6">
-            <div className="grid grid-cols-12 gap-4 font-bold">
-              <div className="col-span-1">Rank</div>
-              <div className="col-span-5">User</div>
-              <div className="col-span-3">Points</div>
-              <div className="col-span-3">Badge</div>
-            </div>
-          </div>
+        {/* Top 3 Spotlight */}
+        {leaderboard.length >= 3 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {[1, 2, 3].map((position) => {
+              const user = leaderboard[position - 1];
+              if (!user) return null;
 
-          {/* Rankings */}
-          <div className="divide-y">
-            {currentLeaderboard.map((leader, idx) => {
-              const isCurrentUser = leader.id === auth.currentUser.uid;
-              const badgeEmoji = leader.rank === 1 ? '👑' : leader.rank <= 10 ? '⭐' : '';
+              const medals = {
+                1: 'from-yellow-400 to-yellow-600',
+                2: 'from-gray-400 to-gray-600',
+                3: 'from-orange-400 to-orange-600',
+              };
 
               return (
                 <div
-                  key={leader.id}
-                  className={`p-6 ${isCurrentUser ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50'}`}
+                  key={user.uid}
+                  className={`rounded-lg shadow-lg overflow-hidden bg-gradient-to-b ${medals[position]} text-white p-6 text-center transform scale-100 hover:scale-105 transition`}
                 >
-                  <div className="grid grid-cols-12 gap-4 items-center">
-                    {/* Rank */}
-                    <div className="col-span-1">
-                      <span className="text-3xl font-bold">
-                        {leader.rank <= 3 ? getMedalEmoji(leader.rank) : `#${leader.rank}`}
-                      </span>
-                    </div>
-
-                    {/* User Info */}
-                    <div className="col-span-5">
-                      <div>
-                        <p className="font-bold text-gray-800">
-                          {leader.displayName || `User ${leader.id.slice(0, 5)}`}
-                          {isCurrentUser && ' (You)'}
-                        </p>
-                        <p className="text-sm text-gray-600">{leader.university || 'Campus'}</p>
-                      </div>
-                    </div>
-
-                    {/* Points */}
-                    <div className="col-span-3">
-                      <p className="text-2xl font-bold text-primary">
-                        {activeTab === 'points' && (leader.points || 0)}
-                        {activeTab === 'weekly' && (leader.weeklyPoints || 0)}
-                        {activeTab === 'referrals' && (leader.successful_referrals || 0)}
-                      </p>
-                      {activeTab === 'referrals' && (
-                        <p className="text-xs text-gray-600">referrals</p>
-                      )}
-                    </div>
-
-                    {/* Badge/Status */}
-                    <div className="col-span-3 text-right">
-                      {leader.rank === 1 && (
-                        <span className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-bold">
-                          🏆 Champion
-                        </span>
-                      )}
-                      {leader.rank === 2 && (
-                        <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-bold">
-                          🥈 Runner-up
-                        </span>
-                      )}
-                      {leader.rank === 3 && (
-                        <span className="inline-block bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-bold">
-                          🥉 Third
-                        </span>
-                      )}
-                      {leader.rank <= 10 && leader.rank > 3 && (
-                        <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold">
-                          ⭐ Top 10
-                        </span>
-                      )}
-                      {leader.rank <= 50 && leader.rank > 10 && (
-                        <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">
-                          Top 50
-                        </span>
-                      )}
-                      {badgeEmoji && <span className="text-2xl ml-2">{badgeEmoji}</span>}
-                    </div>
+                  <div className="text-6xl mb-2">{getMedalIcon(position)}</div>
+                  <p className="text-4xl font-bold mb-2">#{position}</p>
+                  <p className="text-lg font-semibold mb-1">{user.displayName || 'Anonymous'}</p>
+                  <p className="text-sm opacity-90 mb-4">{user.university || 'User'}</p>
+                  <div className="bg-white bg-opacity-20 rounded p-2">
+                    <p className="text-2xl font-bold">{getPointsForTimeframe(user).toLocaleString()} pts</p>
                   </div>
                 </div>
               );
             })}
           </div>
+        )}
+
+        {/* Full Leaderboard */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-gradient-to-r from-primary to-blue-600 text-white p-6">
+            <h3 className="text-2xl font-bold">Rankings</h3>
+          </div>
+
+          <div className="divide-y max-h-96 overflow-y-auto">
+            {leaderboard.map((user) => (
+              <div
+                key={user.uid}
+                className={`p-4 flex items-center justify-between hover:bg-gray-50 transition ${
+                  user.uid === auth.currentUser?.uid ? 'bg-blue-50 border-l-4 border-primary' : ''
+                }`}
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="min-w-12 text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      #{user.rank}
+                      {getMedalIcon(user.rank) && <span className="ml-1">{getMedalIcon(user.rank)}</span>}
+                    </p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
+                    <p className="text-sm text-gray-500">{user.university || 'No university set'}</p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-primary">{getPointsForTimeframe(user).toLocaleString()}</p>
+                  <p className="text-xs text-gray-500">points</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Rewards Info */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6">
-            <p className="text-3xl mb-2">🥇</p>
-            <p className="font-bold text-yellow-900">1st Place</p>
-            <p className="text-yellow-700 mt-2">₦5,000 + 500 pts</p>
-            <p className="text-sm text-yellow-600 mt-2">Weekly rewards reset every Sunday</p>
-          </div>
-
-          <div className="bg-gray-50 border-2 border-gray-400 rounded-lg p-6">
-            <p className="text-3xl mb-2">🥈</p>
-            <p className="font-bold text-gray-900">2nd Place</p>
-            <p className="text-gray-700 mt-2">₦3,000 + 300 pts</p>
-            <p className="text-sm text-gray-600 mt-2">Weekly rewards reset every Sunday</p>
-          </div>
-
-          <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-6">
-            <p className="text-3xl mb-2">🥉</p>
-            <p className="font-bold text-orange-900">3rd Place</p>
-            <p className="text-orange-700 mt-2">₦1,000 + 200 pts</p>
-            <p className="text-sm text-orange-600 mt-2">Weekly rewards reset every Sunday</p>
-          </div>
-        </div>
-
-        {/* How to Climb */}
-        <div className="mt-12 bg-purple-50 border-l-4 border-purple-500 p-8 rounded">
-          <h2 className="text-2xl font-bold text-purple-900 mb-6">📈 How to Climb the Leaderboard</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="text-3xl mb-2">🎡</p>
-              <p className="font-bold text-purple-900 mb-2">Spin Wheel</p>
-              <p className="text-purple-700">50-500 points per spin</p>
+        <div className="bg-gradient-to-r from-purple-100 to-pink-100 border-l-4 border-purple-500 rounded-lg p-8 mt-12">
+          <h3 className="text-2xl font-bold text-gray-800 mb-6">Leaderboard Rewards</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <p className="text-4xl mb-2">🥇</p>
+              <h4 className="font-bold text-gray-800 mb-2">#1 - ₦5,000/month</h4>
+              <p className="text-gray-600">Monthly exclusive reward for top performer</p>
             </div>
-            <div>
-              <p className="text-3xl mb-2">📺</p>
-              <p className="font-bold text-purple-900 mb-2">Watch Ads</p>
-              <p className="text-purple-700">50-100 points per ad</p>
+            <div className="text-center">
+              <p className="text-4xl mb-2">🥈</p>
+              <h4 className="font-bold text-gray-800 mb-2">#2 - ₦2,500/month</h4>
+              <p className="text-gray-600">Second place monthly reward</p>
             </div>
-            <div>
-              <p className="text-3xl mb-2">📋</p>
-              <p className="font-bold text-purple-900 mb-2">Daily Missions</p>
-              <p className="text-purple-700">50-250 points per mission</p>
-            </div>
-            <div>
-              <p className="text-3xl mb-2">👥</p>
-              <p className="font-bold text-purple-900 mb-2">Referrals</p>
-              <p className="text-purple-700">100+ points per referral</p>
+            <div className="text-center">
+              <p className="text-4xl mb-2">🥉</p>
+              <h4 className="font-bold text-gray-800 mb-2">#3 - ₦1,000/month</h4>
+              <p className="text-gray-600">Third place monthly reward</p>
             </div>
           </div>
         </div>

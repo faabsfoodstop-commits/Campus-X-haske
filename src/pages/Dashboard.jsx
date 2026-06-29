@@ -150,7 +150,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Points Card */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/streak')}>
             <h3 className="text-gray-600 font-semibold mb-2">Your Points</h3>
             <p className="text-4xl font-bold text-primary">{userData?.points || 0}</p>
             <div className="mt-3 pt-3 border-t">
@@ -163,6 +163,7 @@ export default function Dashboard() {
               {(userData?.currentStreak || 0) >= 7 && (
                 <p className="text-xs text-green-600 font-semibold mt-1">+{Math.floor((userData?.currentStreak || 0) / 7) * 10}% bonus!</p>
               )}
+              <p className="text-xs text-primary font-semibold mt-2">View streak details →</p>
             </div>
           </div>
 
