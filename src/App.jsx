@@ -34,6 +34,9 @@ import PremiumTier from './pages/PremiumTier';
 import StreakManager from './pages/StreakManager';
 import SponsoredMissions from './pages/SponsoredMissions';
 import UserAdsPosting from './pages/UserAdsPosting';
+import AdminAdModeration from './pages/AdminAdModeration';
+import UniversityAnalytics from './pages/UniversityAnalytics';
+import MarketplaceAds from './pages/MarketplaceAds';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -168,6 +171,18 @@ function App() {
           <Route
             path="/my-ads"
             element={<PrivateRoute user={user}><UserAdsPosting /></PrivateRoute>}
+          />
+          <Route
+            path="/admin/moderation"
+            element={<PrivateRoute user={user}><AdminAdModeration /></PrivateRoute>}
+          />
+          <Route
+            path="/analytics/universities"
+            element={<PrivateRoute user={user}><UniversityAnalytics /></PrivateRoute>}
+          />
+          <Route
+            path="/marketplace-ads"
+            element={<PrivateRoute user={user}><MarketplaceAds /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
