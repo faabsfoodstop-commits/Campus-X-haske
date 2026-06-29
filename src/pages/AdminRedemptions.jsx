@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
+import {
+  IconCheckmark,
+  IconX,
+  IconClock,
+  IconMobile,
+  IconWifi,
+  IconGift,
+  IconClipboard,
+  IconWallet,
+} from '../components/Icons';
 
 export default function AdminRedemptions() {
   const [redemptions, setRedemptions] = useState([]);
@@ -128,7 +138,10 @@ export default function AdminRedemptions() {
       <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg shadow p-8 mb-8">
-          <h1 className="text-4xl font-bold mb-2">💳 Redemptions Manager</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <IconWallet className="w-8 h-8" />
+            <h1 className="text-4xl font-bold">Redemptions Manager</h1>
+          </div>
           <p className="text-purple-100 mb-6">Process user reward redemption requests</p>
 
           <div className="grid grid-cols-3 gap-4">
@@ -204,11 +217,11 @@ export default function AdminRedemptions() {
                         <span className="font-bold text-primary">{redemption.pointsRedeemed}</span>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                          {redemption.rewardType === 'airtime' && '📱'}
-                          {redemption.rewardType === 'data' && '📡'}
-                          {redemption.rewardType === 'giftcard' && '🎁'}
-                          {' '}{redemption.rewardType}
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                          {redemption.rewardType === 'airtime' && <IconMobile className="w-4 h-4" />}
+                          {redemption.rewardType === 'data' && <IconWifi className="w-4 h-4" />}
+                          {redemption.rewardType === 'giftcard' && <IconGift className="w-4 h-4" />}
+                          <span className="capitalize">{redemption.rewardType}</span>
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">{redemption.provider}</td>
@@ -216,14 +229,29 @@ export default function AdminRedemptions() {
                         {new Date(redemption.timestamp.toDate?.() || redemption.timestamp).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
                           redemption.status === 'completed' ? 'bg-green-100 text-green-800' :
                           redemption.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {redemption.status === 'completed' && '✓ Completed'}
-                          {redemption.status === 'pending' && '⏳ Pending'}
-                          {redemption.status === 'rejected' && '✗ Rejected'}
+                          {redemption.status === 'completed' && (
+                            <>
+                              <IconCheckmark className="w-4 h-4" />
+                              <span>Completed</span>
+                            </>
+                          )}
+                          {redemption.status === 'pending' && (
+                            <>
+                              <IconClock className="w-4 h-4" />
+                              <span>Pending</span>
+                            </>
+                          )}
+                          {redemption.status === 'rejected' && (
+                            <>
+                              <IconX className="w-4 h-4" />
+                              <span>Rejected</span>
+                            </>
+                          )}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm">
@@ -232,15 +260,17 @@ export default function AdminRedemptions() {
                             <>
                               <button
                                 onClick={() => completeRedemption(redemption.id)}
-                                className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded transition"
+                                className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded transition flex items-center gap-1"
                               >
-                                ✓ Complete
+                                <IconCheckmark className="w-3 h-3" />
+                                Complete
                               </button>
                               <button
                                 onClick={() => rejectRedemption(redemption.id, redemption)}
-                                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded transition"
+                                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded transition flex items-center gap-1"
                               >
-                                ✗ Reject
+                                <IconX className="w-3 h-3" />
+                                Reject
                               </button>
                             </>
                           )}
@@ -265,13 +295,31 @@ export default function AdminRedemptions() {
 
         {/* Instructions */}
         <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mt-12 rounded">
-          <p className="text-blue-800 font-bold mb-3">📝 How to Process Redemptions</p>
+          <div className="flex items-center gap-2 mb-3">
+            <IconClipboard className="w-5 h-5 text-blue-800" />
+            <p className="text-blue-800 font-bold">How to Process Redemptions</p>
+          </div>
           <ul className="text-blue-700 space-y-2 text-sm">
-            <li>✓ <strong>For Airtime:</strong> Use Paystack/Flutterwave API or manually top-up via MTN/Airtel/Glo website</li>
-            <li>✓ <strong>For Data:</strong> Use telecom provider APIs to send data bundles</li>
-            <li>✓ <strong>For Gift Cards:</strong> Send digital code via email or SMS to user's phone</li>
-            <li>✓ Click "Complete" once you've verified the reward was sent</li>
-            <li>✓ Click "Reject" to cancel and refund points if there's an issue</li>
+            <li className="flex items-start gap-2">
+              <IconCheckmark className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
+              <span><strong>For Airtime:</strong> Use Paystack/Flutterwave API or manually top-up via MTN/Airtel/Glo website</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <IconCheckmark className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
+              <span><strong>For Data:</strong> Use telecom provider APIs to send data bundles</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <IconCheckmark className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
+              <span><strong>For Gift Cards:</strong> Send digital code via email or SMS to user's phone</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <IconCheckmark className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
+              <span>Click "Complete" once you've verified the reward was sent</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <IconCheckmark className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
+              <span>Click "Reject" to cancel and refund points if there's an issue</span>
+            </li>
           </ul>
 
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded">
