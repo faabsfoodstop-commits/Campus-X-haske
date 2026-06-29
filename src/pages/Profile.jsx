@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -17,6 +18,9 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
   const { alert: showAlert, modal, closeModal } = useConfirm();
+
+  const isProfileComplete = userData?.university && userData?.department && userData?.course;
+  const availableDepartments = formData.university ? (DEPARTMENTS_BY_UNIVERSITY[formData.university] || []) : [];
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -41,10 +45,29 @@ export default function Profile() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'university') {
+        updated.department = '';
+        updated.course = '';
+      }
+      if (name === 'department') {
+        updated.course = '';
+      }
+      return updated;
+    });
   };
 
   const handleSave = async () => {
+    if (!formData.fullName?.trim() || !formData.university || !formData.department || !formData.course) {
+      await showAlert({
+        title: 'Incomplete Profile',
+        message: 'Please fill in all required fields: Full Name, University, Department, and Course.',
+        type: 'error'
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (formData.fullName !== user.displayName) {
@@ -53,16 +76,32 @@ export default function Profile() {
         });
       }
 
+      const profileWasIncomplete = !isProfileComplete;
+      const bonusPoints = profileWasIncomplete ? 1000 : 0;
+
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         fullName: formData.fullName,
         university: formData.university,
+        department: formData.department,
+        course: formData.course,
+        profileComplete: true,
+        profileCompletedAt: profileWasIncomplete ? new Date() : userData?.profileCompletedAt,
+        points: (userData?.points || 0) + bonusPoints,
       });
 
-      setUserData(formData);
+      const updatedData = {
+        ...formData,
+        profileComplete: true,
+        points: (userData?.points || 0) + bonusPoints,
+      };
+      setUserData(updatedData);
       setEditing(false);
+
       await showAlert({
         title: 'Success',
-        message: 'Your profile has been updated successfully!',
+        message: profileWasIncomplete
+          ? `Profile completed! You earned 1,000 bonus points! 🎉`
+          : 'Your profile has been updated successfully!',
         type: 'success'
       });
     } catch (err) {
@@ -123,6 +162,21 @@ export default function Profile() {
 
       {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Profile Status */}
+        {isProfileComplete && (
+          <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 mb-6">
+            <p className="text-green-700 font-semibold">✓ Profile Complete</p>
+            <p className="text-sm text-green-600">Your profile is fully set up. You can now access all features!</p>
+          </div>
+        )}
+
+        {!isProfileComplete && !editing && (
+          <div className="bg-blue-50 border-l-4 border-primary rounded-lg p-4 mb-6">
+            <p className="text-primary font-semibold">Complete Your Profile</p>
+            <p className="text-sm text-blue-600">Add university, department, and course details to unlock all features and earn 1,000 bonus points!</p>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow p-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-gray-800">My Profile</h2>
@@ -138,10 +192,11 @@ export default function Profile() {
           </div>
 
           <div className="space-y-6">
+            {/* Full Name */}
             <div>
               {editing ? (
                 <Input
-                  label="Full Name"
+                  label="Full Name *"
                   type="text"
                   name="fullName"
                   value={formData.fullName || ''}
@@ -156,15 +211,17 @@ export default function Profile() {
               )}
             </div>
 
+            {/* Email */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Email</label>
               <p className="text-gray-600">{userData?.email || user?.email}</p>
             </div>
 
+            {/* University */}
             <div>
               {editing ? (
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">University</label>
+                  <label className="block text-gray-700 font-semibold mb-2">University *</label>
                   <select
                     name="university"
                     value={formData.university || ''}
@@ -172,20 +229,75 @@ export default function Profile() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   >
                     <option value="">Select a university</option>
-                    <option value="BUK">Bayero University Kano (BUK)</option>
-                    <option value="ABU">Ahmadu Bello University (ABU)</option>
-                    <option value="OAU">Obafemi Awolowo University (OAU)</option>
-                    <option value="UNILAG">University of Lagos (UNILAG)</option>
+                    {NIGERIAN_UNIVERSITIES.map((uni) => (
+                      <option key={uni.code} value={uni.code}>
+                        {uni.name} ({uni.code})
+                      </option>
+                    ))}
                   </select>
                 </div>
               ) : (
                 <>
                   <label className="block text-gray-700 font-semibold mb-2">University</label>
-                  <p className="text-gray-600">{userData?.university}</p>
+                  <p className="text-gray-600">
+                    {userData?.university
+                      ? NIGERIAN_UNIVERSITIES.find(u => u.code === userData.university)?.name || userData.university
+                      : 'Not set'}
+                  </p>
                 </>
               )}
             </div>
 
+            {/* Department */}
+            <div>
+              {editing ? (
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Department *</label>
+                  <select
+                    name="department"
+                    value={formData.department || ''}
+                    onChange={handleChange}
+                    disabled={!formData.university}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {formData.university ? 'Select a department' : 'Select university first'}
+                    </option>
+                    {availableDepartments.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <label className="block text-gray-700 font-semibold mb-2">Department</label>
+                  <p className="text-gray-600">{userData?.department || 'Not set'}</p>
+                </>
+              )}
+            </div>
+
+            {/* Course */}
+            <div>
+              {editing ? (
+                <Input
+                  label="Course/Level *"
+                  type="text"
+                  name="course"
+                  value={formData.course || ''}
+                  onChange={handleChange}
+                  placeholder="e.g., 300L, 2nd Year"
+                />
+              ) : (
+                <>
+                  <label className="block text-gray-700 font-semibold mb-2">Course/Level</label>
+                  <p className="text-gray-600">{userData?.course || 'Not set'}</p>
+                </>
+              )}
+            </div>
+
+            {/* Stats */}
             <div className="grid grid-cols-2 gap-6 pt-6 border-t">
               <div>
                 <p className="text-gray-500 text-sm">Total Points</p>
@@ -197,6 +309,7 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* Actions */}
             {editing && (
               <div className="flex gap-4 pt-6">
                 <Button

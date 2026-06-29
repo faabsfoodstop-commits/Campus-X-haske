@@ -33,6 +33,7 @@ import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
 import StreakManager from './pages/StreakManager';
 import SponsoredMissions from './pages/SponsoredMissions';
+import UserAdsPosting from './pages/UserAdsPosting';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -163,6 +164,10 @@ function App() {
           <Route
             path="/sponsored-missions"
             element={<PrivateRoute user={user}><SponsoredMissions /></PrivateRoute>}
+          />
+          <Route
+            path="/my-ads"
+            element={<PrivateRoute user={user}><UserAdsPosting /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />

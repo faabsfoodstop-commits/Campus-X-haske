@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
-import { collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc, where } from 'firebase/firestore';
 import Button from '../components/Button';
 import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
+import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 
 export default function Leaderboard() {
   const navigate = useNavigate();
@@ -12,25 +13,43 @@ export default function Leaderboard() {
   const [timeframe, setTimeframe] = useState('week'); // week, month, all-time
   const [userRank, setUserRank] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [leaderboardType, setLeaderboardType] = useState('global'); // global or university
+  const [selectedUniversity, setSelectedUniversity] = useState('');
 
   useEffect(() => {
+    setLoading(true);
+    if (leaderboardType === 'global') {
+      setSelectedUniversity('');
+    }
     fetchLeaderboard();
     if (auth.currentUser) {
       fetchUserRank();
     }
-  }, [timeframe]);
+  }, [timeframe, leaderboardType, selectedUniversity]);
 
   const fetchLeaderboard = async () => {
     try {
       const usersRef = collection(db, 'users');
       let q;
+      let orderByField;
 
       if (timeframe === 'week') {
-        q = query(usersRef, orderBy('weeklyPoints', 'desc'), limit(100));
+        orderByField = 'weeklyPoints';
       } else if (timeframe === 'month') {
-        q = query(usersRef, orderBy('monthlyPoints', 'desc'), limit(100));
+        orderByField = 'monthlyPoints';
       } else {
-        q = query(usersRef, orderBy('points', 'desc'), limit(100));
+        orderByField = 'points';
+      }
+
+      if (leaderboardType === 'global') {
+        q = query(usersRef, orderBy(orderByField, 'desc'), limit(100));
+      } else {
+        q = query(
+          usersRef,
+          where('university', '==', selectedUniversity),
+          orderBy(orderByField, 'desc'),
+          limit(100)
+        );
       }
 
       const snapshot = await getDocs(q);
@@ -57,13 +76,24 @@ export default function Leaderboard() {
 
       const usersRef = collection(db, 'users');
       let q;
+      let orderByField;
 
       if (timeframe === 'week') {
-        q = query(usersRef, orderBy('weeklyPoints', 'desc'));
+        orderByField = 'weeklyPoints';
       } else if (timeframe === 'month') {
-        q = query(usersRef, orderBy('monthlyPoints', 'desc'));
+        orderByField = 'monthlyPoints';
       } else {
-        q = query(usersRef, orderBy('points', 'desc'));
+        orderByField = 'points';
+      }
+
+      if (leaderboardType === 'global') {
+        q = query(usersRef, orderBy(orderByField, 'desc'));
+      } else {
+        q = query(
+          usersRef,
+          where('university', '==', selectedUniversity),
+          orderBy(orderByField, 'desc')
+        );
       }
 
       const snapshot = await getDocs(q);
@@ -136,6 +166,9 @@ export default function Leaderboard() {
                 <p className="text-blue-100 mb-2">Your Rank</p>
                 <h2 className="text-5xl font-bold mb-2">#<span className="text-yellow-300">{userRank}</span></h2>
                 <p className="text-blue-100">{currentUser?.displayName || 'User'}</p>
+                <p className="text-sm text-blue-100 mt-1">
+                  📍 {NIGERIAN_UNIVERSITIES.find(u => u.code === currentUser?.university)?.name || currentUser?.university || 'No university set'}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-blue-100 mb-2">Points This {timeframe === 'week' ? 'Week' : timeframe === 'month' ? 'Month' : 'All Time'}</p>
@@ -145,21 +178,71 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Timeframe Selector */}
-        <div className="flex gap-4 mb-8 justify-center">
-          {['week', 'month', 'all-time'].map(tf => (
+        {/* Leaderboard Type & Filters */}
+        <div className="space-y-4 mb-8">
+          {/* Leaderboard Type Selector */}
+          <div className="flex gap-3 justify-center">
             <button
-              key={tf}
-              onClick={() => setTimeframe(tf)}
+              onClick={() => setLeaderboardType('global')}
               className={`px-6 py-2 rounded-lg font-semibold transition ${
-                timeframe === tf
+                leaderboardType === 'global'
                   ? 'bg-primary text-white'
                   : 'bg-white text-gray-800 hover:bg-gray-100 border-2 border-primary'
               }`}
             >
-              {tf === 'all-time' ? 'All Time' : tf === 'week' ? 'This Week' : 'This Month'}
+              Global Rankings
             </button>
-          ))}
+            <button
+              onClick={() => {
+                setLeaderboardType('university');
+                if (!selectedUniversity && currentUser?.university) {
+                  setSelectedUniversity(currentUser.university);
+                }
+              }}
+              className={`px-6 py-2 rounded-lg font-semibold transition ${
+                leaderboardType === 'university'
+                  ? 'bg-primary text-white'
+                  : 'bg-white text-gray-800 hover:bg-gray-100 border-2 border-primary'
+              }`}
+            >
+              My University
+            </button>
+          </div>
+
+          {/* University Selector (when viewing university leaderboard) */}
+          {leaderboardType === 'university' && (
+            <div className="flex justify-center">
+              <select
+                value={selectedUniversity}
+                onChange={(e) => setSelectedUniversity(e.target.value)}
+                className="px-4 py-2 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              >
+                <option value="">Select your university</option>
+                {NIGERIAN_UNIVERSITIES.map((uni) => (
+                  <option key={uni.code} value={uni.code}>
+                    {uni.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Timeframe Selector */}
+          <div className="flex gap-4 justify-center">
+            {['week', 'month', 'all-time'].map(tf => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                className={`px-6 py-2 rounded-lg font-semibold transition ${
+                  timeframe === tf
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-gray-800 hover:bg-gray-100 border-2 border-primary'
+                }`}
+              >
+                {tf === 'all-time' ? 'All Time' : tf === 'week' ? 'This Week' : 'This Month'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Top 3 Spotlight */}
@@ -196,37 +279,73 @@ export default function Leaderboard() {
         {/* Full Leaderboard */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="bg-gradient-to-r from-primary to-blue-600 text-white p-6">
-            <h3 className="text-2xl font-bold">Rankings</h3>
+            <h3 className="text-2xl font-bold">
+              {leaderboardType === 'global'
+                ? 'Global Rankings'
+                : `${NIGERIAN_UNIVERSITIES.find(u => u.code === selectedUniversity)?.name || 'University'} Rankings`}
+            </h3>
+            <p className="text-blue-100 text-sm mt-1">
+              {leaderboardType === 'university' && selectedUniversity
+                ? `Top performers from ${NIGERIAN_UNIVERSITIES.find(u => u.code === selectedUniversity)?.name}`
+                : 'Best performers across all universities'}
+            </p>
           </div>
 
-          <div className="divide-y max-h-96 overflow-y-auto">
-            {leaderboard.map((user) => (
-              <div
-                key={user.uid}
-                className={`p-4 flex items-center justify-between hover:bg-gray-50 transition ${
-                  user.uid === auth.currentUser?.uid ? 'bg-blue-50 border-l-4 border-primary' : ''
-                }`}
-              >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="min-w-12 text-center">
-                    <p className="text-2xl font-bold text-primary">
-                      #{user.rank}
-                      {getMedalIcon(user.rank) && <span className="ml-1">{getMedalIcon(user.rank)}</span>}
-                    </p>
+          {leaderboard.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500 text-lg mb-4">
+                {leaderboardType === 'university' && selectedUniversity
+                  ? `No rankings found for ${NIGERIAN_UNIVERSITIES.find(u => u.code === selectedUniversity)?.name}`
+                  : 'No rankings available yet'}
+              </p>
+              {leaderboardType === 'university' && (
+                <button
+                  onClick={() => setLeaderboardType('global')}
+                  className="text-primary hover:text-blue-600 font-semibold"
+                >
+                  View Global Rankings →
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y max-h-96 overflow-y-auto">
+              {leaderboard.map((user) => (
+                <div
+                  key={user.uid}
+                  className={`p-4 flex items-center justify-between hover:bg-gray-50 transition ${
+                    user.uid === auth.currentUser?.uid ? 'bg-blue-50 border-l-4 border-primary' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="min-w-12 text-center">
+                      <p className="text-2xl font-bold text-primary">
+                        #{user.rank}
+                        {getMedalIcon(user.rank) && <span className="ml-1">{getMedalIcon(user.rank)}</span>}
+                      </p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
+                      <div className="flex gap-2 items-center mt-1">
+                        <span className="text-xs bg-blue-100 text-primary px-2 py-1 rounded">
+                          📍 {NIGERIAN_UNIVERSITIES.find(u => u.code === user.university)?.name || user.university || 'No university'}
+                        </span>
+                        {user.department && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            {user.department}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
-                    <p className="text-sm text-gray-500">{user.university || 'No university set'}</p>
-                  </div>
-                </div>
 
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{getPointsForTimeframe(user).toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">points</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">{getPointsForTimeframe(user).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">points</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Rewards Info */}

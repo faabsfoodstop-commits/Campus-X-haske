@@ -146,6 +146,36 @@ export default function Dashboard() {
           <p className="text-blue-100">{userData?.university || 'Campus'}</p>
         </div>
 
+        {/* Profile Completion Status */}
+        {userData && !userData?.profileComplete && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-lg p-6 mb-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-amber-900 mb-2">Complete Your Profile - Earn 1,000 Bonus Points! 🎁</h3>
+                <p className="text-sm text-amber-800 mb-4">
+                  Add your university, department, and course to unlock ad posting and see your university badge on leaderboards.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => navigate('/profile')}
+                    variant="primary"
+                    size="sm"
+                  >
+                    Complete Now
+                  </Button>
+                  <Button
+                    onClick={() => navigate('/leaderboards')}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    View Leaderboards
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Getting Started Checklist */}
         <GettingStartedChecklist />
 
@@ -382,7 +412,7 @@ export default function Dashboard() {
         </section>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Marketplace</h3>
             <p className="text-gray-600 mb-4">
@@ -394,6 +424,20 @@ export default function Dashboard() {
               size="md"
             >
               Open Marketplace →
+            </Button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Post Ads</h3>
+            <p className="text-gray-600 mb-4">
+              Sell items or offer services to your university community.
+            </p>
+            <Button
+              onClick={() => navigate('/my-ads')}
+              variant="ghost"
+              size="md"
+            >
+              My Ads →
             </Button>
           </div>
 

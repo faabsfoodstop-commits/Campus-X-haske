@@ -1,0 +1,260 @@
+export const NIGERIAN_UNIVERSITIES = [
+  { code: 'UNILAG', name: 'University of Lagos' },
+  { code: 'OAU', name: 'Obafemi Awolowo University' },
+  { code: 'ABU', name: 'Ahmadu Bello University' },
+  { code: 'BUK', name: 'Bayero University Kano' },
+  { code: 'UI', name: 'University of Ibadan' },
+  { code: 'FUTO', name: 'Federal University of Technology, Owerri' },
+  { code: 'LASU', name: 'Lagos State University' },
+  { code: 'UNIJOS', name: 'University of Jos' },
+  { code: 'UNIPORT', name: 'University of Port Harcourt' },
+  { code: 'NSUK', name: 'University of Nigeria, Nsukka' },
+  { code: 'UNN', name: 'University of Nigeria, Enugu' },
+  { code: 'UNAD', name: 'Nile University of Nigeria' },
+  { code: 'UNAAB', name: 'University of Agriculture, Abeokuta' },
+  { code: 'UNIMAID', name: 'University of Maiduguri' },
+  { code: 'UNIBEN', name: 'University of Benin' },
+  { code: 'UNICAL', name: 'University of Calabar' },
+  { code: 'ABUAD', name: 'Abubakar Tafawa Balewa University' },
+  { code: 'FUTMINNA', name: 'Federal University of Technology, Minna' },
+  { code: 'FUTA', name: 'Federal University of Technology, Akure' },
+  { code: 'FULAFIA', name: 'Federal University, Lafia' },
+  { code: 'UNIMINNR', name: 'University of Minna' },
+  { code: 'UDUSOK', name: 'University of Uyo' },
+  { code: 'UNILRIN', name: 'University of Ilorin' },
+  { code: 'UNILORIN', name: 'Kwara State University' },
+  { code: 'UNIZIK', name: 'Nnamdi Azikiwe University' },
+  { code: 'UNIMAK', name: 'Imo State University' },
+  { code: 'NOUN', name: 'National Open University of Nigeria' },
+  { code: 'BINGHAM', name: 'Binghamton University' },
+  { code: 'AIT', name: 'African Institute of Technology' },
+  { code: 'PEFFTI', name: 'PEFFTI Film Institute' },
+  { code: 'LASU', name: 'Lagos State University' },
+  { code: 'EKSU', name: 'Ekiti State University' },
+  { code: 'FUDUTSINMA', name: 'Federal University, Dutsinma' },
+  { code: 'FUTJTECH', name: 'Federal University of Technology, Jalingo' },
+  { code: 'UNILADOKE', name: 'Ladoke Akintola University of Technology' },
+  { code: 'FUTKATSINA', name: 'Federal University of Technology, Katsina' },
+  { code: 'OSUN', name: 'Osun State University' },
+  { code: 'OOUAGOIWOYE', name: 'Olabisi Onabanjo University' },
+  { code: 'FUOYE', name: 'Federal University Oye-Ekiti' },
+  { code: 'UNIABUJA', name: 'University of Abuja' },
+  { code: 'FUWUKARI', name: 'Federal University Wukari' },
+  { code: 'NDUBISI', name: 'Ndubisi Okonkwo University' },
+  { code: 'UNIZAMFARA', name: 'Zamfara State University' },
+  { code: 'KADTECH', name: 'Kaduna State University' },
+  { code: 'KAS', name: 'Kano State University' },
+  { code: 'JOSHTECH', name: 'Plateau State University' },
+  { code: 'NASU', name: 'Nasarawa State University' },
+  { code: 'TITUS', name: 'Benue State University' },
+  { code: 'TARABA', name: 'Taraba State University' },
+  { code: 'ADAMAWA', name: 'Adamawa State University' },
+  { code: 'EBONYI', name: 'Ebonyi State University' },
+  { code: 'ABIA', name: 'Abia State University' },
+  { code: 'RIVERS', name: 'Rivers State University' },
+  { code: 'BAYELSA', name: 'Bayelsa State University' },
+  { code: 'CROSS', name: 'Cross River State University' },
+  { code: 'AKWAIBOM', name: 'Akwa Ibom State University' },
+  { code: 'DELTA', name: 'Delta State University' },
+  { code: 'OGUN', name: 'Ogun State University' },
+];
+
+export const DEPARTMENTS_BY_UNIVERSITY = {
+  UNILAG: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Business Administration',
+    'Social Sciences',
+    'Science',
+    'Education',
+    'Architecture',
+    'Environmental Sciences',
+    'Faculty of Technology'
+  ],
+  OAU: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Technology',
+    'Agriculture',
+    'Arts',
+    'Science',
+    'Social Sciences',
+    'Education'
+  ],
+  ABU: [
+    'Engineering',
+    'Medicine & Health Sciences',
+    'Law',
+    'Agriculture',
+    'Education',
+    'Science',
+    'Arts',
+    'Social Sciences',
+    'Technology'
+  ],
+  BUK: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Agriculture',
+    'Science',
+    'Education',
+    'Social Sciences',
+    'Technology',
+    'Arts'
+  ],
+  UI: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Agriculture',
+    'Science',
+    'Technology',
+    'Social Sciences',
+    'Arts',
+    'Education'
+  ],
+  FUTO: [
+    'Engineering',
+    'Science & Technology',
+    'Agriculture & Environmental Resources',
+    'Management Sciences',
+    'Education',
+    'Basic Medical Sciences'
+  ],
+  LASU: [
+    'Engineering',
+    'Science',
+    'Law',
+    'Social Sciences',
+    'Education',
+    'Arts',
+    'Business Administration'
+  ],
+  UNIJOS: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Science',
+    'Agriculture',
+    'Social Sciences',
+    'Education',
+    'Arts'
+  ],
+  UNIPORT: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Science',
+    'Social Sciences',
+    'Education',
+    'Agriculture',
+    'Arts'
+  ],
+  NSUK: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Agriculture',
+    'Science',
+    'Social Sciences',
+    'Arts',
+    'Education'
+  ],
+  UNIBEN: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Science',
+    'Agriculture',
+    'Social Sciences',
+    'Education',
+    'Arts',
+    'Technology'
+  ],
+  UNICAL: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Agriculture',
+    'Science',
+    'Social Sciences',
+    'Education',
+    'Arts'
+  ],
+  UNILRIN: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Science',
+    'Technology',
+    'Agriculture',
+    'Education',
+    'Social Sciences',
+    'Arts'
+  ],
+  UNIZIK: [
+    'Engineering',
+    'Medicine & Surgery',
+    'Law',
+    'Agriculture',
+    'Science',
+    'Social Sciences',
+    'Education',
+    'Arts',
+    'Environmental Studies'
+  ],
+  FUTMINNA: [
+    'Engineering',
+    'Science & Technology',
+    'Environmental Technology',
+    'Agriculture & Agricultural Technology'
+  ],
+  FUTA: [
+    'Engineering',
+    'Science & Technology',
+    'Environmental Design & Management',
+    'Agriculture & Agricultural Technology'
+  ],
+  NOUN: [
+    'Engineering',
+    'Science',
+    'Social Sciences',
+    'Education',
+    'Law',
+    'Management Sciences',
+    'Arts',
+    'Vocational & Technical Education'
+  ],
+  UNAAB: [
+    'Agriculture',
+    'Technology',
+    'Engineering',
+    'Science',
+    'Social Sciences',
+    'Education'
+  ],
+  UNIABUJA: [
+    'Engineering',
+    'Law',
+    'Science',
+    'Technology',
+    'Education',
+    'Social Sciences'
+  ],
+  DEFAULT: [
+    '100 Level',
+    '200 Level',
+    '300 Level',
+    '400 Level',
+    '500 Level',
+    'Postgraduate'
+  ]
+};
+
+// Helper function to get departments for a university
+export const getDepartmentsForUniversity = (universityCode) => {
+  return DEPARTMENTS_BY_UNIVERSITY[universityCode] || DEPARTMENTS_BY_UNIVERSITY.DEFAULT;
+};
