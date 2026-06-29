@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { ToastContext } from '../context/ToastContext';
 import Button from './Button';
@@ -51,13 +52,14 @@ const ICONS = {
 };
 
 export default function GettingStartedChecklist() {
+  const navigate = useNavigate();
   const { addToast } = useContext(ToastContext);
   const [checklist, setChecklist] = useState([
-    { id: 'profile', title: 'Complete Your Profile', reward: 500, iconKey: 'profile', completed: false },
-    { id: 'checkin', title: 'Check In 7 Days', reward: 70, iconKey: 'checkin', completed: false, progress: 0, target: 7 },
-    { id: 'challenge', title: 'Join a Weekly Challenge', reward: 100, iconKey: 'challenge', completed: false },
-    { id: 'purchase', title: 'Make Your First Purchase', reward: 150, iconKey: 'purchase', completed: false },
-    { id: 'refer', title: 'Refer a Friend', reward: 50, iconKey: 'refer', completed: false },
+    { id: 'profile', title: 'Complete Your Profile', reward: 500, iconKey: 'profile', completed: false, link: '/profile' },
+    { id: 'checkin', title: 'Check In 7 Days', reward: 70, iconKey: 'checkin', completed: false, progress: 0, target: 7, link: '/dashboard' },
+    { id: 'challenge', title: 'Join a Weekly Challenge', reward: 100, iconKey: 'challenge', completed: false, link: '/weekly-challenges' },
+    { id: 'purchase', title: 'Make Your First Purchase', reward: 150, iconKey: 'purchase', completed: false, link: '/buy-points' },
+    { id: 'refer', title: 'Refer a Friend', reward: 50, iconKey: 'refer', completed: false, link: '/referrals' },
   ]);
   const [totalReward, setTotalReward] = useState(0);
 
@@ -71,7 +73,11 @@ export default function GettingStartedChecklist() {
     setTotalReward(Math.round((completed / checklist.length) * total));
   };
 
-  const completeItem = async (id) => {
+  const startTask = (item) => {
+    navigate(item.link);
+  };
+
+  const markTaskComplete = async (id) => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userDoc = await getDoc(userRef);
@@ -141,7 +147,7 @@ export default function GettingStartedChecklist() {
                 <div className="item-reward">+{item.reward}</div>
                 {!item.completed && (
                   <Button
-                    onClick={() => completeItem(item.id)}
+                    onClick={() => startTask(item)}
                     variant="primary"
                     size="sm"
                     className="item-check-button"
