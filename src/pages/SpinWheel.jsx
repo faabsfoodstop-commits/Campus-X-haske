@@ -5,6 +5,10 @@ import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDo
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import {
+  IconSpinWheel,
+  IconStar,
+} from '../components/Icons';
 
 export default function SpinWheel() {
   const [user, setUser] = useState(null);
@@ -278,7 +282,7 @@ export default function SpinWheel() {
             <div className="flex gap-4 items-center">
               <button
                 onClick={() => navigate('/daily-missions')}
-                className="text-gray-600 hover:text-primary text-sm font-semibold"
+                className="text-gray-600 hover:text-primary text-sm font-semibold flex items-center gap-1"
               >
                 ← Missions
               </button>
@@ -288,8 +292,9 @@ export default function SpinWheel() {
               >
                 Dashboard
               </button>
-              <div className="text-lg font-bold text-primary">
-                ⭐ {userData?.points || 0} pts
+              <div className="flex items-center gap-2 text-lg font-bold text-primary">
+                <IconStar className="w-5 h-5" />
+                {userData?.points || 0} pts
               </div>
             </div>
           </div>
@@ -300,7 +305,10 @@ export default function SpinWheel() {
         {/* Spin Info */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-3xl font-bold">Lucky Spin 🎡</h2>
+            <div className="flex items-center gap-3">
+              <IconSpinWheel className="w-8 h-8 text-primary" />
+              <h2 className="text-3xl font-bold">Lucky Spin</h2>
+            </div>
             <div className="text-right">
               <p className="text-gray-600">Free Spins Today</p>
               <p className="text-4xl font-bold text-primary">{freeSpin}</p>
