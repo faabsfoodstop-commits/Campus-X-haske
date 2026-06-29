@@ -5,6 +5,22 @@ import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDo
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import {
+  IconSun,
+  IconVideoAds,
+  IconMobile,
+  IconProfile,
+  IconUsers,
+  IconMarketplace,
+  IconShare,
+  IconFilm,
+  IconMissions,
+  IconFire,
+  IconStar,
+  IconCheckmark,
+  IconSettings2,
+  IconArrowRight,
+} from '../components/Icons';
 
 export default function DailyMissions() {
   const [user, setUser] = useState(null);
@@ -17,6 +33,17 @@ export default function DailyMissions() {
   const navigate = useNavigate();
   const { alert: showAlert, confirm, modal, closeModal } = useConfirm();
 
+  const missionIcons = {
+    checkin: IconSun,
+    video_ad: IconVideoAds,
+    instagram: IconMobile,
+    profile: IconProfile,
+    invite: IconUsers,
+    explore: IconMarketplace,
+    share: IconShare,
+    watch_videos: IconFilm,
+  };
+
   const availableMissions = [
     {
       id: 'checkin',
@@ -24,7 +51,6 @@ export default function DailyMissions() {
       description: 'Check in before 9 AM',
       reward: 50,
       difficulty: 'easy',
-      icon: '🌅',
       link: '/dashboard'
     },
     {
@@ -33,7 +59,6 @@ export default function DailyMissions() {
       description: 'Watch 1 video ad',
       reward: 50,
       difficulty: 'easy',
-      icon: '📺',
       link: '/video-ads'
     },
     {
@@ -42,7 +67,6 @@ export default function DailyMissions() {
       description: 'Follow @haske_campus on Instagram',
       reward: 75,
       difficulty: 'easy',
-      icon: '📱',
       link: '/instagram-follow'
     },
     {
@@ -51,7 +75,6 @@ export default function DailyMissions() {
       description: 'Add university & course info',
       reward: 150,
       difficulty: 'medium',
-      icon: '👤',
       link: '/profile'
     },
     {
@@ -60,7 +83,6 @@ export default function DailyMissions() {
       description: 'Send referral to 2 friends',
       reward: 100,
       difficulty: 'medium',
-      icon: '👫',
       link: '/referrals'
     },
     {
@@ -69,7 +91,6 @@ export default function DailyMissions() {
       description: 'Browse 3+ marketplace items',
       reward: 75,
       difficulty: 'medium',
-      icon: '🛍️',
       link: '/marketplace'
     },
     {
@@ -78,7 +99,6 @@ export default function DailyMissions() {
       description: 'Share to WhatsApp & get 1 signup',
       reward: 250,
       difficulty: 'hard',
-      icon: '📤',
       link: '/referrals'
     },
     {
@@ -87,7 +107,6 @@ export default function DailyMissions() {
       description: 'Complete 3 video ads today',
       reward: 200,
       difficulty: 'hard',
-      icon: '🎬',
       link: '/video-ads'
     }
   ];
@@ -136,7 +155,7 @@ export default function DailyMissions() {
 
       const snapshot = await getDocs(missionsQuery);
       const completed = snapshot.docs.map(doc => doc.data().missionId);
-      console.log('📋 Found completed missions:', completed);
+      console.log('Found completed missions:', completed);
       setCompletedToday(completed);
 
       // Calculate combo bonus
@@ -405,16 +424,16 @@ export default function DailyMissions() {
               >
                 Dashboard
               </Button>
-              <Button
+              <button
                 onClick={clearTestData}
-                variant="ghost"
-                size="sm"
+                className="p-2 hover:bg-gray-100 rounded transition"
                 title="Clear test data"
               >
-                🔧
-              </Button>
-              <div className="text-lg font-bold text-primary">
-                ⭐ {userData?.points || 0} pts
+                <IconSettings2 className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center gap-2 text-lg font-bold text-primary">
+                <IconStar className="w-5 h-5" />
+                {userData?.points || 0} pts
               </div>
             </div>
           </div>
@@ -439,7 +458,10 @@ export default function DailyMissions() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow p-8 mb-8">
-          <h1 className="text-4xl font-bold mb-2">📋 Daily Missions</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <IconMissions className="w-8 h-8" />
+            <h1 className="text-4xl font-bold">Daily Missions</h1>
+          </div>
           <p className="text-blue-100 mb-4">Complete missions to earn points. Chain them for combo bonuses!</p>
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -461,7 +483,9 @@ export default function DailyMissions() {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Easy (Quick Tasks)</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {easyMissions.map(mission => (
+            {easyMissions.map(mission => {
+              const IconComponent = missionIcons[mission.id];
+              return (
               <div
                 key={mission.id}
                 className={`rounded-lg shadow p-6 transition ${
@@ -471,8 +495,10 @@ export default function DailyMissions() {
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-4xl">{mission.icon}</span>
-                  <span className="text-sm font-bold px-3 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">
+                    {IconComponent && <IconComponent className="w-6 h-6" />}
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-yellow-100 text-yellow-800">
                     Easy
                   </span>
                 </div>
@@ -486,11 +512,22 @@ export default function DailyMissions() {
                     variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
                     size="sm"
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
+                    {completedToday.includes(mission.id) ? (
+                      <span className="flex items-center gap-1">
+                        <IconCheckmark className="w-4 h-4" />
+                        Done
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        Start
+                        <IconArrowRight className="w-4 h-4" />
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
 
@@ -498,7 +535,9 @@ export default function DailyMissions() {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Medium (Main Tasks)</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {mediumMissions.map(mission => (
+            {mediumMissions.map(mission => {
+              const IconComponent = missionIcons[mission.id];
+              return (
               <div
                 key={mission.id}
                 className={`rounded-lg shadow p-6 transition ${
@@ -508,8 +547,10 @@ export default function DailyMissions() {
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-4xl">{mission.icon}</span>
-                  <span className="text-sm font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-800">
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600">
+                    {IconComponent && <IconComponent className="w-6 h-6" />}
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-800">
                     Medium
                   </span>
                 </div>
@@ -523,11 +564,22 @@ export default function DailyMissions() {
                     variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
                     size="sm"
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
+                    {completedToday.includes(mission.id) ? (
+                      <span className="flex items-center gap-1">
+                        <IconCheckmark className="w-4 h-4" />
+                        Done
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        Start
+                        <IconArrowRight className="w-4 h-4" />
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
 
@@ -535,7 +587,9 @@ export default function DailyMissions() {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Hard (Challenge Tasks)</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {hardMissions.map(mission => (
+            {hardMissions.map(mission => {
+              const IconComponent = missionIcons[mission.id];
+              return (
               <div
                 key={mission.id}
                 className={`rounded-lg shadow p-6 transition ${
@@ -545,8 +599,10 @@ export default function DailyMissions() {
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-4xl">{mission.icon}</span>
-                  <span className="text-sm font-bold px-3 py-1 rounded-full bg-red-100 text-red-800">
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
+                    {IconComponent && <IconComponent className="w-6 h-6" />}
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-800">
                     Hard
                   </span>
                 </div>
@@ -560,17 +616,31 @@ export default function DailyMissions() {
                     variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
                     size="sm"
                   >
-                    {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
+                    {completedToday.includes(mission.id) ? (
+                      <span className="flex items-center gap-1">
+                        <IconCheckmark className="w-4 h-4" />
+                        Done
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        Start
+                        <IconArrowRight className="w-4 h-4" />
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
 
         {/* Combo Bonuses */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">🔥 Combo Bonuses</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <IconFire className="w-6 h-6 text-orange-600" />
+            <h2 className="text-2xl font-bold text-gray-800">Combo Bonuses</h2>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-2">Complete All Easy</p>
