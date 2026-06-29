@@ -1,0 +1,132 @@
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.3s;
+}
+
+.stat-card:active {
+  transform: scale(0.98);
+}
+
+.stat-card.blue {
+  border-left: 4px solid #2563eb;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+}
+
+.stat-card.green {
+  border-left: 4px solid #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.stat-card.orange {
+  border-left: 4px solid #f97316;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+}
+
+.stat-card.purple {
+  border-left: 4px solid #a855f7;
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+}
+
+.stat-card.red {
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+}
+
+.stat-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+  letter-spacing: 0.5px;
+}
+
+.stat-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.stat-card.blue .stat-value {
+  color: #2563eb;
+}
+
+.stat-card.green .stat-value {
+  color: #10b981;
+}
+
+.stat-card.orange .stat-value {
+  color: #f97316;
+}
+
+.stat-card.purple .stat-value {
+  color: #a855f7;
+}
+
+.stat-card.red .stat-value {
+  color: #ef4444;
+}
+
+.stat-trend {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.stat-trend.up {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.stat-trend.down {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.stat-subtext {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 4px 0 0 0;
+}
+
+@media (max-width: 640px) {
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-icon {
+    font-size: 24px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+}
