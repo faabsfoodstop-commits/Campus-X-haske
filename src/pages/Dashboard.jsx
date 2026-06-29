@@ -22,6 +22,7 @@ import {
   IconFire,
   IconDiamond,
   IconRocket,
+  IconTrendingUp,
 } from '../components/Icons';
 
 export default function Dashboard() {
@@ -263,7 +264,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ActivityCard
               title="Watch & Earn"
-              description="Watch short video ads and earn 50-100 points per video!"
+              description="Watch short video ads and earn points daily!"
               gradient="gradient-red"
               icon={IconVideoAds}
               onNavigate={() => navigate('/video-ads')}
@@ -279,19 +280,19 @@ export default function Dashboard() {
             />
             <ActivityCard
               title="Invite Friends"
-              description="Invite friends and earn 100-250 points per referral!"
+              description="Invite friends and earn 500-1000 points per referral!"
               gradient="gradient-emerald"
               icon={IconReferrals}
               onNavigate={() => navigate('/referrals')}
               cta="Share code"
             />
             <ActivityCard
-              title="Leaderboards"
-              description="Compete with others and win weekly prizes!"
-              gradient="gradient-indigo"
-              icon={IconLeaderboard}
-              onNavigate={() => navigate('/leaderboards')}
-              cta="View rankings"
+              title="Sponsored Missions"
+              description="Earn 500-2000 points from top brands. Direct partnerships!"
+              gradient="gradient-yellow"
+              icon={IconRocket}
+              onNavigate={() => navigate('/sponsored-missions')}
+              cta="Browse missions"
             />
           </div>
         </section>

@@ -32,6 +32,7 @@ import TransactionHistory from './pages/TransactionHistory';
 import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
 import StreakManager from './pages/StreakManager';
+import SponsoredMissions from './pages/SponsoredMissions';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -158,6 +159,10 @@ function App() {
           <Route
             path="/streak"
             element={<PrivateRoute user={user}><StreakManager /></PrivateRoute>}
+          />
+          <Route
+            path="/sponsored-missions"
+            element={<PrivateRoute user={user}><SponsoredMissions /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
