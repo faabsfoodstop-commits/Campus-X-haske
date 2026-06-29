@@ -17,6 +17,7 @@ import VideoAds from './pages/VideoAds';
 import InstagramFollow from './pages/InstagramFollow';
 import Referrals from './pages/Referrals';
 import Leaderboards from './pages/Leaderboards';
+import Rewards from './pages/Rewards';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -93,6 +94,10 @@ function App() {
         <Route
           path="/leaderboards"
           element={<PrivateRoute user={user}><Leaderboards /></PrivateRoute>}
+        />
+        <Route
+          path="/rewards"
+          element={<PrivateRoute user={user}><Rewards /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>
