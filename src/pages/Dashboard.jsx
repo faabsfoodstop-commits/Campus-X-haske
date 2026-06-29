@@ -19,6 +19,7 @@ import {
   IconLeaderboard,
   IconMarketplace,
   IconBuyPoints,
+  IconFire,
 } from '../components/Icons';
 
 export default function Dashboard() {
@@ -153,7 +154,8 @@ export default function Dashboard() {
             <div className="mt-3 pt-3 border-t">
               <p className="text-xs text-gray-600 mb-1">Current Streak</p>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-orange-500">🔥 {userData?.currentStreak || 0}</span>
+                <IconFire className="w-6 h-6 text-orange-500" />
+                <span className="text-2xl font-bold text-orange-500">{userData?.currentStreak || 0}</span>
                 <span className="text-xs text-gray-600">days</span>
               </div>
               {(userData?.currentStreak || 0) >= 7 && (
