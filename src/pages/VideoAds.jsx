@@ -23,7 +23,7 @@ export default function VideoAds() {
       title: 'Learn JavaScript in 30 Seconds',
       duration: 30,
       network: 'YouTube',
-      reward: 50,
+      reward: 250,
       youtubeId: 'PFmuCDHWQH8'
     },
     {
@@ -31,7 +31,7 @@ export default function VideoAds() {
       title: 'Best Pizza in Lagos',
       duration: 45,
       network: 'Brand Ad',
-      reward: 50,
+      reward: 250,
       youtubeId: 'jNQXAC9IVRw'
     },
     {
@@ -39,7 +39,7 @@ export default function VideoAds() {
       title: 'New Fashion Collection',
       duration: 40,
       network: 'E-commerce',
-      reward: 50,
+      reward: 250,
       youtubeId: 'dQw4w9WgXcQ'
     },
     {
@@ -47,7 +47,7 @@ export default function VideoAds() {
       title: 'Mobile App Launch',
       duration: 35,
       network: 'Tech',
-      reward: 50,
+      reward: 250,
       youtubeId: 'aqz-KE-bpKQ'
     },
     {
@@ -55,7 +55,7 @@ export default function VideoAds() {
       title: 'Fitness Training Guide',
       duration: 50,
       network: 'Lifestyle',
-      reward: 75,
+      reward: 375,
       youtubeId: '9bZkp7q19f0'
     },
     {
@@ -63,7 +63,7 @@ export default function VideoAds() {
       title: 'Learn Python Basics',
       duration: 60,
       network: 'Education',
-      reward: 100,
+      reward: 500,
       youtubeId: '_uQrJ0TkSAc'
     }
   ];

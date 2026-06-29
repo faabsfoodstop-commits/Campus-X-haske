@@ -18,7 +18,7 @@ export default function InstagramFollow() {
       name: 'HASKE Campus',
       handle: '@haske_campus',
       description: 'Official platform account',
-      reward: 75,
+      reward: 375,
       category: 'Platform',
       verified: true
     },
@@ -27,7 +27,7 @@ export default function InstagramFollow() {
       name: 'University of Lagos',
       handle: '@unilag_official',
       description: 'Official University Account',
-      reward: 100,
+      reward: 500,
       category: 'University',
       verified: true
     },
@@ -36,7 +36,7 @@ export default function InstagramFollow() {
       name: 'Campus Store Nigeria',
       handle: '@campus_store_ng',
       description: 'Campus merchandise store',
-      reward: 50,
+      reward: 250,
       category: 'Marketplace',
       verified: false
     },
@@ -45,7 +45,7 @@ export default function InstagramFollow() {
       name: 'Study Vibes Africa',
       handle: '@study_vibes_africa',
       description: 'Educational content creator',
-      reward: 75,
+      reward: 375,
       category: 'Education',
       verified: false
     },
@@ -54,7 +54,7 @@ export default function InstagramFollow() {
       name: 'Student Life Magazine',
       handle: '@studentlife_mag',
       description: 'Student lifestyle magazine',
-      reward: 75,
+      reward: 375,
       category: 'Lifestyle',
       verified: true
     },
@@ -63,7 +63,7 @@ export default function InstagramFollow() {
       name: 'Campus Food Delivery',
       handle: '@campusfood_ng',
       description: 'Food delivery to campus',
-      reward: 100,
+      reward: 500,
       category: 'Food',
       verified: false
     }

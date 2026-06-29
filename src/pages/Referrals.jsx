@@ -60,7 +60,7 @@ export default function Referrals() {
         successfulReferrals: successful.length,
         pendingReferrals: pending.length,
         totalEarned,
-        potentialEarning: (pending.length * 100) + totalEarned
+        potentialEarning: (pending.length * 500) + totalEarned
       });
 
       setReferralHistory(madeReferrals.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10));
@@ -225,7 +225,7 @@ export default function Referrals() {
               <div className="text-3xl">3️⃣</div>
               <div>
                 <p className="font-bold text-blue-900">You Earn Points</p>
-                <p className="text-blue-700">You get 100 points for each successful referral</p>
+                <p className="text-blue-700">You get 500 points for each successful referral</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -246,7 +246,7 @@ export default function Referrals() {
               <p className="text-4xl mb-2">🔰</p>
               <p className="font-bold text-gray-800">Starter</p>
               <p className="text-sm text-gray-600 mb-3">1-5 referrals</p>
-              <p className="text-2xl font-bold text-primary">+100 pts</p>
+              <p className="text-2xl font-bold text-primary">+500 pts</p>
               <p className="text-xs text-gray-500 mt-2">per referral</p>
             </div>
 
