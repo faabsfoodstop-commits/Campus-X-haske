@@ -23,10 +23,10 @@ export default function SpinWheel() {
   const { alert: showAlert, modal, closeModal } = useConfirm();
 
   const wheelOptions = [
-    { label: '50 pts', points: 50, color: '#fbbf24', probability: 0.30 },
-    { label: '100 pts', points: 100, color: '#60a5fa', probability: 0.25 },
-    { label: '200 pts', points: 200, color: '#34d399', probability: 0.15 },
-    { label: '500 pts', points: 500, color: '#f87171', probability: 0.10 },
+    { label: '250 pts', points: 250, color: '#fbbf24', probability: 0.30 },
+    { label: '500 pts', points: 500, color: '#60a5fa', probability: 0.25 },
+    { label: '1K pts', points: 1000, color: '#34d399', probability: 0.15 },
+    { label: '2.5K pts', points: 2500, color: '#f87171', probability: 0.10 },
     { label: '2x Multiplier', points: 0, color: '#c084fc', multiplier: 2, probability: 0.12 },
     { label: 'Try Again', points: 0, color: '#d1d5db', probability: 0.08 }
   ];

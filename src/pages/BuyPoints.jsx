@@ -27,47 +27,51 @@ export default function BuyPoints() {
   const pointPackages = [
     {
       id: 'starter',
-      points: 500,
-      price: 250,
-      pricePerPoint: 0.50,
+      points: 5000,
+      price: 500,
+      pricePerPoint: 0.10,
       description: 'Get started',
       popular: false,
       color: 'from-blue-400 to-blue-600',
       badge: null,
-      referralBonus: 25
+      referralBonus: 250,
+      savings: '80% off'
     },
     {
       id: 'standard',
-      points: 1000,
-      price: 450,
-      pricePerPoint: 0.45,
+      points: 10000,
+      price: 900,
+      pricePerPoint: 0.09,
       description: 'Most popular',
       popular: true,
       color: 'from-indigo-400 to-indigo-600',
-      badge: '5% off',
-      referralBonus: 50
+      badge: '10% off',
+      referralBonus: 500,
+      savings: '82% off'
     },
     {
       id: 'boost',
-      points: 2500,
-      price: 1000,
-      pricePerPoint: 0.40,
+      points: 25000,
+      price: 2000,
+      pricePerPoint: 0.08,
       description: 'Better value',
       popular: false,
       color: 'from-purple-400 to-purple-600',
       badge: '20% off',
-      referralBonus: 150
+      referralBonus: 1500,
+      savings: '84% off'
     },
     {
       id: 'premium',
-      points: 5000,
-      price: 1800,
-      pricePerPoint: 0.36,
+      points: 50000,
+      price: 3500,
+      pricePerPoint: 0.07,
       description: 'Best savings',
       popular: false,
       color: 'from-pink-400 to-pink-600',
-      badge: '28% off',
-      referralBonus: 350
+      badge: '30% off',
+      referralBonus: 3500,
+      savings: '86% off'
     },
   ];
 
@@ -176,7 +180,8 @@ export default function BuyPoints() {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">Get Points Instantly</h2>
           <p className="text-xl text-gray-600 mb-2">Speed up your rewards with flexible packages</p>
-          <p className="text-lg text-primary font-semibold">₦0.50 per point</p>
+          <p className="text-lg text-primary font-semibold">Starting from ₦0.07 per point!</p>
+          <p className="text-sm text-green-600 font-semibold">80%+ savings compared to old pricing</p>
         </div>
 
         {/* Point Packages */}
@@ -255,8 +260,8 @@ export default function BuyPoints() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
                 <IconBuyPoints className="w-8 h-8" />
               </div>
-              <h4 className="font-bold text-gray-800 mb-2">Better Value</h4>
-              <p className="text-gray-600">Get ₦500 airtime for ₦250 total (earn 800 pts free, buy 200 for ₦100).</p>
+              <h4 className="font-bold text-gray-800 mb-2">80% Cheaper</h4>
+              <p className="text-gray-600">Used to pay ₦250 for 500 pts. Now get 5,000 pts for just ₦500!</p>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-3 text-orange-600">

@@ -49,7 +49,7 @@ export default function DailyMissions() {
       id: 'checkin',
       name: 'Morning Check-In',
       description: 'Check in before 9 AM',
-      reward: 50,
+      reward: 250,
       difficulty: 'easy',
       link: '/dashboard'
     },
@@ -57,7 +57,7 @@ export default function DailyMissions() {
       id: 'video_ad',
       name: 'Watch an Ad',
       description: 'Watch 1 video ad',
-      reward: 50,
+      reward: 250,
       difficulty: 'easy',
       link: '/video-ads'
     },
@@ -65,7 +65,7 @@ export default function DailyMissions() {
       id: 'instagram',
       name: 'Follow a Brand',
       description: 'Follow @haske_campus on Instagram',
-      reward: 75,
+      reward: 375,
       difficulty: 'easy',
       link: '/instagram-follow'
     },
@@ -73,7 +73,7 @@ export default function DailyMissions() {
       id: 'profile',
       name: 'Complete Profile',
       description: 'Add university & course info',
-      reward: 150,
+      reward: 750,
       difficulty: 'medium',
       link: '/profile'
     },
@@ -81,7 +81,7 @@ export default function DailyMissions() {
       id: 'invite',
       name: 'Invite Friends',
       description: 'Send referral to 2 friends',
-      reward: 100,
+      reward: 500,
       difficulty: 'medium',
       link: '/referrals'
     },
@@ -89,7 +89,7 @@ export default function DailyMissions() {
       id: 'explore',
       name: 'Explore Marketplace',
       description: 'Browse 3+ marketplace items',
-      reward: 75,
+      reward: 375,
       difficulty: 'medium',
       link: '/marketplace'
     },
@@ -97,7 +97,7 @@ export default function DailyMissions() {
       id: 'share',
       name: 'Share & Earn',
       description: 'Share to WhatsApp & get 1 signup',
-      reward: 250,
+      reward: 1250,
       difficulty: 'hard',
       link: '/referrals'
     },
@@ -105,7 +105,7 @@ export default function DailyMissions() {
       id: 'watch_videos',
       name: 'Watch 3 Videos',
       description: 'Complete 3 video ads today',
-      reward: 200,
+      reward: 1000,
       difficulty: 'hard',
       link: '/video-ads'
     }
@@ -163,9 +163,9 @@ export default function DailyMissions() {
       const mediumCount = availableMissions.filter(m => m.difficulty === 'medium' && completed.includes(m.id)).length;
       const allCompleted = completed.length === availableMissions.length;
 
-      if (easyCount === 3) setComboBonus(prev => Math.max(prev, 50));
-      if (mediumCount === 3) setComboBonus(prev => Math.max(prev, 100));
-      if (allCompleted) setComboBonus(250);
+      if (easyCount === 3) setComboBonus(prev => Math.max(prev, 250));
+      if (mediumCount === 3) setComboBonus(prev => Math.max(prev, 500));
+      if (allCompleted) setComboBonus(1250);
     } catch (err) {
       console.error('Error checking missions:', err);
     }
@@ -204,7 +204,7 @@ export default function DailyMissions() {
             userId: auth.currentUser.uid,
             missionId: 'video_ad',
             missionName: 'Watch an Ad',
-            pointsEarned: 50,
+            pointsEarned: 250,
             comboBonus: 0,
             completedDate: today,
             timestamp: new Date()
@@ -219,7 +219,7 @@ export default function DailyMissions() {
             userId: auth.currentUser.uid,
             missionId: 'watch_videos',
             missionName: 'Watch 3 Videos',
-            pointsEarned: 200,
+            pointsEarned: 1000,
             comboBonus: 0,
             completedDate: today,
             timestamp: new Date()
@@ -241,7 +241,7 @@ export default function DailyMissions() {
             userId: auth.currentUser.uid,
             missionId: 'instagram',
             missionName: 'Follow a Brand',
-            pointsEarned: 75,
+            pointsEarned: 375,
             comboBonus: 0,
             completedDate: today,
             timestamp: new Date()
@@ -256,9 +256,9 @@ export default function DailyMissions() {
       const mediumCount = availableMissions.filter(m => m.difficulty === 'medium' && completed.includes(m.id)).length;
       const allCompleted = completed.length === availableMissions.length;
 
-      if (easyCount === 3) setComboBonus(prev => Math.max(prev, 50));
-      if (mediumCount === 3) setComboBonus(prev => Math.max(prev, 100));
-      if (allCompleted) setComboBonus(250);
+      if (easyCount === 3) setComboBonus(prev => Math.max(prev, 250));
+      if (mediumCount === 3) setComboBonus(prev => Math.max(prev, 500));
+      if (allCompleted) setComboBonus(1250);
     } catch (err) {
       console.error('Error checking missions:', err);
     }

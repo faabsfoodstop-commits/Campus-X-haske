@@ -20,6 +20,8 @@ import {
   IconMarketplace,
   IconBuyPoints,
   IconFire,
+  IconDiamond,
+  IconRocket,
 } from '../components/Icons';
 
 export default function Dashboard() {
@@ -318,6 +320,29 @@ export default function Dashboard() {
                 Shop Now
               </Button>
             </div>
+          </div>
+        </section>
+
+        {/* Cosmetics & Premium */}
+        <section className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Enhance Your Experience</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ActivityCard
+              title="Cosmetics Shop"
+              description="Customize your profile with exclusive badges, frames, and titles!"
+              gradient="gradient-pink"
+              icon={IconDiamond}
+              onNavigate={() => navigate('/cosmetics-shop')}
+              cta="Browse shop"
+            />
+            <ActivityCard
+              title="Go Premium"
+              description="Get 2x points on all activities, instant redemption, and no ads!"
+              gradient="gradient-purple"
+              icon={IconRocket}
+              onNavigate={() => navigate('/premium')}
+              cta="Learn more"
+            />
           </div>
         </section>
 

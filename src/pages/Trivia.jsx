@@ -147,7 +147,7 @@ export default function Trivia() {
 
     setSelectedAnswer(index);
     if (index === questions[currentQuestion].correct) {
-      setScore(score + 10); // 10 points per correct answer
+      setScore(score + 100); // 100 points per correct answer (10x increase)
     }
 
     setTimeout(() => {
@@ -164,8 +164,8 @@ export default function Trivia() {
     setGameState('finished');
 
     try {
-      const correctAnswers = Math.round((score / 100) * 10);
-      const totalReward = score + 50; // Score + bonus
+      const correctAnswers = Math.round((score / 1000) * 10);
+      const totalReward = score + 500; // Score + bonus (increased from 50)
 
       // Save result
       await addDoc(collection(db, 'trivia_results'), {
@@ -267,9 +267,9 @@ export default function Trivia() {
               <div className="space-y-3 text-gray-600">
                 <p>✅ 10 questions about campus life and African history</p>
                 <p>✅ 10 seconds per question</p>
-                <p>✅ 10 points per correct answer</p>
-                <p>✅ +50 bonus points on completion</p>
-                <p>✅ Replay as many times as you want!</p>
+                <p>✅ 100 points per correct answer</p>
+                <p>✅ +500 bonus points on completion</p>
+                <p>✅ Earn up to 1,500 points per game!</p>
               </div>
             </div>
 
@@ -336,8 +336,8 @@ export default function Trivia() {
             {/* Results */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow p-8 mb-8 text-center">
               <h2 className="text-4xl font-bold mb-4">Game Finished! 🎉</h2>
-              <p className="text-6xl font-bold mb-2">{score} / 100</p>
-              <p className="text-green-100 text-lg">You earned +{score + 50} points!</p>
+              <p className="text-6xl font-bold mb-2">{score} / 1000</p>
+              <p className="text-green-100 text-lg">You earned +{score + 500} points!</p>
             </div>
 
             {/* Breakdown */}
@@ -349,12 +349,12 @@ export default function Trivia() {
                   <p className="text-4xl font-bold text-blue-600">{Math.round((score / 100) * 10)}/10</p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-4 text-center">
-                  <p className="text-gray-600 text-sm mb-2">Accuracy</p>
-                  <p className="text-4xl font-bold text-purple-600">{score}%</p>
+                  <p className="text-gray-600 text-sm mb-2">Score %</p>
+                  <p className="text-4xl font-bold text-purple-600">{Math.round((score / 1000) * 100)}%</p>
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-4 text-center">
                   <p className="text-gray-600 text-sm mb-2">Points Earned</p>
-                  <p className="text-4xl font-bold text-yellow-600">+{score + 50}</p>
+                  <p className="text-4xl font-bold text-yellow-600">+{score + 500}</p>
                 </div>
               </div>
             </div>

@@ -29,6 +29,8 @@ import SellPoints from './pages/SellPoints';
 import AchievementsPage from './pages/AchievementsPage';
 import WeeklyChallenges from './pages/WeeklyChallenges';
 import TransactionHistory from './pages/TransactionHistory';
+import CosmeticsShop from './pages/CosmeticsShop';
+import PremiumTier from './pages/PremiumTier';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -143,6 +145,14 @@ function App() {
           <Route
             path="/transactions"
             element={<PrivateRoute user={user}><TransactionHistory /></PrivateRoute>}
+          />
+          <Route
+            path="/cosmetics-shop"
+            element={<PrivateRoute user={user}><CosmeticsShop /></PrivateRoute>}
+          />
+          <Route
+            path="/premium"
+            element={<PrivateRoute user={user}><PremiumTier /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
