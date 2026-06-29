@@ -37,6 +37,9 @@ import UserAdsPosting from './pages/UserAdsPosting';
 import AdminAdModeration from './pages/AdminAdModeration';
 import UniversityAnalytics from './pages/UniversityAnalytics';
 import MarketplaceAds from './pages/MarketplaceAds';
+import UniversityChat from './pages/UniversityChat';
+import PremiumEnhancements from './pages/PremiumEnhancements';
+import BrandPartnershipPortal from './pages/BrandPartnershipPortal';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -183,6 +186,18 @@ function App() {
           <Route
             path="/marketplace-ads"
             element={<PrivateRoute user={user}><MarketplaceAds /></PrivateRoute>}
+          />
+          <Route
+            path="/university-chat"
+            element={<PrivateRoute user={user}><UniversityChat /></PrivateRoute>}
+          />
+          <Route
+            path="/premium-enhancements"
+            element={<PrivateRoute user={user}><PremiumEnhancements /></PrivateRoute>}
+          />
+          <Route
+            path="/admin/partnerships"
+            element={<PrivateRoute user={user}><BrandPartnershipPortal /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
