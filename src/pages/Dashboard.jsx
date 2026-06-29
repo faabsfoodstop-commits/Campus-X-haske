@@ -4,6 +4,9 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -11,6 +14,7 @@ export default function Dashboard() {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { alert: showAlert, modal, closeModal } = useConfirm();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -56,10 +60,18 @@ export default function Dashboard() {
       }));
       setCheckedInToday(true);
 
-      alert(`Check-in successful! You earned ${pointsEarned} points!`);
+      await showAlert({
+        title: 'Success',
+        message: `Check-in successful! You earned ${pointsEarned} points!`,
+        type: 'success'
+      });
     } catch (err) {
       console.error('Error checking in:', err);
-      alert(`Failed to check in: ${err.message}`);
+      await showAlert({
+        title: 'Error',
+        message: err.message || 'Failed to check in. Please try again.',
+        type: 'error'
+      });
     }
   };
 
@@ -84,24 +96,27 @@ export default function Dashboard() {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-2xl font-bold text-primary">HASKE</h1>
             <div className="flex gap-4 items-center">
-              <button
+              <Button
                 onClick={() => navigate('/profile')}
-                className="text-gray-600 hover:text-primary"
+                variant="ghost"
+                size="md"
               >
                 Profile
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => navigate('/wallet')}
-                className="text-gray-600 hover:text-primary"
+                variant="ghost"
+                size="md"
               >
                 Wallet
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleLogout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                variant="danger"
+                size="md"
               >
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -139,18 +154,22 @@ export default function Dashboard() {
             <h3 className="text-gray-600 font-semibold mb-2">Wallet Balance</h3>
             <p className="text-4xl font-bold text-primary">₦{userData?.wallet || 0}</p>
             <div className="mt-3 space-y-2">
-              <button
+              <Button
                 onClick={() => navigate('/wallet')}
-                className="w-full text-primary hover:text-blue-600 text-sm font-semibold border-b pb-2"
+                variant="ghost"
+                size="sm"
+                fullWidth
               >
                 View Wallet →
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => navigate('/transactions')}
-                className="w-full text-primary hover:text-blue-600 text-sm font-semibold"
+                variant="ghost"
+                size="sm"
+                fullWidth
               >
                 Transaction History →
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -171,17 +190,14 @@ export default function Dashboard() {
             Check in daily to earn points and maintain your streak!
           </p>
 
-          <button
+          <Button
             onClick={handleCheckIn}
             disabled={checkedInToday}
-            className={`px-8 py-3 rounded-lg font-semibold text-white ${
-              checkedInToday
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-primary hover:bg-blue-600'
-            }`}
+            variant={checkedInToday ? 'secondary' : 'primary'}
+            size="lg"
           >
             {checkedInToday ? '✓ Checked In Today' : 'Check In Now'}
-          </button>
+          </Button>
         </div>
 
         {/* Games & Activities */}
@@ -308,9 +324,9 @@ export default function Dashboard() {
             <p className="text-gray-600 mb-4">
               Browse and list items for sale on the campus marketplace.
             </p>
-            <button className="text-primary hover:text-blue-600 font-semibold">
+            <Button variant="ghost" size="md">
               Open Marketplace →
-            </button>
+            </Button>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
@@ -318,12 +334,13 @@ export default function Dashboard() {
             <p className="text-gray-600 mb-4">
               Send money to other students quickly and securely.
             </p>
-            <button className="text-primary hover:text-blue-600 font-semibold">
+            <Button variant="ghost" size="md">
               Send Money →
-            </button>
+            </Button>
           </div>
         </div>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function DailyMissions() {
   const [user, setUser] = useState(null);
@@ -12,6 +15,7 @@ export default function DailyMissions() {
   const [comboBonus, setComboBonus] = useState(0);
   const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
+  const { alert: showAlert, confirm, modal, closeModal } = useConfirm();
 
   const availableMissions = [
     {
@@ -243,7 +247,12 @@ export default function DailyMissions() {
 
   const completeMission = async (mission) => {
     if (completedToday.includes(mission.id)) {
-      alert('Already completed today!');
+      setNotification({
+        type: 'warning',
+        title: 'Already Completed',
+        message: `You've already completed "${mission.name}" today! Come back tomorrow for fresh missions.`
+      });
+      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
@@ -338,7 +347,15 @@ export default function DailyMissions() {
   };
 
   const clearTestData = async () => {
-    if (!confirm('Delete all test missions for today? This resets the daily missions so you can test fresh.')) return;
+    const confirmed = await confirm({
+      title: 'Clear Test Data?',
+      message: 'Delete all test missions for today? This resets the daily missions so you can test fresh.',
+      type: 'warning',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     try {
       const today = new Date().toDateString();
@@ -358,10 +375,18 @@ export default function DailyMissions() {
       await batch.commit();
       setCompletedToday([]);
       setComboBonus(0);
-      alert(`✓ Deleted ${snapshot.size} test missions. Refresh the page to see the clean slate.`);
+      await showAlert({
+        title: 'Success',
+        message: `Deleted ${snapshot.size} test missions. Refresh the page to see the clean slate.`,
+        type: 'success'
+      });
     } catch (err) {
       console.error('Error deleting test data:', err);
-      alert(`Error: ${err.message}`);
+      await showAlert({
+        title: 'Error',
+        message: err.message || 'Failed to delete test data',
+        type: 'error'
+      });
     }
   };
 
@@ -373,19 +398,21 @@ export default function DailyMissions() {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-2xl font-bold text-primary">HASKE</h1>
             <div className="flex gap-4 items-center">
-              <button
+              <Button
                 onClick={() => navigate('/dashboard')}
-                className="text-gray-600 hover:text-primary"
+                variant="ghost"
+                size="md"
               >
                 Dashboard
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={clearTestData}
-                className="text-xs text-gray-400 hover:text-gray-600"
+                variant="ghost"
+                size="sm"
                 title="Clear test data"
               >
                 🔧
-              </button>
+              </Button>
               <div className="text-lg font-bold text-primary">
                 ⭐ {userData?.points || 0} pts
               </div>
@@ -453,17 +480,14 @@ export default function DailyMissions() {
                 <p className="text-gray-600 text-sm mb-4">{mission.description}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
-                  <button
+                  <Button
                     onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                      completedToday.includes(mission.id)
-                        ? 'bg-green-500 text-white cursor-not-allowed'
-                        : 'bg-primary text-white hover:bg-blue-600'
-                    }`}
+                    variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
+                    size="sm"
                   >
                     {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -493,17 +517,14 @@ export default function DailyMissions() {
                 <p className="text-gray-600 text-sm mb-4">{mission.description}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
-                  <button
+                  <Button
                     onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                      completedToday.includes(mission.id)
-                        ? 'bg-green-500 text-white cursor-not-allowed'
-                        : 'bg-primary text-white hover:bg-blue-600'
-                    }`}
+                    variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
+                    size="sm"
                   >
                     {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -533,17 +554,14 @@ export default function DailyMissions() {
                 <p className="text-gray-600 text-sm mb-4">{mission.description}</p>
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-bold text-primary">+{mission.reward}</span>
-                  <button
+                  <Button
                     onClick={() => handleStartMission(mission)}
                     disabled={completedToday.includes(mission.id)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                      completedToday.includes(mission.id)
-                        ? 'bg-green-500 text-white cursor-not-allowed'
-                        : 'bg-primary text-white hover:bg-blue-600'
-                    }`}
+                    variant={completedToday.includes(mission.id) ? 'success' : 'primary'}
+                    size="sm"
                   >
                     {completedToday.includes(mission.id) ? '✓ Done' : 'Start →'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -572,6 +590,7 @@ export default function DailyMissions() {
           </div>
         </div>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { signOut, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -10,7 +14,9 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
+  const { alert: showAlert, modal, closeModal } = useConfirm();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -39,6 +45,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
       if (formData.fullName !== user.displayName) {
         await updateProfile(auth.currentUser, {
@@ -53,10 +60,20 @@ export default function Profile() {
 
       setUserData(formData);
       setEditing(false);
-      alert('Profile updated successfully!');
+      await showAlert({
+        title: 'Success',
+        message: 'Your profile has been updated successfully!',
+        type: 'success'
+      });
     } catch (err) {
       console.error('Error updating profile:', err);
-      alert('Failed to update profile.');
+      await showAlert({
+        title: 'Error',
+        message: 'Failed to update profile. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -110,28 +127,32 @@ export default function Profile() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-gray-800">My Profile</h2>
             {!editing && (
-              <button
+              <Button
                 onClick={() => setEditing(true)}
-                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                variant="primary"
+                size="md"
               >
                 Edit Profile
-              </button>
+              </Button>
             )}
           </div>
 
           <div className="space-y-6">
             <div>
-              <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
               {editing ? (
-                <input
+                <Input
+                  label="Full Name"
                   type="text"
                   name="fullName"
                   value={formData.fullName || ''}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Enter your full name"
                 />
               ) : (
-                <p className="text-gray-600">{userData?.fullName || user?.displayName}</p>
+                <>
+                  <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
+                  <p className="text-gray-600">{userData?.fullName || user?.displayName}</p>
+                </>
               )}
             </div>
 
@@ -141,21 +162,27 @@ export default function Profile() {
             </div>
 
             <div>
-              <label className="block text-gray-700 font-semibold mb-2">University</label>
               {editing ? (
-                <select
-                  name="university"
-                  value={formData.university || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="BUK">Bayero University Kano (BUK)</option>
-                  <option value="ABU">Ahmadu Bello University (ABU)</option>
-                  <option value="OAU">Obafemi Awolowo University (OAU)</option>
-                  <option value="UNILAG">University of Lagos (UNILAG)</option>
-                </select>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">University</label>
+                  <select
+                    name="university"
+                    value={formData.university || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                  >
+                    <option value="">Select a university</option>
+                    <option value="BUK">Bayero University Kano (BUK)</option>
+                    <option value="ABU">Ahmadu Bello University (ABU)</option>
+                    <option value="OAU">Obafemi Awolowo University (OAU)</option>
+                    <option value="UNILAG">University of Lagos (UNILAG)</option>
+                  </select>
+                </div>
               ) : (
-                <p className="text-gray-600">{userData?.university}</p>
+                <>
+                  <label className="block text-gray-700 font-semibold mb-2">University</label>
+                  <p className="text-gray-600">{userData?.university}</p>
+                </>
               )}
             </div>
 
@@ -172,26 +199,31 @@ export default function Profile() {
 
             {editing && (
               <div className="flex gap-4 pt-6">
-                <button
+                <Button
                   onClick={handleSave}
-                  className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-blue-600 font-semibold"
+                  variant="primary"
+                  size="md"
+                  loading={isSaving}
                 >
                   Save Changes
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => {
                     setEditing(false);
                     setFormData(userData);
                   }}
-                  className="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-semibold"
+                  variant="secondary"
+                  size="md"
+                  disabled={isSaving}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
           </div>
         </div>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

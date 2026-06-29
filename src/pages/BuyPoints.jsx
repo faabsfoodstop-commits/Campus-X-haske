@@ -4,10 +4,14 @@ import { auth, db } from '../config/firebase';
 import { doc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
 import { ToastContext } from '../context/ToastContext';
 import { initializePayment, generateReference } from '../services/paystack';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function BuyPoints() {
   const navigate = useNavigate();
   const { addToast } = useContext(ToastContext);
+  const { modal, closeModal } = useConfirm();
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -143,12 +147,13 @@ export default function BuyPoints() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-4">
-              <button
+              <Button
                 onClick={() => navigate('/dashboard')}
-                className="text-gray-600 hover:text-primary"
+                variant="ghost"
+                size="md"
               >
                 ← Back
-              </button>
+              </Button>
               <h1 className="text-2xl font-bold text-primary">Buy Points</h1>
             </div>
           </div>
@@ -207,20 +212,19 @@ export default function BuyPoints() {
                   <p className="font-bold">+₦{pkg.referralBonus}</p>
                 </div>
 
-                <button
+                <Button
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePurchase(pkg);
                   }}
-                  disabled={loading}
-                  className={`w-full mt-6 py-2 rounded-lg font-semibold transition ${
-                    selectedPackage?.id === pkg.id
-                      ? 'bg-white text-indigo-600'
-                      : 'bg-white/20 text-white hover:bg-white/30'
-                  } disabled:opacity-50`}
+                  disabled={loading && selectedPackage?.id === pkg.id}
+                  variant={selectedPackage?.id === pkg.id ? 'primary' : 'outline'}
+                  size="md"
+                  fullWidth
+                  loading={loading && selectedPackage?.id === pkg.id}
                 >
                   {loading && selectedPackage?.id === pkg.id ? 'Processing...' : 'Buy Now'}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -271,6 +275,7 @@ export default function BuyPoints() {
           </div>
         </div>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

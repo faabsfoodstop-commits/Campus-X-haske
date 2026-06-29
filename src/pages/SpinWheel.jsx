@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function SpinWheel() {
   const [user, setUser] = useState(null);
@@ -13,6 +16,7 @@ export default function SpinWheel() {
   const [spinHistory, setSpinHistory] = useState([]);
   const [showBuySpins, setShowBuySpins] = useState(false);
   const navigate = useNavigate();
+  const { alert: showAlert, modal, closeModal } = useConfirm();
 
   const wheelOptions = [
     { label: '50 pts', points: 50, color: '#fbbf24', probability: 0.30 },
@@ -115,7 +119,11 @@ export default function SpinWheel() {
     }
 
     if (!useFreeSpins && (userData?.wallet || 0) < 50) {
-      alert('Not enough tokens to buy a spin (costs 50 tokens)');
+      showAlert({
+        title: 'Not Enough Tokens',
+        message: 'You need 50 tokens to buy a spin. Complete tasks to earn more tokens.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -212,7 +220,11 @@ export default function SpinWheel() {
       await fetchSpinHistory();
     } catch (err) {
       console.error('Error processing spin:', err);
-      alert(`Spin recorded but had an error: ${err.message}`);
+      showAlert({
+        title: 'Spin Error',
+        message: 'Your spin was recorded but we encountered an error processing it. Please refresh the page.',
+        type: 'error'
+      });
     }
 
     setIsSpinning(false);
@@ -221,7 +233,11 @@ export default function SpinWheel() {
   const buySpins = async (quantity = 1) => {
     const cost = 50 * quantity;
     if ((userData?.wallet || 0) < cost) {
-      alert(`Not enough tokens. Need ${cost}, have ${userData?.wallet || 0}`);
+      showAlert({
+        title: 'Insufficient Balance',
+        message: `You need ${cost} tokens but only have ${userData?.wallet || 0}. Complete more tasks to earn tokens.`,
+        type: 'warning'
+      });
       return;
     }
 
@@ -236,8 +252,13 @@ export default function SpinWheel() {
         wallet: (prev?.wallet || 0) - cost
       }));
 
+      setFreeSpin(freeSpin + quantity);
       setShowBuySpins(false);
-      alert(`Purchased ${quantity} spin(s)! Now you have ${freeSpin + quantity - 1} free spins.`);
+      showAlert({
+        title: 'Success!',
+        message: `You've purchased ${quantity} spin${quantity > 1 ? 's' : ''}! Now you have ${freeSpin + quantity} free spins available.`,
+        type: 'success'
+      });
     } catch (err) {
       console.error('Error buying spins:', err);
     }
@@ -348,25 +369,24 @@ export default function SpinWheel() {
             )}
 
             {/* Spin Buttons */}
-            <div className="flex gap-4 justify-center mb-6">
-              <button
+            <div className="flex gap-4 justify-center mb-6 flex-wrap">
+              <Button
                 onClick={() => handleSpin(true)}
-                disabled={isSpinning || freeSpin <= 0}
-                className={`px-8 py-4 rounded-lg font-bold text-white text-lg transition ${
-                  isSpinning || freeSpin <= 0
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-500 hover:bg-green-600'
-                }`}
+                disabled={freeSpin <= 0}
+                loading={isSpinning}
+                variant="success"
+                size="lg"
               >
-                {isSpinning ? 'SPINNING...' : `Free Spin (${freeSpin} left)`}
-              </button>
+                {isSpinning ? 'Spinning...' : `Free Spin (${freeSpin})`}
+              </Button>
 
-              <button
+              <Button
                 onClick={() => setShowBuySpins(true)}
-                className="px-8 py-4 rounded-lg font-bold text-white text-lg bg-blue-500 hover:bg-blue-600 transition"
+                variant="primary"
+                size="lg"
               >
                 Buy Spin (50 tokens)
-              </button>
+              </Button>
             </div>
 
             {/* Info */}
@@ -377,31 +397,45 @@ export default function SpinWheel() {
           </div>
         </div>
 
-        {/* Buy Spins Modal */}
+        {/* Buy Spins Modal - Custom implementation */}
         {showBuySpins && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-8 max-w-md">
-              <h3 className="text-2xl font-bold mb-4">Buy More Spins</h3>
-              <p className="text-gray-600 mb-6">You have {userData?.wallet || 0} tokens</p>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-8 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold">Buy More Spins</h3>
+                <button
+                  onClick={() => setShowBuySpins(false)}
+                  className="text-2xl text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                You have <span className="font-bold text-primary">{userData?.wallet || 0}</span> tokens available
+              </p>
 
               <div className="space-y-3 mb-6">
                 {[1, 3, 5].map(qty => (
-                  <button
+                  <Button
                     key={qty}
                     onClick={() => buySpins(qty)}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg"
+                    variant="primary"
+                    fullWidth
+                    size="md"
                   >
                     Buy {qty} Spin{qty > 1 ? 's' : ''} ({qty * 50} tokens)
-                  </button>
+                  </Button>
                 ))}
               </div>
 
-              <button
+              <Button
                 onClick={() => setShowBuySpins(false)}
-                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg"
+                variant="secondary"
+                fullWidth
+                size="md"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -426,6 +460,9 @@ export default function SpinWheel() {
           </div>
         </div>
       </div>
+
+      {/* Modal for alerts */}
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

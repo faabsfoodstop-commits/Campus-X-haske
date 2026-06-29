@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { modal, closeModal } = useConfirm();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,42 +37,45 @@ export default function Login() {
 
         <h3 className="text-2xl font-bold text-gray-800 mb-6">Welcome Back</h3>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="your@email.com"
+            error={error && error.includes('email') ? error : ''}
+            state={error && error.includes('email') ? 'error' : ''}
+          />
 
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="Your password"
+            error={error && error.includes('password') ? error : ''}
+            state={error && error.includes('password') ? 'error' : ''}
+          />
 
-          <button
+          {error && !error.includes('email') && !error.includes('password') && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white font-semibold py-2 rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+            loading={loading}
+            variant="primary"
+            size="md"
+            fullWidth
           >
             {loading ? 'Logging In...' : 'Login'}
-          </button>
+          </Button>
         </form>
 
         <p className="text-center text-gray-600 mt-4">
@@ -77,6 +85,7 @@ export default function Login() {
           </Link>
         </p>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

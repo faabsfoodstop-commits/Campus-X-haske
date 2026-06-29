@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
@@ -12,6 +16,7 @@ export default function Admin() {
   const [buyPrice, setBuyPrice] = useState('0.40');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { alert: showAlert, confirm, modal, closeModal } = useConfirm();
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -60,19 +65,35 @@ export default function Admin() {
         createdAt: new Date(),
       });
 
-      alert(`✓ Posted: Buying ${buyPoints} points at ₦${buyPrice}/pt`);
+      await showAlert({
+        title: 'Success',
+        message: `Buy offer posted: ${buyPoints} points at ₦${buyPrice}/pt`,
+        type: 'success'
+      });
       setBuyPoints('');
       setBuyPrice('0.40');
     } catch (err) {
       console.error('Error posting buy offer:', err);
-      alert('Error: ' + err.message);
+      await showAlert({
+        title: 'Error',
+        message: err.message || 'Failed to post buy offer',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleSeedMarket = async () => {
-    if (!window.confirm('Create 3 test buy offers to bootstrap the market?')) return;
+    const confirmed = await confirm({
+      title: 'Seed Market?',
+      message: 'This will create 3 test buy offers to bootstrap the market.',
+      type: 'info',
+      confirmLabel: 'Seed Market',
+      cancelLabel: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     setSubmitting(true);
     try {
@@ -93,10 +114,18 @@ export default function Admin() {
         });
       }
 
-      alert('✓ Market seeded! Check Point Market to see live offers.');
+      await showAlert({
+        title: 'Success',
+        message: 'Market seeded with 3 test offers! Check Point Market to see live offers.',
+        type: 'success'
+      });
     } catch (err) {
       console.error('Error seeding market:', err);
-      alert('Error: ' + err.message);
+      await showAlert({
+        title: 'Error',
+        message: err.message || 'Failed to seed market',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -123,18 +152,20 @@ export default function Admin() {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-2xl font-bold text-primary">HASKE Admin</h1>
             <div className="flex gap-4 items-center">
-              <button
+              <Button
                 onClick={() => navigate('/dashboard')}
-                className="text-gray-600 hover:text-primary"
+                variant="ghost"
+                size="md"
               >
                 Dashboard
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleLogout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                variant="danger"
+                size="md"
               >
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -144,18 +175,20 @@ export default function Admin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Quick Actions */}
         <div className="mb-8 flex gap-3">
-          <button
+          <Button
             onClick={() => navigate('/admin/redemptions')}
-            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+            variant="primary"
+            size="lg"
           >
             💳 Manage Redemptions
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => navigate('/point-market')}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+            variant="success"
+            size="lg"
           >
             📊 Point Market
-          </button>
+          </Button>
         </div>
 
         {/* Market Management */}
@@ -165,26 +198,24 @@ export default function Admin() {
 
           <form onSubmit={handlePostBuyOffer} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Points to Buy</label>
-              <input
+              <Input
+                label="Points to Buy"
                 type="number"
                 min="100"
                 value={buyPoints}
                 onChange={(e) => setBuyPoints(e.target.value)}
                 placeholder="e.g., 500"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Price/Point (₦)</label>
-              <input
+              <Input
+                label="Price/Point (₦)"
                 type="number"
                 min="0.01"
                 step="0.01"
                 value={buyPrice}
                 onChange={(e) => setBuyPrice(e.target.value)}
                 placeholder="0.40"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -194,17 +225,16 @@ export default function Admin() {
               </div>
             </div>
             <div className="flex items-end">
-              <button
+              <Button
                 type="submit"
                 disabled={!buyPoints || !buyPrice || submitting}
-                className={`w-full py-2 rounded-lg font-semibold text-white transition ${
-                  buyPoints && buyPrice && !submitting
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-gray-400 cursor-not-allowed'
-                }`}
+                variant="success"
+                size="md"
+                fullWidth
+                loading={submitting}
               >
-                {submitting ? 'Posting...' : 'Post Offer'}
-              </button>
+                Post Offer
+              </Button>
             </div>
           </form>
 
@@ -218,13 +248,14 @@ export default function Admin() {
                 <li>• Once market is active, you can step back</li>
               </ul>
             </div>
-            <button
+            <Button
               onClick={handleSeedMarket}
               disabled={submitting}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
+              variant="primary"
+              size="lg"
             >
-              🚀 Quick Seed<br />(3 offers)
-            </button>
+              🚀 Quick Seed (3 offers)
+            </Button>
           </div>
         </div>
 
@@ -281,6 +312,7 @@ export default function Admin() {
           </div>
         </div>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { auth } from './config/firebase';
 import { ToastProvider } from './context/ToastContext';
 import BottomNavigation from './components/BottomNavigation';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Landing from './pages/Landing';
 import SignUp from './pages/SignUp';
@@ -51,9 +52,10 @@ function App() {
   }
 
   return (
-    <ToastProvider>
-      <BrowserRouter>
-        <Routes>
+    <ErrorBoundary>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
@@ -142,10 +144,11 @@ function App() {
             path="/transactions"
             element={<PrivateRoute user={user}><TransactionHistory /></PrivateRoute>}
           />
-        </Routes>
-        <BottomNavigation />
-      </BrowserRouter>
-    </ToastProvider>
+          </Routes>
+          <BottomNavigation />
+        </BrowserRouter>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

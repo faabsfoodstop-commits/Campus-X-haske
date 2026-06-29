@@ -3,6 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Modal from '../components/Modal';
+import { useConfirm } from '../hooks/useConfirm';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -15,6 +19,7 @@ export default function SignUp() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { modal, closeModal } = useConfirm();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -73,29 +78,25 @@ export default function SignUp() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Full Name</label>
-            <input
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Full Name"
+            type="text"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            required
+            placeholder="Your full name"
+          />
 
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            placeholder="your@email.com"
+          />
 
           <div>
             <label className="block text-gray-700 font-medium mb-2">University</label>
@@ -103,7 +104,7 @@ export default function SignUp() {
               name="university"
               value={formData.university}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
             >
               <option value="BUK">Bayero University Kano (BUK)</option>
               <option value="ABU">Ahmadu Bello University (ABU)</option>
@@ -112,37 +113,38 @@ export default function SignUp() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            placeholder="Create a password"
+          />
 
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Confirm Password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <Input
+            label="Confirm Password"
+            type="password"
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+            placeholder="Confirm your password"
+            error={formData.password !== formData.confirmPassword && formData.confirmPassword ? 'Passwords do not match' : ''}
+            state={formData.password !== formData.confirmPassword && formData.confirmPassword ? 'error' : ''}
+          />
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white font-semibold py-2 rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+            loading={loading}
+            variant="primary"
+            size="md"
+            fullWidth
           >
             {loading ? 'Creating Account...' : 'Sign Up'}
-          </button>
+          </Button>
         </form>
 
         <p className="text-center text-gray-600 mt-4">
@@ -152,6 +154,7 @@ export default function SignUp() {
           </Link>
         </p>
       </div>
+      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }
