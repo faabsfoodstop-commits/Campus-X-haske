@@ -71,6 +71,37 @@ export default function Admin() {
     }
   };
 
+  const handleSeedMarket = async () => {
+    if (!window.confirm('Create 3 test buy offers to bootstrap the market?')) return;
+
+    setSubmitting(true);
+    try {
+      const testOffers = [
+        { points: 500, offerPrice: 0.40 },
+        { points: 1000, offerPrice: 0.40 },
+        { points: 2500, offerPrice: 0.40 },
+      ];
+
+      for (const offer of testOffers) {
+        await addDoc(collection(db, 'point_buy_offers'), {
+          offeredBy: 'admin',
+          points: offer.points,
+          offerPrice: offer.offerPrice,
+          totalValue: offer.points * offer.offerPrice,
+          status: 'active',
+          createdAt: new Date(),
+        });
+      }
+
+      alert('✓ Market seeded! Check Point Market to see live offers.');
+    } catch (err) {
+      console.error('Error seeding market:', err);
+      alert('Error: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -177,14 +208,23 @@ export default function Admin() {
             </div>
           </form>
 
-          <div className="mt-4 p-3 bg-blue-50 border-l-4 border-primary text-sm text-gray-700">
-            <p className="font-semibold mb-2">💡 Strategy:</p>
-            <ul className="text-xs space-y-1">
-              <li>• Start at ₦0.40/pt to show users they can earn money</li>
-              <li>• Post larger amounts (1000+ pts) to show volume</li>
-              <li>• Watch real users start trading at rates between your offers</li>
-              <li>• Once market is active, you can step back</li>
-            </ul>
+          <div className="mt-4 flex gap-3">
+            <div className="flex-1 p-3 bg-blue-50 border-l-4 border-primary text-sm text-gray-700">
+              <p className="font-semibold mb-2">💡 Strategy:</p>
+              <ul className="text-xs space-y-1">
+                <li>• Start at ₦0.40/pt to show users they can earn money</li>
+                <li>• Post larger amounts (1000+ pts) to show volume</li>
+                <li>• Watch real users start trading at rates between your offers</li>
+                <li>• Once market is active, you can step back</li>
+              </ul>
+            </div>
+            <button
+              onClick={handleSeedMarket}
+              disabled={submitting}
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
+            >
+              🚀 Quick Seed<br />(3 offers)
+            </button>
           </div>
         </div>
 
