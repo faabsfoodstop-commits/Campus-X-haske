@@ -31,24 +31,24 @@ export default function Marketplace() {
   };
 
   const rewards = [
-    // Level 1: Airtime (base points for MTN)
-    { id: 'airtime_500', name: '₦500 Airtime', basePts: 2000, type: 'airtime', amount: 500, naira: 500, level: 1, tier: 'Starter', purchases: 247, featured: true, telecom: true },
-    { id: 'airtime_1000', name: '₦1,000 Airtime', basePts: 4000, type: 'airtime', amount: 1000, naira: 1000, level: 2, tier: 'Bronze', purchases: 342, featured: true, telecom: true },
-    { id: 'airtime_2500', name: '₦2,500 Airtime', basePts: 10000, type: 'airtime', amount: 2500, naira: 2500, level: 2, tier: 'Bronze', purchases: 89, featured: false, telecom: true },
-    { id: 'airtime_5000', name: '₦5,000 Airtime', basePts: 20000, type: 'airtime', amount: 5000, naira: 5000, level: 3, tier: 'Silver', purchases: 67, featured: true, telecom: true },
-    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', basePts: 40000, type: 'airtime', amount: 10000, naira: 10000, level: 4, tier: 'Gold', purchases: 23, featured: true, telecom: true },
+    // Level 1: Airtime (base points for MTN) - Fixed: Now economically rational to buy points
+    { id: 'airtime_500', name: '₦500 Airtime', basePts: 1000, type: 'airtime', amount: 500, naira: 500, level: 1, tier: 'Starter', purchases: 247, featured: true, telecom: true },
+    { id: 'airtime_1000', name: '₦1,000 Airtime', basePts: 2000, type: 'airtime', amount: 1000, naira: 1000, level: 2, tier: 'Bronze', purchases: 342, featured: true, telecom: true },
+    { id: 'airtime_2500', name: '₦2,500 Airtime', basePts: 5000, type: 'airtime', amount: 2500, naira: 2500, level: 2, tier: 'Bronze', purchases: 89, featured: false, telecom: true },
+    { id: 'airtime_5000', name: '₦5,000 Airtime', basePts: 10000, type: 'airtime', amount: 5000, naira: 5000, level: 3, tier: 'Silver', purchases: 67, featured: true, telecom: true },
+    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', basePts: 20000, type: 'airtime', amount: 10000, naira: 10000, level: 4, tier: 'Gold', purchases: 23, featured: true, telecom: true },
 
     // Level 1-2: Data (fixed, not provider-based)
-    { id: 'data_1gb', name: '1GB Mobile Data', basePts: 3000, type: 'data', amount: 1, unit: 'GB', level: 1, tier: 'Starter', purchases: 156, featured: false, telecom: true },
-    { id: 'data_5gb', name: '5GB Mobile Data', basePts: 8000, type: 'data', amount: 5, unit: 'GB', level: 2, tier: 'Bronze', purchases: 124, featured: true, telecom: true },
-    { id: 'data_10gb', name: '10GB Premium Data', basePts: 15000, type: 'data', amount: 10, unit: 'GB', level: 3, tier: 'Silver', purchases: 45, featured: true, telecom: true },
-    { id: 'data_20gb', name: '20GB Elite Data', basePts: 28000, type: 'data', amount: 20, unit: 'GB', level: 4, tier: 'Gold', purchases: 12, featured: true, telecom: true },
+    { id: 'data_1gb', name: '1GB Mobile Data', basePts: 1500, type: 'data', amount: 1, unit: 'GB', level: 1, tier: 'Starter', purchases: 156, featured: false, telecom: true },
+    { id: 'data_5gb', name: '5GB Mobile Data', basePts: 4000, type: 'data', amount: 5, unit: 'GB', level: 2, tier: 'Bronze', purchases: 124, featured: true, telecom: true },
+    { id: 'data_10gb', name: '10GB Premium Data', basePts: 7500, type: 'data', amount: 10, unit: 'GB', level: 3, tier: 'Silver', purchases: 45, featured: true, telecom: true },
+    { id: 'data_20gb', name: '20GB Elite Data', basePts: 14000, type: 'data', amount: 20, unit: 'GB', level: 4, tier: 'Gold', purchases: 12, featured: true, telecom: true },
 
     // Gift Cards (not provider-based, fixed points)
-    { id: 'gift_card_500', name: '₦500 Gift Card', basePts: 2500, type: 'giftcard', amount: 500, level: 2, tier: 'Bronze', purchases: 78, featured: false },
-    { id: 'gift_card_1000', name: '₦1,000 Gift Card', basePts: 5000, type: 'giftcard', amount: 1000, level: 2, tier: 'Bronze', purchases: 156, featured: false },
-    { id: 'gift_card_2500', name: '₦2,500 Gift Card', basePts: 12000, type: 'giftcard', amount: 2500, level: 3, tier: 'Silver', purchases: 32, featured: false },
-    { id: 'gift_card_5000', name: '₦5,000 Gift Card', basePts: 25000, type: 'giftcard', amount: 5000, level: 4, tier: 'Gold', purchases: 8, featured: false },
+    { id: 'gift_card_500', name: '₦500 Gift Card', basePts: 1250, type: 'giftcard', amount: 500, level: 2, tier: 'Bronze', purchases: 78, featured: false },
+    { id: 'gift_card_1000', name: '₦1,000 Gift Card', basePts: 2500, type: 'giftcard', amount: 1000, level: 2, tier: 'Bronze', purchases: 156, featured: false },
+    { id: 'gift_card_2500', name: '₦2,500 Gift Card', basePts: 6000, type: 'giftcard', amount: 2500, level: 3, tier: 'Silver', purchases: 32, featured: false },
+    { id: 'gift_card_5000', name: '₦5,000 Gift Card', basePts: 12500, type: 'giftcard', amount: 5000, level: 4, tier: 'Gold', purchases: 8, featured: false },
   ];
 
   useEffect(() => {
