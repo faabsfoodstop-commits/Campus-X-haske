@@ -207,3 +207,28 @@ export const IconSuccess = (props) => (
     <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 );
+
+export const IconTrophy = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2" />
+    <path d="M6 9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2" />
+    <path d="M9 5v14a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V5" />
+    <path d="M3 20h18" />
+  </svg>
+);
+
+export const IconRocket = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <path d="M4 17v5h16v-5" />
+    <path d="M12 0v11" />
+    <path d="M4 7c0-2 2-4 8-4s8 2 8 4" />
+    <path d="M7 11l-3 3 3 3" />
+    <path d="M17 11l3 3-3 3" />
+  </svg>
+);
+
+export const IconDiamond = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </svg>
+);
