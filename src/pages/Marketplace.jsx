@@ -11,31 +11,44 @@ export default function Marketplace() {
   const [notification, setNotification] = useState(null);
   const [filter, setFilter] = useState('all');
   const [selectedPhone, setSelectedPhone] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState('mtn');
   const navigate = useNavigate();
 
   const MIN_POINTS = 1000;
 
+  // Telecom providers with different rates and limits
+  const providers = {
+    mtn: { name: 'MTN', color: 'from-yellow-400 to-yellow-600', rate: 'Standard', pointRate: 4, dailyLimit: 2000 },
+    airtel: { name: 'Airtel', color: 'from-red-500 to-red-600', rate: '10% Better', pointRate: 3.6, dailyLimit: 2500, badge: '⭐ Best Rate' },
+    glo: { name: 'Glo', color: 'from-green-400 to-green-600', rate: 'Premium', pointRate: 4.4, dailyLimit: 1500, badge: '💎 Premium' },
+    nine: { name: '9mobile', color: 'from-blue-400 to-blue-600', rate: '5% Better', pointRate: 3.8, dailyLimit: 2000 }
+  };
+
+  // Calculate points needed for each amount based on provider rate
+  const getPointsNeeded = (nairaAmount, providerKey) => {
+    const provider = providers[providerKey];
+    return Math.ceil((nairaAmount * provider.pointRate) / 100);
+  };
+
   const rewards = [
-    // Level 1: 0-1000 pts
-    { id: 'airtime_500', name: '₦500 Airtime', points: 500, type: 'airtime', amount: 500, provider: 'MTN/Airtel/Glo', level: 1, tier: 'Starter', purchases: 247, featured: true },
-    { id: 'data_1gb', name: '1GB Mobile Data', points: 1500, type: 'data', amount: 1, unit: 'GB', provider: 'MTN/Airtel/Glo', level: 1, tier: 'Starter', purchases: 156, featured: false },
+    // Level 1: Airtime (base points for MTN)
+    { id: 'airtime_500', name: '₦500 Airtime', basePts: 2000, type: 'airtime', amount: 500, naira: 500, level: 1, tier: 'Starter', purchases: 247, featured: true, telecom: true },
+    { id: 'airtime_1000', name: '₦1,000 Airtime', basePts: 4000, type: 'airtime', amount: 1000, naira: 1000, level: 2, tier: 'Bronze', purchases: 342, featured: true, telecom: true },
+    { id: 'airtime_2500', name: '₦2,500 Airtime', basePts: 10000, type: 'airtime', amount: 2500, naira: 2500, level: 2, tier: 'Bronze', purchases: 89, featured: false, telecom: true },
+    { id: 'airtime_5000', name: '₦5,000 Airtime', basePts: 20000, type: 'airtime', amount: 5000, naira: 5000, level: 3, tier: 'Silver', purchases: 67, featured: true, telecom: true },
+    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', basePts: 40000, type: 'airtime', amount: 10000, naira: 10000, level: 4, tier: 'Gold', purchases: 23, featured: true, telecom: true },
 
-    // Level 2: 1000-5000 pts
-    { id: 'airtime_1000', name: '₦1,000 Airtime', points: 1000, type: 'airtime', amount: 1000, provider: 'MTN/Airtel/Glo', level: 2, tier: 'Bronze', purchases: 342, featured: true },
-    { id: 'airtime_2500', name: '₦2,500 Airtime', points: 2500, type: 'airtime', amount: 2500, provider: 'MTN/Airtel/Glo', level: 2, tier: 'Bronze', purchases: 89, featured: false },
-    { id: 'data_5gb', name: '5GB Mobile Data', points: 6000, type: 'data', amount: 5, unit: 'GB', provider: 'MTN/Airtel/Glo', level: 2, tier: 'Bronze', purchases: 124, featured: true },
-    { id: 'gift_card_500', name: '₦500 Gift Card', points: 500, type: 'giftcard', amount: 500, provider: 'Amazon/iTunes', level: 2, tier: 'Bronze', purchases: 78, featured: false },
-    { id: 'gift_card_1000', name: '₦1,000 Gift Card', points: 1000, type: 'giftcard', amount: 1000, provider: 'Amazon/iTunes', level: 2, tier: 'Bronze', purchases: 156, featured: false },
+    // Level 1-2: Data (fixed, not provider-based)
+    { id: 'data_1gb', name: '1GB Mobile Data', basePts: 3000, type: 'data', amount: 1, unit: 'GB', level: 1, tier: 'Starter', purchases: 156, featured: false, telecom: true },
+    { id: 'data_5gb', name: '5GB Mobile Data', basePts: 8000, type: 'data', amount: 5, unit: 'GB', level: 2, tier: 'Bronze', purchases: 124, featured: true, telecom: true },
+    { id: 'data_10gb', name: '10GB Premium Data', basePts: 15000, type: 'data', amount: 10, unit: 'GB', level: 3, tier: 'Silver', purchases: 45, featured: true, telecom: true },
+    { id: 'data_20gb', name: '20GB Elite Data', basePts: 28000, type: 'data', amount: 20, unit: 'GB', level: 4, tier: 'Gold', purchases: 12, featured: true, telecom: true },
 
-    // Level 3: 5000-10000 pts (VIP)
-    { id: 'airtime_5000', name: '₦5,000 Premium Airtime', points: 5000, type: 'airtime', amount: 5000, provider: 'MTN/Airtel/Glo', level: 3, tier: 'Silver', purchases: 67, featured: true },
-    { id: 'data_10gb', name: '10GB Premium Data', points: 9000, type: 'data', amount: 10, unit: 'GB', provider: 'MTN/Airtel/Glo', level: 3, tier: 'Silver', purchases: 45, featured: true },
-    { id: 'gift_card_2500', name: '₦2,500 Premium Gift Card', points: 2500, type: 'giftcard', amount: 2500, provider: 'Amazon/iTunes/Gaming', level: 3, tier: 'Silver', purchases: 32, featured: false },
-
-    // Level 4: 10000+ pts (Elite)
-    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', points: 10000, type: 'airtime', amount: 10000, provider: 'MTN/Airtel/Glo', level: 4, tier: 'Gold', purchases: 23, featured: true },
-    { id: 'data_20gb', name: '20GB Elite Data Bundle', points: 15000, type: 'data', amount: 20, unit: 'GB', provider: 'MTN/Airtel/Glo', level: 4, tier: 'Gold', purchases: 12, featured: true },
-    { id: 'gift_card_5000', name: '₦5,000 Elite Gift Card', points: 5000, type: 'giftcard', amount: 5000, provider: 'Amazon/iTunes/Gaming/Apple', level: 4, tier: 'Gold', purchases: 8, featured: false },
+    // Gift Cards (not provider-based, fixed points)
+    { id: 'gift_card_500', name: '₦500 Gift Card', basePts: 2500, type: 'giftcard', amount: 500, level: 2, tier: 'Bronze', purchases: 78, featured: false },
+    { id: 'gift_card_1000', name: '₦1,000 Gift Card', basePts: 5000, type: 'giftcard', amount: 1000, level: 2, tier: 'Bronze', purchases: 156, featured: false },
+    { id: 'gift_card_2500', name: '₦2,500 Gift Card', basePts: 12000, type: 'giftcard', amount: 2500, level: 3, tier: 'Silver', purchases: 32, featured: false },
+    { id: 'gift_card_5000', name: '₦5,000 Gift Card', basePts: 25000, type: 'giftcard', amount: 5000, level: 4, tier: 'Gold', purchases: 8, featured: false },
   ];
 
   useEffect(() => {
@@ -101,8 +114,19 @@ export default function Marketplace() {
       return;
     }
 
-    if (currentPoints < reward.points) {
-      setNotification({ type: 'error', message: `Not enough points. Need ${reward.points}, have ${currentPoints}` });
+    // Calculate points needed based on selected provider (for airtime/data only)
+    let pointsNeeded = reward.basePts;
+    let selectedProviderName = providers[selectedProvider].name;
+
+    if (reward.telecom && reward.type === 'airtime') {
+      pointsNeeded = getPointsNeeded(reward.naira, selectedProvider);
+    } else if (reward.type === 'data') {
+      pointsNeeded = reward.basePts; // Data uses fixed points
+      selectedProviderName = 'Any Provider';
+    }
+
+    if (currentPoints < pointsNeeded) {
+      setNotification({ type: 'error', message: `Not enough points. Need ${pointsNeeded}, have ${currentPoints}` });
       return;
     }
 
@@ -113,7 +137,7 @@ export default function Marketplace() {
 
     try {
       // Optimistic update
-      const newPoints = currentPoints - reward.points;
+      const newPoints = currentPoints - pointsNeeded;
       setUserData(prev => ({ ...prev, points: newPoints }));
 
       // Create purchase record
@@ -123,11 +147,12 @@ export default function Marketplace() {
         rewardId: reward.id,
         rewardName: reward.name,
         rewardType: reward.type,
-        pointsSpent: reward.points,
+        pointsSpent: pointsNeeded,
         phoneNumber: selectedPhone,
         amount: reward.amount,
         unit: reward.unit || '',
-        provider: reward.provider,
+        provider: selectedProviderName,
+        telecomProvider: selectedProvider,
         status: 'pending',
         timestamp: new Date(),
         completedAt: null
@@ -263,10 +288,47 @@ export default function Marketplace() {
           ))}
         </div>
 
+        {/* Provider Selector (for Airtime) */}
+        {rewards.some(r => r.type === 'airtime' && r.level <= userLevel.level) && (
+          <div className="mb-8 p-6 bg-white rounded-lg shadow">
+            <h3 className="font-bold text-gray-800 mb-4">📱 Choose Airtime Provider (Different Rates)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(providers).map(([key, provider]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedProvider(key)}
+                  className={`p-4 rounded-lg font-semibold transition border-2 ${
+                    selectedProvider === key
+                      ? `bg-gradient-to-r ${provider.color} text-white border-white shadow-lg`
+                      : 'bg-gray-50 border-gray-300 text-gray-800 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{provider.name}</div>
+                  <div className="text-xs">{provider.rate}</div>
+                  {provider.badge && <div className="text-xs mt-1">{provider.badge}</div>}
+                  <div className="text-xs mt-1">Limit: ₦{provider.dailyLimit}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Rewards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {filteredRewards.map(reward => {
-            const isAffordable = currentPoints >= reward.points;
+            // Calculate points needed based on provider
+            let pointsNeeded = reward.basePts;
+            let priceInfo = `${reward.basePts} pts`;
+
+            if (reward.telecom && reward.type === 'airtime') {
+              pointsNeeded = getPointsNeeded(reward.naira, selectedProvider);
+              const providerData = providers[selectedProvider];
+              const savings = reward.basePts - pointsNeeded;
+              priceInfo = `${pointsNeeded} pts`;
+              if (savings > 0) priceInfo += ` (Save ${savings}!)`;
+            }
+
+            const isAffordable = currentPoints >= pointsNeeded;
             const isUnlocked = reward.level <= userLevel.level;
             const isLocked = !isUnlocked;
 
@@ -279,7 +341,7 @@ export default function Marketplace() {
               >
                 {/* Header */}
                 <div className={`p-6 text-white ${
-                  reward.type === 'airtime' ? 'bg-gradient-to-r from-pink-500 to-red-500' :
+                  reward.type === 'airtime' ? `bg-gradient-to-r ${providers[selectedProvider].color}` :
                   reward.type === 'data' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
                   'bg-gradient-to-r from-purple-500 to-indigo-500'
                 }`}>
@@ -292,7 +354,7 @@ export default function Marketplace() {
                     {reward.featured && <span className="text-xs bg-yellow-300 text-yellow-900 px-2 py-1 rounded-full font-bold">⭐ Featured</span>}
                   </div>
                   <h3 className="text-xl font-bold">{reward.name}</h3>
-                  <p className="text-sm opacity-90">{reward.provider}</p>
+                  {reward.type === 'airtime' && <p className="text-sm opacity-90">{providers[selectedProvider].name}</p>}
                 </div>
 
                 {/* Content */}
@@ -307,8 +369,8 @@ export default function Marketplace() {
 
                   {/* Price */}
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600 text-sm">Cost</p>
-                    <p className="text-3xl font-bold text-primary">{reward.points} pts</p>
+                    <p className="text-gray-600 text-sm">Cost (with {reward.type === 'airtime' ? providers[selectedProvider].name : 'current provider'})</p>
+                    <p className="text-3xl font-bold text-primary">{priceInfo}</p>
                   </div>
 
                   {/* Status */}
@@ -321,7 +383,7 @@ export default function Marketplace() {
                     </div>
                   ) : !isAffordable ? (
                     <div className="p-3 bg-yellow-50 rounded-lg mb-4">
-                      <p className="text-yellow-800 text-sm font-semibold">⏳ Need {reward.points - currentPoints} more pts</p>
+                      <p className="text-yellow-800 text-sm font-semibold">⏳ Need {pointsNeeded - currentPoints} more pts</p>
                     </div>
                   ) : (
                     <div className="p-3 bg-green-50 rounded-lg mb-4">
@@ -376,16 +438,42 @@ export default function Marketplace() {
         )}
 
         {/* How It Works */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mt-12 rounded">
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mt-12 rounded mb-8">
           <p className="text-blue-800 font-bold mb-3">📚 How to Use HASKE Marketplace</p>
           <ul className="text-blue-700 space-y-2 text-sm">
             <li>✓ Earn points by completing missions, watching ads, and following brands</li>
             <li>✓ Reach Level 1 (1,000 pts) to unlock purchases</li>
             <li>✓ Each level unlocks premium rewards (Level 2, 3, 4)</li>
-            <li>✓ Select rewards, enter phone number, and purchase</li>
+            <li>✓ Select an airtime provider - different rates available!</li>
+            <li>✓ Enter phone number and select your reward</li>
             <li>✓ Rewards delivered within 24 hours</li>
-            <li>✓ Your points are deducted immediately</li>
+            <li>✓ Your points are deducted based on provider rate</li>
           </ul>
+        </div>
+
+        {/* Provider Info */}
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-500 p-6 rounded">
+          <p className="text-orange-800 font-bold mb-3">💡 Smart Provider Rates</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-orange-700">
+            <div>
+              <p className="font-semibold">📊 How Rates Work:</p>
+              <ul className="mt-2 space-y-1">
+                <li>• <strong>MTN:</strong> Standard rates (Baseline)</li>
+                <li>• <strong>Airtel:</strong> 10% better rates (Recommended!)</li>
+                <li>• <strong>9mobile:</strong> 5% better rates</li>
+                <li>• <strong>Glo:</strong> Premium pricing (25% more)</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold">🎯 Example (₦500 Airtime):</p>
+              <ul className="mt-2 space-y-1">
+                <li>• MTN: 2,000 pts</li>
+                <li>• Airtel: 1,800 pts (Save 200!)</li>
+                <li>• 9mobile: 1,900 pts (Save 100)</li>
+                <li>• Glo: 2,200 pts (Premium)</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
