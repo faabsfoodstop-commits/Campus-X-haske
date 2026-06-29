@@ -356,7 +356,7 @@ export default function Dashboard() {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">Buy Points Instantly</h3>
-                  <p className="text-gray-600 text-sm">Get points at ₦0.50/point</p>
+                  <p className="text-gray-600 text-sm">From ₦0.07/point - 80% savings!</p>
                 </div>
                 <IconBuyPoints className="w-10 h-10 text-blue-600 flex-shrink-0" />
               </div>
@@ -388,7 +388,11 @@ export default function Dashboard() {
             <p className="text-gray-600 mb-4">
               Browse and list items for sale on the campus marketplace.
             </p>
-            <Button variant="ghost" size="md">
+            <Button
+              onClick={() => navigate('/marketplace')}
+              variant="ghost"
+              size="md"
+            >
               Open Marketplace →
             </Button>
           </div>
@@ -398,7 +402,11 @@ export default function Dashboard() {
             <p className="text-gray-600 mb-4">
               Send money to other students quickly and securely.
             </p>
-            <Button variant="ghost" size="md">
+            <Button
+              onClick={() => navigate('/wallet')}
+              variant="ghost"
+              size="md"
+            >
               Send Money →
             </Button>
           </div>

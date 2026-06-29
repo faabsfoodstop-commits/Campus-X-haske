@@ -94,13 +94,22 @@ export default function Wallet() {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <button className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50">
+          <button
+            onClick={() => navigate('/buy-points')}
+            className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50 transition"
+          >
             + Add Funds
           </button>
-          <button className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50 transition"
+          >
             Send Money
           </button>
-          <button className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50">
+          <button
+            onClick={() => navigate('/marketplace')}
+            className="bg-white border-2 border-primary text-primary rounded-lg p-4 font-semibold hover:bg-blue-50 transition"
+          >
             Withdraw
           </button>
         </div>

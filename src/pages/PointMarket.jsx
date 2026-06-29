@@ -176,7 +176,11 @@ export default function PointMarket() {
             ) : (
               <div className="space-y-3">
                 {buyOffers.map((offer) => (
-                  <div key={offer.id} className="bg-white rounded-lg p-4 hover:shadow-md transition cursor-pointer">
+                  <div
+                    key={offer.id}
+                    className="bg-white rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                    onClick={() => navigate(`/sell-points?offerId=${offer.id}`)}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-baseline gap-3 mb-2">
@@ -189,7 +193,13 @@ export default function PointMarket() {
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-gray-800">₦{(offer.points * offer.offerPrice).toLocaleString()}</p>
-                        <button className="text-primary hover:text-blue-600 text-sm font-semibold mt-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/sell-points?offerId=${offer.id}`);
+                          }}
+                          className="text-primary hover:text-blue-600 text-sm font-semibold mt-2 transition"
+                        >
                           Sell →
                         </button>
                       </div>
@@ -218,7 +228,11 @@ export default function PointMarket() {
             ) : (
               <div className="space-y-3">
                 {sellOrders.map((order) => (
-                  <div key={order.id} className="bg-white rounded-lg p-4 hover:shadow-md transition cursor-pointer">
+                  <div
+                    key={order.id}
+                    className="bg-white rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                    onClick={() => navigate(`/point-market?orderId=${order.id}`)}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-baseline gap-3 mb-2">
@@ -231,7 +245,13 @@ export default function PointMarket() {
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-gray-800">₦{(order.points * order.askPrice).toLocaleString()}</p>
-                        <button className="text-primary hover:text-blue-600 text-sm font-semibold mt-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/point-market?orderId=${order.id}`);
+                          }}
+                          className="text-primary hover:text-blue-600 text-sm font-semibold mt-2 transition"
+                        >
                           Buy →
                         </button>
                       </div>
