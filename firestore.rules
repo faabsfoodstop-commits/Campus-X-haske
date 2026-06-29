@@ -99,6 +99,21 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Point Sell Orders - users can create their own, all can read active
+    match /point_sell_orders/{docId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, write: if isAdmin();
+    }
+
+    // Point Buy Offers - admins post, all can read active
+    match /point_buy_offers/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
+    }
+
     // Catch-all - deny everything else
     match /{document=**} {
       allow read, write: if false;

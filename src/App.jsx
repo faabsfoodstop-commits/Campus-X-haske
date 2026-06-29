@@ -21,6 +21,8 @@ import Rewards from './pages/Rewards';
 import AdminRedemptions from './pages/AdminRedemptions';
 import Marketplace from './pages/Marketplace';
 import BuyPoints from './pages/BuyPoints';
+import PointMarket from './pages/PointMarket';
+import SellPoints from './pages/SellPoints';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -113,6 +115,14 @@ function App() {
         <Route
           path="/buy-points"
           element={<PrivateRoute user={user}><BuyPoints /></PrivateRoute>}
+        />
+        <Route
+          path="/point-market"
+          element={<PrivateRoute user={user}><PointMarket /></PrivateRoute>}
+        />
+        <Route
+          path="/sell-points"
+          element={<PrivateRoute user={user}><SellPoints /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>

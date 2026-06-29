@@ -238,27 +238,23 @@ export default function Dashboard() {
 
         {/* Speed Up Progress */}
         <div className="mb-8">
-          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-lg p-6 hover:shadow-md transition">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-800 mb-2">Speed Up Your Progress</h3>
-                <p className="text-gray-600 mb-4">
-                  Like the rewards you see? Buy points at ₦0.50/point and redeem instantly.
-                </p>
-                <div className="flex items-baseline gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Current points</p>
-                    <p className="text-2xl font-bold text-primary">{userData?.points || 0}</p>
-                  </div>
-                  <div className="text-gray-400">→</div>
-                  <button
-                    onClick={() => navigate('/buy-points')}
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-semibold"
-                  >
-                    Buy Points
-                  </button>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/buy-points')}>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">💳 Buy Points Fast</h3>
+              <p className="text-gray-600 mb-4">
+                Get points instantly at ₦0.50/point. Perfect for unlocking rewards right now.
+              </p>
+              <div className="flex items-baseline gap-4">
+                <p className="text-sm text-gray-500">Current: <span className="text-2xl font-bold text-primary">{userData?.points || 0}</span></p>
               </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/point-market')}>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">📊 Point Market</h3>
+              <p className="text-gray-600 mb-4">
+                Sell your earned points for cash or buy from other students at better rates.
+              </p>
+              <p className="text-sm text-green-600 font-semibold">See live rates →</p>
             </div>
           </div>
         </div>

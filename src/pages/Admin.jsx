@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [buyPoints, setBuyPoints] = useState('');
+  const [buyPrice, setBuyPrice] = useState('0.40');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +44,32 @@ export default function Admin() {
 
     fetchAdminData();
   }, []);
+
+  const handlePostBuyOffer = async (e) => {
+    e.preventDefault();
+    if (!buyPoints || !buyPrice) return;
+
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, 'point_buy_offers'), {
+        offeredBy: 'admin',
+        points: parseInt(buyPoints),
+        offerPrice: parseFloat(buyPrice),
+        totalValue: parseInt(buyPoints) * parseFloat(buyPrice),
+        status: 'active',
+        createdAt: new Date(),
+      });
+
+      alert(`✓ Posted: Buying ${buyPoints} points at ₦${buyPrice}/pt`);
+      setBuyPoints('');
+      setBuyPrice('0.40');
+    } catch (err) {
+      console.error('Error posting buy offer:', err);
+      alert('Error: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -90,6 +119,73 @@ export default function Admin() {
           >
             💳 Manage Redemptions
           </button>
+          <button
+            onClick={() => navigate('/point-market')}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+          >
+            📊 Point Market
+          </button>
+        </div>
+
+        {/* Market Management */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">📈 Post Buy Offer (Bootstrap Market)</h3>
+          <p className="text-gray-600 mb-6">Create offers to prime the pump and show users that point trading is real.</p>
+
+          <form onSubmit={handlePostBuyOffer} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Points to Buy</label>
+              <input
+                type="number"
+                min="100"
+                value={buyPoints}
+                onChange={(e) => setBuyPoints(e.target.value)}
+                placeholder="e.g., 500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Price/Point (₦)</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={buyPrice}
+                onChange={(e) => setBuyPrice(e.target.value)}
+                placeholder="0.40"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Total (₦)</label>
+              <div className="px-3 py-2 bg-gray-100 rounded-lg text-gray-800 font-bold">
+                {buyPoints && buyPrice ? (parseInt(buyPoints) * parseFloat(buyPrice)).toLocaleString() : '0'}
+              </div>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={!buyPoints || !buyPrice || submitting}
+                className={`w-full py-2 rounded-lg font-semibold text-white transition ${
+                  buyPoints && buyPrice && !submitting
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {submitting ? 'Posting...' : 'Post Offer'}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-4 p-3 bg-blue-50 border-l-4 border-primary text-sm text-gray-700">
+            <p className="font-semibold mb-2">💡 Strategy:</p>
+            <ul className="text-xs space-y-1">
+              <li>• Start at ₦0.40/pt to show users they can earn money</li>
+              <li>• Post larger amounts (1000+ pts) to show volume</li>
+              <li>• Watch real users start trading at rates between your offers</li>
+              <li>• Once market is active, you can step back</li>
+            </ul>
+          </div>
         </div>
 
         {/* Stats */}
