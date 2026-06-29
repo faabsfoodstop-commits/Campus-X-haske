@@ -18,6 +18,7 @@ import InstagramFollow from './pages/InstagramFollow';
 import Referrals from './pages/Referrals';
 import Leaderboards from './pages/Leaderboards';
 import Rewards from './pages/Rewards';
+import AdminRedemptions from './pages/AdminRedemptions';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -98,6 +99,10 @@ function App() {
         <Route
           path="/rewards"
           element={<PrivateRoute user={user}><Rewards /></PrivateRoute>}
+        />
+        <Route
+          path="/admin/redemptions"
+          element={<PrivateRoute user={user}><AdminRedemptions /></PrivateRoute>}
         />
       </Routes>
     </BrowserRouter>

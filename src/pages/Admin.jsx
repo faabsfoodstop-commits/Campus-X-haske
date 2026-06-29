@@ -82,6 +82,16 @@ export default function Admin() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Quick Actions */}
+        <div className="mb-8 flex gap-3">
+          <button
+            onClick={() => navigate('/admin/redemptions')}
+            className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+          >
+            💳 Manage Redemptions
+          </button>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
