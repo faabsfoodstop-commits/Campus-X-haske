@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import {
+  IconTrivia,
+  IconStar,
+} from '../components/Icons';
 
 export default function Trivia() {
   const [user, setUser] = useState(null);
@@ -214,8 +218,9 @@ export default function Trivia() {
               >
                 Dashboard
               </button>
-              <div className="text-lg font-bold text-primary">
-                ⭐ {userData?.points || 0} pts
+              <div className="flex items-center gap-2 text-lg font-bold text-primary">
+                <IconStar className="w-5 h-5" />
+                {userData?.points || 0} pts
               </div>
             </div>
           </div>
@@ -227,7 +232,10 @@ export default function Trivia() {
           <>
             {/* Header */}
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg shadow p-8 mb-8">
-              <h1 className="text-4xl font-bold mb-2">🧠 Campus IQ Trivia</h1>
+              <div className="flex items-center gap-3 mb-2">
+                <IconTrivia className="w-8 h-8" />
+                <h1 className="text-4xl font-bold">Campus IQ Trivia</h1>
+              </div>
               <p className="text-purple-100">Test your knowledge about campus life and African history!</p>
             </div>
 
