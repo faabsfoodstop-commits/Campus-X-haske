@@ -1,67 +1,87 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { ToastContext } from '../context/ToastContext';
 
 export default function BuyPoints() {
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
 
   const pointPackages = [
     {
       id: 'starter',
       points: 500,
       price: 250,
+      pricePerPoint: 0.50,
       description: 'Get started',
       popular: false,
-      color: 'from-blue-400 to-blue-600'
+      color: 'from-blue-400 to-blue-600',
+      badge: null,
+      referralBonus: 25
     },
     {
       id: 'standard',
       points: 1000,
-      price: 500,
+      price: 450,
+      pricePerPoint: 0.45,
       description: 'Most popular',
       popular: true,
-      color: 'from-indigo-400 to-indigo-600'
+      color: 'from-indigo-400 to-indigo-600',
+      badge: '5% off',
+      referralBonus: 50
     },
     {
       id: 'boost',
       points: 2500,
-      price: 1250,
+      price: 1000,
+      pricePerPoint: 0.40,
       description: 'Better value',
       popular: false,
-      color: 'from-purple-400 to-purple-600'
+      color: 'from-purple-400 to-purple-600',
+      badge: '20% off',
+      referralBonus: 150
     },
     {
       id: 'premium',
       points: 5000,
-      price: 2500,
+      price: 1800,
+      pricePerPoint: 0.36,
       description: 'Best savings',
       popular: false,
-      color: 'from-pink-400 to-pink-600'
+      color: 'from-pink-400 to-pink-600',
+      badge: '28% off',
+      referralBonus: 350
     },
   ];
 
   const handlePurchase = async (pkg) => {
     if (!auth.currentUser) {
-      alert('Please log in first');
+      addToast('Please log in first', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: Integrate payment provider (Paystack, Stripe, etc.)
-      // For now, show placeholder
-      const userRef = doc(db, 'users', auth.currentUser.uid);
+      addToast(`🎉 Someone just bought ${pkg.points} points!`, 'info');
 
-      // This will be replaced with actual payment processing
-      alert(`Payment integration coming soon!\n\n${pkg.points} points = ₦${pkg.price}\n\nSupported: Paystack, bank transfer, card`);
+      const msg = `Payment integration coming soon!
 
+${pkg.points} points = ₦${pkg.price} (₦${pkg.pricePerPoint}/pt)
+
+Referral bonus: ₦${pkg.referralBonus}
+(Earn this by referring friends who buy)
+
+Payment methods: Paystack, Bank Transfer, Card`;
+
+      addToast(msg, 'info', 6000);
       setLoading(false);
     } catch (err) {
       console.error('Error:', err);
-      alert('An error occurred');
+      addToast('An error occurred', 'error');
       setLoading(false);
     }
   };
@@ -110,16 +130,31 @@ export default function BuyPoints() {
                     Popular
                   </div>
                 )}
+                {pkg.badge && (
+                  <div className="absolute top-3 left-3 bg-yellow-300 text-yellow-900 px-2 py-1 rounded text-xs font-bold">
+                    {pkg.badge}
+                  </div>
+                )}
 
-                <div className="mb-6">
+                <div className="mb-6 pt-8">
                   <p className="text-sm opacity-90 mb-2">{pkg.description}</p>
                   <p className="text-4xl font-bold">{pkg.points.toLocaleString()}</p>
                   <p className="text-sm opacity-75">points</p>
                 </div>
 
-                <div className="border-t border-white/30 pt-6">
+                <div className="bg-white/10 rounded p-3 mb-4">
+                  <p className="text-xs opacity-75 mb-1">Rate</p>
+                  <p className="font-bold">₦{pkg.pricePerPoint.toFixed(2)}/point</p>
+                </div>
+
+                <div className="border-t border-white/30 pt-6 mb-4">
                   <p className="text-sm opacity-90 mb-1">Total Price</p>
                   <p className="text-3xl font-bold">₦{pkg.price.toLocaleString()}</p>
+                </div>
+
+                <div className="bg-white/10 rounded p-2 mb-4 text-xs">
+                  <p className="opacity-75 mb-1">Referral Bonus</p>
+                  <p className="font-bold">+₦{pkg.referralBonus}</p>
                 </div>
 
                 <button

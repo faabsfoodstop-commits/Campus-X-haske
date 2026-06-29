@@ -118,7 +118,16 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 font-semibold mb-2">Your Points</h3>
             <p className="text-4xl font-bold text-primary">{userData?.points || 0}</p>
-            <p className="text-gray-500 text-sm mt-2">Redeemable rewards</p>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-gray-600 mb-1">Current Streak</p>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-orange-500">🔥 {userData?.currentStreak || 0}</span>
+                <span className="text-xs text-gray-600">days</span>
+              </div>
+              {(userData?.currentStreak || 0) >= 7 && (
+                <p className="text-xs text-green-600 font-semibold mt-1">+{Math.floor((userData?.currentStreak || 0) / 7) * 10}% bonus!</p>
+              )}
+            </div>
           </div>
 
           {/* Wallet Card */}
@@ -139,7 +148,7 @@ export default function Dashboard() {
             <p className="text-lg font-mono text-primary font-bold">
               {auth.currentUser?.uid?.substring(0, 8).toUpperCase()}
             </p>
-            <p className="text-gray-500 text-sm mt-2">Share to earn bonus</p>
+            <p className="text-gray-500 text-sm mt-2">Share to earn ₦50+</p>
           </div>
         </div>
 
@@ -255,6 +264,27 @@ export default function Dashboard() {
                 Sell your earned points for cash or buy from other students at better rates.
               </p>
               <p className="text-sm text-green-600 font-semibold">See live rates →</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly Challenges & Achievements */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/weekly-challenges')}>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">🎯 Weekly Challenges</h3>
+              <p className="text-gray-600 mb-4">
+                Complete challenges to earn bonus points. New challenges every Monday!
+              </p>
+              <p className="text-sm font-semibold text-yellow-700">View challenges →</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/badges')}>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">🏆 Achievements & Badges</h3>
+              <p className="text-gray-600 mb-4">
+                Unlock badges as you reach milestones. Show off your progress!
+              </p>
+              <p className="text-sm font-semibold text-purple-700">View badges →</p>
             </div>
           </div>
         </div>

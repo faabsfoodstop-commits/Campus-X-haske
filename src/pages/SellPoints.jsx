@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { ToastContext } from '../context/ToastContext';
 
 export default function SellPoints() {
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
   const [pointsToSell, setPointsToSell] = useState('');
   const [pricePerPoint, setPricePerPoint] = useState('0.40');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [marketData, setMarketData] = useState({ highestBid: 0.40, avgPrice: 0.40 });
 
   useEffect(() => {
     fetchUserData();
+    fetchMarketData();
   }, []);
 
   const fetchUserData = async () => {
@@ -34,10 +38,40 @@ export default function SellPoints() {
     }
   };
 
+  const fetchMarketData = async () => {
+    try {
+      const buyQuery = query(
+        collection(db, 'point_buy_offers'),
+        where('status', '==', 'active'),
+        orderBy('offerPrice', 'desc')
+      );
+      const snapshot = await getDocs(buyQuery);
+
+      if (snapshot.size > 0) {
+        const highestBid = snapshot.docs[0].data().offerPrice;
+        const allPrices = snapshot.docs.map(d => d.data().offerPrice);
+        const avgPrice = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
+
+        setMarketData({
+          highestBid,
+          avgPrice: parseFloat(avgPrice.toFixed(2))
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching market data:', err);
+    }
+  };
+
   const totalValue = pointsToSell ? (parseInt(pointsToSell) * parseFloat(pricePerPoint)).toLocaleString() : '0';
   const currentPoints = userData?.points || 0;
   const pointsNum = parseInt(pointsToSell) || 0;
   const isValid = pointsNum > 0 && pointsNum <= currentPoints && parseFloat(pricePerPoint) > 0;
+
+  const getSuggestedPrice = () => {
+    const highest = marketData.highestBid;
+    if (highest >= 0.45) return highest - 0.01; // Slightly undercut highest
+    return highest;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,12 +94,13 @@ export default function SellPoints() {
         createdAt: new Date(),
       });
 
-      // Reset form
+      addToast(`📈 Someone just sold ${pointsNum} points at ₦${pricePerPoint}/pt!`, 'info');
+
       setPointsToSell('');
       setPricePerPoint('0.40');
 
-      alert('✓ Your sell order is live on the Point Market!');
-      navigate('/point-market');
+      addToast('✓ Your sell order is live on the Point Market!', 'success');
+      setTimeout(() => navigate('/point-market'), 1500);
     } catch (err) {
       console.error('Error creating sell order:', err);
       setError('Failed to create order: ' + err.message);
@@ -159,25 +194,33 @@ export default function SellPoints() {
               </p>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-3">Quick prices:</p>
-              <div className="grid grid-cols-4 gap-2">
-                {['0.35', '0.40', '0.45', '0.50'].map((price) => (
-                  <button
-                    key={price}
-                    type="button"
-                    onClick={() => setPricePerPoint(price)}
-                    className={`py-2 rounded font-semibold transition ${
-                      pricePerPoint === price
-                        ? 'bg-primary text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:border-primary'
-                    }`}
-                  >
-                    ₦{price}
-                  </button>
-                ))}
+            {/* Smart Pricing */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-l-4 border-green-500">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-gray-800 mb-2">📊 Market Pricing</p>
+                <div className="flex gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Highest Bid</p>
+                    <p className="text-lg font-bold text-green-600">₦{marketData.highestBid.toFixed(2)}/pt</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Avg Price</p>
+                    <p className="text-lg font-bold text-primary">₦{marketData.avgPrice.toFixed(2)}/pt</p>
+                  </div>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setPricePerPoint(getSuggestedPrice().toFixed(2))}
+                className="w-full bg-green-600 text-white py-2 rounded font-semibold hover:bg-green-700 transition text-sm"
+              >
+                💡 Smart Price: ₦{getSuggestedPrice().toFixed(2)}/pt (Sell fast)
+              </button>
+
+              <p className="text-xs text-gray-600 mt-2">
+                Price higher for better profit, lower for faster sales
+              </p>
             </div>
 
             {/* Summary */}

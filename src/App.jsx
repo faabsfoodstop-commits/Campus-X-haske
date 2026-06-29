@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { auth } from './config/firebase';
+import { ToastProvider } from './context/ToastContext';
 
 import Landing from './pages/Landing';
 import SignUp from './pages/SignUp';
@@ -23,6 +24,8 @@ import Marketplace from './pages/Marketplace';
 import BuyPoints from './pages/BuyPoints';
 import PointMarket from './pages/PointMarket';
 import SellPoints from './pages/SellPoints';
+import AchievementsPage from './pages/AchievementsPage';
+import WeeklyChallenges from './pages/WeeklyChallenges';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -46,8 +49,9 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
@@ -124,8 +128,17 @@ function App() {
           path="/sell-points"
           element={<PrivateRoute user={user}><SellPoints /></PrivateRoute>}
         />
+        <Route
+          path="/badges"
+          element={<PrivateRoute user={user}><AchievementsPage /></PrivateRoute>}
+        />
+        <Route
+          path="/weekly-challenges"
+          element={<PrivateRoute user={user}><WeeklyChallenges /></PrivateRoute>}
+        />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
