@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import GettingStartedChecklist from '../components/GettingStartedChecklist';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -112,6 +113,9 @@ export default function Dashboard() {
           <h2 className="text-3xl font-bold mb-2">Welcome, {user?.displayName || 'User'}!</h2>
           <p className="text-blue-100">{userData?.university || 'Campus'}</p>
         </div>
+
+        {/* Getting Started Checklist */}
+        <GettingStartedChecklist />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Points Card */}

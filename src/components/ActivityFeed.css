@@ -1,0 +1,157 @@
+.activity-feed {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.feed-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.feed-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.feed-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: all 0.2s;
+  border-left: 3px solid #e5e7eb;
+}
+
+.feed-item.earn {
+  border-left-color: #059669;
+  background: #f0fdf4;
+}
+
+.feed-item.purchase {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.feed-item.challenge {
+  border-left-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.feed-item.achievement {
+  border-left-color: #8b5cf6;
+  background: #f5f3ff;
+}
+
+.feed-item.referral {
+  border-left-color: #ec4899;
+  background: #fce7f3;
+}
+
+.feed-item.streak {
+  border-left-color: #f97316;
+  background: #ffedd5;
+}
+
+.feed-item:active {
+  transform: scale(0.98);
+}
+
+.feed-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.feed-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.feed-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-time {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.feed-amount {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.feed-amount.earn {
+  color: #059669;
+}
+
+.feed-amount.purchase {
+  color: #2563eb;
+}
+
+.feed-amount.challenge {
+  color: #f59e0b;
+}
+
+.feed-amount.achievement {
+  color: #8b5cf6;
+}
+
+.feed-amount.referral {
+  color: #ec4899;
+}
+
+.feed-amount.streak {
+  color: #f97316;
+}
+
+.feed-empty {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.feed-empty p {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .activity-feed {
+    padding: 12px;
+  }
+
+  .feed-item {
+    padding: 10px;
+  }
+
+  .feed-title {
+    font-size: 12px;
+  }
+
+  .feed-amount {
+    font-size: 12px;
+  }
+}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import RichMarketplaceCard from '../components/RichMarketplaceCard';
 
 export default function Marketplace() {
   const [user, setUser] = useState(null);
@@ -32,23 +33,23 @@ export default function Marketplace() {
 
   const rewards = [
     // Level 1: Airtime (base points for MTN) - Fixed: Now economically rational to buy points
-    { id: 'airtime_500', name: '₦500 Airtime', basePts: 1000, type: 'airtime', amount: 500, naira: 500, level: 1, tier: 'Starter', purchases: 247, featured: true, telecom: true },
-    { id: 'airtime_1000', name: '₦1,000 Airtime', basePts: 2000, type: 'airtime', amount: 1000, naira: 1000, level: 2, tier: 'Bronze', purchases: 342, featured: true, telecom: true },
-    { id: 'airtime_2500', name: '₦2,500 Airtime', basePts: 5000, type: 'airtime', amount: 2500, naira: 2500, level: 2, tier: 'Bronze', purchases: 89, featured: false, telecom: true },
-    { id: 'airtime_5000', name: '₦5,000 Airtime', basePts: 10000, type: 'airtime', amount: 5000, naira: 5000, level: 3, tier: 'Silver', purchases: 67, featured: true, telecom: true },
-    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', basePts: 20000, type: 'airtime', amount: 10000, naira: 10000, level: 4, tier: 'Gold', purchases: 23, featured: true, telecom: true },
+    { id: 'airtime_500', name: '₦500 Airtime', basePts: 1000, type: 'airtime', amount: 500, naira: 500, level: 1, tier: 'Starter', purchases: 247, featured: true, telecom: true, icon: '📱' },
+    { id: 'airtime_1000', name: '₦1,000 Airtime', basePts: 2000, type: 'airtime', amount: 1000, naira: 1000, level: 2, tier: 'Bronze', purchases: 342, featured: true, telecom: true, icon: '📱' },
+    { id: 'airtime_2500', name: '₦2,500 Airtime', basePts: 5000, type: 'airtime', amount: 2500, naira: 2500, level: 2, tier: 'Bronze', purchases: 89, featured: false, telecom: true, icon: '📱' },
+    { id: 'airtime_5000', name: '₦5,000 Airtime', basePts: 10000, type: 'airtime', amount: 5000, naira: 5000, level: 3, tier: 'Silver', purchases: 67, featured: true, telecom: true, icon: '📱' },
+    { id: 'airtime_10000', name: '₦10,000 Elite Airtime', basePts: 20000, type: 'airtime', amount: 10000, naira: 10000, level: 4, tier: 'Gold', purchases: 23, featured: true, telecom: true, icon: '📱' },
 
     // Level 1-2: Data (fixed, not provider-based)
-    { id: 'data_1gb', name: '1GB Mobile Data', basePts: 1500, type: 'data', amount: 1, unit: 'GB', level: 1, tier: 'Starter', purchases: 156, featured: false, telecom: true },
-    { id: 'data_5gb', name: '5GB Mobile Data', basePts: 4000, type: 'data', amount: 5, unit: 'GB', level: 2, tier: 'Bronze', purchases: 124, featured: true, telecom: true },
-    { id: 'data_10gb', name: '10GB Premium Data', basePts: 7500, type: 'data', amount: 10, unit: 'GB', level: 3, tier: 'Silver', purchases: 45, featured: true, telecom: true },
-    { id: 'data_20gb', name: '20GB Elite Data', basePts: 14000, type: 'data', amount: 20, unit: 'GB', level: 4, tier: 'Gold', purchases: 12, featured: true, telecom: true },
+    { id: 'data_1gb', name: '1GB Mobile Data', basePts: 1500, type: 'data', amount: 1, unit: 'GB', level: 1, tier: 'Starter', purchases: 156, featured: false, telecom: true, icon: '📡' },
+    { id: 'data_5gb', name: '5GB Mobile Data', basePts: 4000, type: 'data', amount: 5, unit: 'GB', level: 2, tier: 'Bronze', purchases: 124, featured: true, telecom: true, icon: '📡' },
+    { id: 'data_10gb', name: '10GB Premium Data', basePts: 7500, type: 'data', amount: 10, unit: 'GB', level: 3, tier: 'Silver', purchases: 45, featured: true, telecom: true, icon: '📡' },
+    { id: 'data_20gb', name: '20GB Elite Data', basePts: 14000, type: 'data', amount: 20, unit: 'GB', level: 4, tier: 'Gold', purchases: 12, featured: true, telecom: true, icon: '📡' },
 
     // Gift Cards (not provider-based, fixed points)
-    { id: 'gift_card_500', name: '₦500 Gift Card', basePts: 1250, type: 'giftcard', amount: 500, level: 2, tier: 'Bronze', purchases: 78, featured: false },
-    { id: 'gift_card_1000', name: '₦1,000 Gift Card', basePts: 2500, type: 'giftcard', amount: 1000, level: 2, tier: 'Bronze', purchases: 156, featured: false },
-    { id: 'gift_card_2500', name: '₦2,500 Gift Card', basePts: 6000, type: 'giftcard', amount: 2500, level: 3, tier: 'Silver', purchases: 32, featured: false },
-    { id: 'gift_card_5000', name: '₦5,000 Gift Card', basePts: 12500, type: 'giftcard', amount: 5000, level: 4, tier: 'Gold', purchases: 8, featured: false },
+    { id: 'gift_card_500', name: '₦500 Gift Card', basePts: 1250, type: 'giftcard', amount: 500, level: 2, tier: 'Bronze', purchases: 78, featured: false, icon: '🎁' },
+    { id: 'gift_card_1000', name: '₦1,000 Gift Card', basePts: 2500, type: 'giftcard', amount: 1000, level: 2, tier: 'Bronze', purchases: 156, featured: false, icon: '🎁' },
+    { id: 'gift_card_2500', name: '₦2,500 Gift Card', basePts: 6000, type: 'giftcard', amount: 2500, level: 3, tier: 'Silver', purchases: 32, featured: false, icon: '🎁' },
+    { id: 'gift_card_5000', name: '₦5,000 Gift Card', basePts: 12500, type: 'giftcard', amount: 5000, level: 4, tier: 'Gold', purchases: 8, featured: false, icon: '🎁' },
   ];
 
   useEffect(() => {
@@ -314,97 +315,19 @@ export default function Marketplace() {
         )}
 
         {/* Rewards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="mb-12">
           {filteredRewards.map(reward => {
-            // Calculate points needed based on provider
             let pointsNeeded = reward.basePts;
-            let priceInfo = `${reward.basePts} pts`;
-
             if (reward.telecom && reward.type === 'airtime') {
               pointsNeeded = getPointsNeeded(reward.naira, selectedProvider);
-              const providerData = providers[selectedProvider];
-              const savings = reward.basePts - pointsNeeded;
-              priceInfo = `${pointsNeeded} pts`;
-              if (savings > 0) priceInfo += ` (Save ${savings}!)`;
             }
-
-            const isAffordable = currentPoints >= pointsNeeded;
-            const isUnlocked = reward.level <= userLevel.level;
-            const isLocked = !isUnlocked;
-
             return (
-              <div
+              <RichMarketplaceCard
                 key={reward.id}
-                className={`rounded-lg shadow-lg overflow-hidden transition transform hover:scale-105 ${
-                  isLocked ? 'opacity-60 bg-gray-200' : isAffordable ? 'bg-white border-2 border-green-300' : 'bg-white'
-                }`}
-              >
-                {/* Header */}
-                <div className={`p-6 text-white ${
-                  reward.type === 'airtime' ? `bg-gradient-to-r ${providers[selectedProvider].color}` :
-                  reward.type === 'data' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                  'bg-gradient-to-r from-purple-500 to-indigo-500'
-                }`}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="text-4xl">
-                      {reward.type === 'airtime' && '📱'}
-                      {reward.type === 'data' && '📡'}
-                      {reward.type === 'giftcard' && '🎁'}
-                    </div>
-                    {reward.featured && <span className="text-xs bg-yellow-300 text-yellow-900 px-2 py-1 rounded-full font-bold">⭐ Featured</span>}
-                  </div>
-                  <h3 className="text-xl font-bold">{reward.name}</h3>
-                  {reward.type === 'airtime' && <p className="text-sm opacity-90">{providers[selectedProvider].name}</p>}
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  {/* Tier & Purchases */}
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-800">
-                      {reward.tier}
-                    </span>
-                    <span className="text-xs text-gray-600">{reward.purchases} purchases</span>
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600 text-sm">Cost (with {reward.type === 'airtime' ? providers[selectedProvider].name : 'current provider'})</p>
-                    <p className="text-3xl font-bold text-primary">{priceInfo}</p>
-                  </div>
-
-                  {/* Status */}
-                  {isLocked ? (
-                    <div className="p-3 bg-red-50 rounded-lg mb-4">
-                      <p className="text-red-800 text-sm font-semibold">🔒 Level {reward.level} Required</p>
-                      <p className="text-xs text-red-700 mt-1">
-                        Need {Math.max(0, [1000, 5000, 10000][reward.level - 1] - currentPoints)} more points
-                      </p>
-                    </div>
-                  ) : !isAffordable ? (
-                    <div className="p-3 bg-yellow-50 rounded-lg mb-4">
-                      <p className="text-yellow-800 text-sm font-semibold">⏳ Need {pointsNeeded - currentPoints} more pts</p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-green-50 rounded-lg mb-4">
-                      <p className="text-green-800 text-sm font-semibold">✅ You can afford this!</p>
-                    </div>
-                  )}
-
-                  {/* Button */}
-                  <button
-                    onClick={() => purchaseReward(reward)}
-                    disabled={isLocked || !isAffordable || !canRedeem}
-                    className={`w-full font-bold py-3 rounded-lg transition ${
-                      isLocked || !isAffordable || !canRedeem
-                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg'
-                    }`}
-                  >
-                    {isLocked ? '🔒 Locked' : !isAffordable ? '💰 Not Enough' : '🛒 Buy Now'}
-                  </button>
-                </div>
-              </div>
+                item={reward}
+                userPoints={currentPoints}
+                onRedeem={purchaseReward}
+              />
             );
           })}
         </div>

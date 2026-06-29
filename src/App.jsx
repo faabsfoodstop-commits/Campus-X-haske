@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { auth } from './config/firebase';
 import { ToastProvider } from './context/ToastContext';
+import BottomNavigation from './components/BottomNavigation';
 
 import Landing from './pages/Landing';
 import SignUp from './pages/SignUp';
@@ -53,95 +54,96 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/login" element={<Login />} />
 
-        <Route
-          path="/dashboard"
-          element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>}
-        />
-        <Route
-          path="/wallet"
-          element={<PrivateRoute user={user}><Wallet /></PrivateRoute>}
-        />
-        <Route
-          path="/profile"
-          element={<PrivateRoute user={user}><Profile /></PrivateRoute>}
-        />
-        <Route
-          path="/admin"
-          element={<PrivateRoute user={user}><Admin /></PrivateRoute>}
-        />
-        <Route
-          path="/spin-wheel"
-          element={<PrivateRoute user={user}><SpinWheel /></PrivateRoute>}
-        />
-        <Route
-          path="/daily-missions"
-          element={<PrivateRoute user={user}><DailyMissions /></PrivateRoute>}
-        />
-        <Route
-          path="/trivia"
-          element={<PrivateRoute user={user}><Trivia /></PrivateRoute>}
-        />
-        <Route
-          path="/achievements"
-          element={<PrivateRoute user={user}><Achievements /></PrivateRoute>}
-        />
-        <Route
-          path="/video-ads"
-          element={<PrivateRoute user={user}><VideoAds /></PrivateRoute>}
-        />
-        <Route
-          path="/instagram-follow"
-          element={<PrivateRoute user={user}><InstagramFollow /></PrivateRoute>}
-        />
-        <Route
-          path="/referrals"
-          element={<PrivateRoute user={user}><Referrals /></PrivateRoute>}
-        />
-        <Route
-          path="/leaderboards"
-          element={<PrivateRoute user={user}><Leaderboards /></PrivateRoute>}
-        />
-        <Route
-          path="/rewards"
-          element={<PrivateRoute user={user}><Rewards /></PrivateRoute>}
-        />
-        <Route
-          path="/admin/redemptions"
-          element={<PrivateRoute user={user}><AdminRedemptions /></PrivateRoute>}
-        />
-        <Route
-          path="/marketplace"
-          element={<PrivateRoute user={user}><Marketplace /></PrivateRoute>}
-        />
-        <Route
-          path="/buy-points"
-          element={<PrivateRoute user={user}><BuyPoints /></PrivateRoute>}
-        />
-        <Route
-          path="/point-market"
-          element={<PrivateRoute user={user}><PointMarket /></PrivateRoute>}
-        />
-        <Route
-          path="/sell-points"
-          element={<PrivateRoute user={user}><SellPoints /></PrivateRoute>}
-        />
-        <Route
-          path="/badges"
-          element={<PrivateRoute user={user}><AchievementsPage /></PrivateRoute>}
-        />
-        <Route
-          path="/weekly-challenges"
-          element={<PrivateRoute user={user}><WeeklyChallenges /></PrivateRoute>}
-        />
-        <Route
-          path="/transactions"
-          element={<PrivateRoute user={user}><TransactionHistory /></PrivateRoute>}
-        />
-      </Routes>
+          <Route
+            path="/dashboard"
+            element={<PrivateRoute user={user}><Dashboard /></PrivateRoute>}
+          />
+          <Route
+            path="/wallet"
+            element={<PrivateRoute user={user}><Wallet /></PrivateRoute>}
+          />
+          <Route
+            path="/profile"
+            element={<PrivateRoute user={user}><Profile /></PrivateRoute>}
+          />
+          <Route
+            path="/admin"
+            element={<PrivateRoute user={user}><Admin /></PrivateRoute>}
+          />
+          <Route
+            path="/spin-wheel"
+            element={<PrivateRoute user={user}><SpinWheel /></PrivateRoute>}
+          />
+          <Route
+            path="/daily-missions"
+            element={<PrivateRoute user={user}><DailyMissions /></PrivateRoute>}
+          />
+          <Route
+            path="/trivia"
+            element={<PrivateRoute user={user}><Trivia /></PrivateRoute>}
+          />
+          <Route
+            path="/achievements"
+            element={<PrivateRoute user={user}><Achievements /></PrivateRoute>}
+          />
+          <Route
+            path="/video-ads"
+            element={<PrivateRoute user={user}><VideoAds /></PrivateRoute>}
+          />
+          <Route
+            path="/instagram-follow"
+            element={<PrivateRoute user={user}><InstagramFollow /></PrivateRoute>}
+          />
+          <Route
+            path="/referrals"
+            element={<PrivateRoute user={user}><Referrals /></PrivateRoute>}
+          />
+          <Route
+            path="/leaderboards"
+            element={<PrivateRoute user={user}><Leaderboards /></PrivateRoute>}
+          />
+          <Route
+            path="/rewards"
+            element={<PrivateRoute user={user}><Rewards /></PrivateRoute>}
+          />
+          <Route
+            path="/admin/redemptions"
+            element={<PrivateRoute user={user}><AdminRedemptions /></PrivateRoute>}
+          />
+          <Route
+            path="/marketplace"
+            element={<PrivateRoute user={user}><Marketplace /></PrivateRoute>}
+          />
+          <Route
+            path="/buy-points"
+            element={<PrivateRoute user={user}><BuyPoints /></PrivateRoute>}
+          />
+          <Route
+            path="/point-market"
+            element={<PrivateRoute user={user}><PointMarket /></PrivateRoute>}
+          />
+          <Route
+            path="/sell-points"
+            element={<PrivateRoute user={user}><SellPoints /></PrivateRoute>}
+          />
+          <Route
+            path="/badges"
+            element={<PrivateRoute user={user}><AchievementsPage /></PrivateRoute>}
+          />
+          <Route
+            path="/weekly-challenges"
+            element={<PrivateRoute user={user}><WeeklyChallenges /></PrivateRoute>}
+          />
+          <Route
+            path="/transactions"
+            element={<PrivateRoute user={user}><TransactionHistory /></PrivateRoute>}
+          />
+        </Routes>
+        <BottomNavigation />
       </BrowserRouter>
     </ToastProvider>
   );
