@@ -236,6 +236,33 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Speed Up Progress */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-lg p-6 hover:shadow-md transition">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Speed Up Your Progress</h3>
+                <p className="text-gray-600 mb-4">
+                  Like the rewards you see? Buy points at ₦0.50/point and redeem instantly.
+                </p>
+                <div className="flex items-baseline gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Current points</p>
+                    <p className="text-2xl font-bold text-primary">{userData?.points || 0}</p>
+                  </div>
+                  <div className="text-gray-400">→</div>
+                  <button
+                    onClick={() => navigate('/buy-points')}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-semibold"
+                  >
+                    Buy Points
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
