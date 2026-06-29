@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
+import ActivityCard from '../components/ActivityCard';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import {
+  IconSpinWheel,
+  IconMissions,
+  IconTrivia,
+  IconAchievements,
+  IconVideoAds,
+  IconInstagram,
+  IconReferrals,
+  IconLeaderboard,
+  IconMarketplace,
+  IconBuyPoints,
+} from '../components/Icons';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -201,121 +214,143 @@ export default function Dashboard() {
         </div>
 
         {/* Games & Activities */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Play & Earn</h2>
+        <section className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Play & Earn</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/spin-wheel')}>
-              <h3 className="text-xl font-bold text-white mb-2">🎡 Lucky Spin</h3>
-              <p className="text-yellow-50 mb-4">Spin daily for random rewards. Earn up to 500 points!</p>
-              <p className="text-yellow-100 font-semibold">Free spins reset daily →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/daily-missions')}>
-              <h3 className="text-xl font-bold text-white mb-2">📋 Daily Missions</h3>
-              <p className="text-blue-50 mb-4">Complete tasks and earn bonus points. Chain them for multipliers!</p>
-              <p className="text-blue-100 font-semibold">Start missions →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/trivia')}>
-              <h3 className="text-xl font-bold text-white mb-2">🧠 Trivia Quiz</h3>
-              <p className="text-purple-50 mb-4">Test your campus knowledge. Earn points for correct answers!</p>
-              <p className="text-purple-100 font-semibold">Play trivia →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/achievements')}>
-              <h3 className="text-xl font-bold text-white mb-2">🏆 Achievements</h3>
-              <p className="text-pink-50 mb-4">Unlock badges and special rewards as you progress!</p>
-              <p className="text-pink-100 font-semibold">View achievements →</p>
-            </div>
+            <ActivityCard
+              title="Lucky Spin"
+              description="Spin daily for random rewards. Earn up to 500 points!"
+              gradient="gradient-yellow"
+              icon={IconSpinWheel}
+              onNavigate={() => navigate('/spin-wheel')}
+              cta="Spin now"
+            />
+            <ActivityCard
+              title="Daily Missions"
+              description="Complete tasks and earn bonus points. Chain them for multipliers!"
+              gradient="gradient-blue"
+              icon={IconMissions}
+              onNavigate={() => navigate('/daily-missions')}
+              cta="Start missions"
+            />
+            <ActivityCard
+              title="Trivia Quiz"
+              description="Test your campus knowledge. Earn points for correct answers!"
+              gradient="gradient-purple"
+              icon={IconTrivia}
+              onNavigate={() => navigate('/trivia')}
+              cta="Play trivia"
+            />
+            <ActivityCard
+              title="Achievements"
+              description="Unlock badges and special rewards as you progress!"
+              gradient="gradient-pink"
+              icon={IconAchievements}
+              onNavigate={() => navigate('/achievements')}
+              cta="View badges"
+            />
           </div>
-        </div>
+        </section>
 
         {/* Earn More */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">💰 Earn More</h2>
+        <section className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Earn More Points</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/video-ads')}>
-              <h3 className="text-xl font-bold text-white mb-2">📺 Watch & Earn</h3>
-              <p className="text-red-50 mb-4">Watch short video ads and earn 50-100 points per video!</p>
-              <p className="text-red-100 font-semibold">Start watching →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/instagram-follow')}>
-              <h3 className="text-xl font-bold text-white mb-2">📱 Follow & Earn</h3>
-              <p className="text-pink-50 mb-4">Follow brands on Instagram and earn instant points!</p>
-              <p className="text-pink-100 font-semibold">Start following →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/referrals')}>
-              <h3 className="text-xl font-bold text-white mb-2">👑 Referrals</h3>
-              <p className="text-green-50 mb-4">Invite friends and earn 100-250 points per referral!</p>
-              <p className="text-green-100 font-semibold">Share your code →</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/leaderboards')}>
-              <h3 className="text-xl font-bold text-white mb-2">🏆 Leaderboards</h3>
-              <p className="text-purple-50 mb-4">Compete with others and win weekly prizes!</p>
-              <p className="text-purple-100 font-semibold">View rankings →</p>
-            </div>
+            <ActivityCard
+              title="Watch & Earn"
+              description="Watch short video ads and earn 50-100 points per video!"
+              gradient="gradient-red"
+              icon={IconVideoAds}
+              onNavigate={() => navigate('/video-ads')}
+              cta="Start watching"
+            />
+            <ActivityCard
+              title="Follow & Earn"
+              description="Follow brands on Instagram and earn instant points!"
+              gradient="gradient-pink"
+              icon={IconInstagram}
+              onNavigate={() => navigate('/instagram-follow')}
+              cta="Start following"
+            />
+            <ActivityCard
+              title="Invite Friends"
+              description="Invite friends and earn 100-250 points per referral!"
+              gradient="gradient-emerald"
+              icon={IconReferrals}
+              onNavigate={() => navigate('/referrals')}
+              cta="Share code"
+            />
+            <ActivityCard
+              title="Leaderboards"
+              description="Compete with others and win weekly prizes!"
+              gradient="gradient-indigo"
+              icon={IconLeaderboard}
+              onNavigate={() => navigate('/leaderboards')}
+              cta="View rankings"
+            />
           </div>
-        </div>
+        </section>
 
         {/* Marketplace */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">🛍️ Rewards Marketplace</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/marketplace')}>
-              <h3 className="text-xl font-bold text-white mb-2">💎 Explore Marketplace</h3>
-              <p className="text-purple-50 mb-4">Browse rewards by tier level. Exchange points for airtime, data, and gift cards!</p>
-              <div className="mb-3 text-2xl font-bold text-white">{userData?.points || 0} pts</div>
-              <p className="text-purple-100 font-semibold">Shop now →</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Speed Up Progress */}
-        <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/buy-points')}>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">💳 Buy Points Fast</h3>
-              <p className="text-gray-600 mb-4">
-                Get points instantly at ₦0.50/point. Perfect for unlocking rewards right now.
-              </p>
-              <div className="flex items-baseline gap-4">
-                <p className="text-sm text-gray-500">Current: <span className="text-2xl font-bold text-primary">{userData?.points || 0}</span></p>
+        <section className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Rewards Marketplace</h2>
+          <div className="grid grid-cols-1 gap-6">
+            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow-lg p-8 hover:shadow-xl transition">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Explore Rewards</h3>
+                  <p className="text-purple-50 text-lg">Exchange your points for real rewards</p>
+                </div>
+                <IconMarketplace className="w-12 h-12 text-white opacity-80" />
               </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/point-market')}>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">📊 Point Market</h3>
-              <p className="text-gray-600 mb-4">
-                Sell your earned points for cash or buy from other students at better rates.
-              </p>
-              <p className="text-sm text-green-600 font-semibold">See live rates →</p>
+              <div className="bg-white bg-opacity-20 rounded-lg p-4 mb-6 backdrop-blur-sm">
+                <p className="text-purple-100 text-sm font-semibold mb-1">Your Balance</p>
+                <p className="text-3xl font-bold text-white">{userData?.points || 0} pts</p>
+              </div>
+              <Button
+                onClick={() => navigate('/marketplace')}
+                variant="primary"
+                size="lg"
+                fullWidth
+              >
+                Shop Now
+              </Button>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Weekly Challenges & Achievements */}
-        <div className="mb-8">
+        {/* Quick Actions */}
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/weekly-challenges')}>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">🎯 Weekly Challenges</h3>
-              <p className="text-gray-600 mb-4">
-                Complete challenges to earn bonus points. New challenges every Monday!
-              </p>
-              <p className="text-sm font-semibold text-yellow-700">View challenges →</p>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-8 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/buy-points')}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Buy Points Instantly</h3>
+                  <p className="text-gray-600 text-sm">Get points at ₦0.50/point</p>
+                </div>
+                <IconBuyPoints className="w-10 h-10 text-blue-600 flex-shrink-0" />
+              </div>
+              <p className="text-sm text-blue-600 font-semibold">Unlock premium rewards →</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-6 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/badges')}>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">🏆 Achievements & Badges</h3>
-              <p className="text-gray-600 mb-4">
-                Unlock badges as you reach milestones. Show off your progress!
-              </p>
-              <p className="text-sm font-semibold text-purple-700">View badges →</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-lg p-8 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/point-market')}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Point Trading Market</h3>
+                  <p className="text-gray-600 text-sm">Buy & sell at market rates</p>
+                </div>
+                <svg className="w-10 h-10 text-emerald-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+              <p className="text-sm text-emerald-600 font-semibold">View live rates →</p>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
