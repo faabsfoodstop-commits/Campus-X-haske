@@ -313,3 +313,31 @@ export const IconShare = (props) => (
     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
   </svg>
 );
+
+export const IconBolt = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+);
+
+export const IconTarget = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="9" />
+  </svg>
+);
+
+export const IconParty = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <path d="M6 9l6-6 6 6M7 9h10M7 14h10M7 9v10a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9" />
+    <path d="M10 12v4" />
+    <path d="M14 12v4" />
+  </svg>
+);
+
+export const IconArrowLeft = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <path d="M19 12H5M12 19l-7-7 7-7" />
+  </svg>
+);

@@ -7,6 +7,14 @@ import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import {
+  IconBolt,
+  IconBuyPoints,
+  IconTarget,
+  IconParty,
+  IconCheckmark,
+  IconArrowLeft,
+} from '../components/Icons';
 
 export default function BuyPoints() {
   const navigate = useNavigate();
@@ -92,7 +100,7 @@ export default function BuyPoints() {
       });
 
       // Payment successful - now update the database
-      addToast(`🎉 Someone just bought ${pkg.points} points!`, 'info');
+      addToast(`Someone just bought ${pkg.points} points!`, 'info');
 
       // Update user points
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -122,8 +130,8 @@ export default function BuyPoints() {
         wallet: (prev?.wallet || 0) + pkg.referralBonus,
       }));
 
-      addToast(`✓ ${pkg.points} points added to your account!`, 'success');
-      addToast(`💰 +₦${pkg.referralBonus} referral bonus added!`, 'success');
+      addToast(`${pkg.points} points added to your account!`, 'success');
+      addToast(`Referral bonus: +₦${pkg.referralBonus}!`, 'success');
 
       // Redirect after 2 seconds
       setTimeout(() => navigate('/dashboard'), 2000);
@@ -147,14 +155,16 @@ export default function BuyPoints() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-4">
-              <Button
+              <button
                 onClick={() => navigate('/dashboard')}
-                variant="ghost"
-                size="md"
+                className="p-2 hover:bg-gray-100 rounded transition"
               >
-                ← Back
-              </Button>
-              <h1 className="text-2xl font-bold text-primary">Buy Points</h1>
+                <IconArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center gap-2">
+                <IconBuyPoints className="w-6 h-6 text-primary" />
+                <h1 className="text-2xl font-bold text-primary">Buy Points</h1>
+              </div>
             </div>
           </div>
         </div>
@@ -234,18 +244,24 @@ export default function BuyPoints() {
         <div className="bg-white rounded-lg shadow p-8 mb-8">
           <h3 className="text-2xl font-bold text-gray-800 mb-6">Why Buy Points?</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <div className="text-3xl mb-3">⚡</div>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3 text-blue-600">
+                <IconBolt className="w-8 h-8" />
+              </div>
               <h4 className="font-bold text-gray-800 mb-2">Instant Access</h4>
               <p className="text-gray-600">Redeem for rewards immediately. No waiting for points to accumulate.</p>
             </div>
-            <div>
-              <div className="text-3xl mb-3">💰</div>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
+                <IconBuyPoints className="w-8 h-8" />
+              </div>
               <h4 className="font-bold text-gray-800 mb-2">Better Value</h4>
               <p className="text-gray-600">Get ₦500 airtime for ₦250 total (earn 800 pts free, buy 200 for ₦100).</p>
             </div>
-            <div>
-              <div className="text-3xl mb-3">🎯</div>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-3 text-orange-600">
+                <IconTarget className="w-8 h-8" />
+              </div>
               <h4 className="font-bold text-gray-800 mb-2">Flexible</h4>
               <p className="text-gray-600">Choose your package. Use points for airtime, data, or gift cards.</p>
             </div>
