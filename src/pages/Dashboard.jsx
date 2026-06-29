@@ -134,12 +134,20 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 font-semibold mb-2">Wallet Balance</h3>
             <p className="text-4xl font-bold text-primary">₦{userData?.wallet || 0}</p>
-            <button
-              onClick={() => navigate('/wallet')}
-              className="text-primary hover:text-blue-600 text-sm mt-2 font-semibold"
-            >
-              View Wallet →
-            </button>
+            <div className="mt-3 space-y-2">
+              <button
+                onClick={() => navigate('/wallet')}
+                className="w-full text-primary hover:text-blue-600 text-sm font-semibold border-b pb-2"
+              >
+                View Wallet →
+              </button>
+              <button
+                onClick={() => navigate('/transactions')}
+                className="w-full text-primary hover:text-blue-600 text-sm font-semibold"
+              >
+                Transaction History →
+              </button>
+            </div>
           </div>
 
           {/* Referrals Card */}

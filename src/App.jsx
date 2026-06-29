@@ -26,6 +26,7 @@ import PointMarket from './pages/PointMarket';
 import SellPoints from './pages/SellPoints';
 import AchievementsPage from './pages/AchievementsPage';
 import WeeklyChallenges from './pages/WeeklyChallenges';
+import TransactionHistory from './pages/TransactionHistory';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -135,6 +136,10 @@ function App() {
         <Route
           path="/weekly-challenges"
           element={<PrivateRoute user={user}><WeeklyChallenges /></PrivateRoute>}
+        />
+        <Route
+          path="/transactions"
+          element={<PrivateRoute user={user}><TransactionHistory /></PrivateRoute>}
         />
       </Routes>
       </BrowserRouter>

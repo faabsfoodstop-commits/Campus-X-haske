@@ -1,8 +1,9 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
 import { ToastContext } from '../context/ToastContext';
+import { initializePayment, generateReference } from '../services/paystack';
 
 export default function BuyPoints() {
   const navigate = useNavigate();
@@ -65,23 +66,72 @@ export default function BuyPoints() {
     }
 
     setLoading(true);
+
     try {
+      // Fetch user data
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const currentUserData = userDoc.data() || {};
+
+      // Generate payment reference
+      const reference = generateReference();
+
+      // Initialize Paystack payment
+      await initializePayment({
+        email: auth.currentUser.email,
+        amount: pkg.price,
+        reference: reference,
+        metadata: {
+          userId: auth.currentUser.uid,
+          points: pkg.points,
+          packageId: pkg.id,
+        },
+      });
+
+      // Payment successful - now update the database
       addToast(`🎉 Someone just bought ${pkg.points} points!`, 'info');
 
-      const msg = `Payment integration coming soon!
+      // Update user points
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        points: (currentUserData.points || 0) + pkg.points,
+        wallet: (currentUserData.wallet || 0) + pkg.referralBonus, // Add referral bonus
+        totalSpent: (currentUserData.totalSpent || 0) + pkg.price,
+        [`purchase_${reference}`]: true,
+      });
 
-${pkg.points} points = ₦${pkg.price} (₦${pkg.pricePerPoint}/pt)
+      // Log transaction
+      await addDoc(collection(db, 'transactions'), {
+        userId: auth.currentUser.uid,
+        type: 'point_purchase',
+        amount: pkg.price,
+        points: pkg.points,
+        reference: reference,
+        packageId: pkg.id,
+        status: 'completed',
+        timestamp: new Date(),
+      });
 
-Referral bonus: ₦${pkg.referralBonus}
-(Earn this by referring friends who buy)
+      // Update local state
+      setUserData(prev => ({
+        ...prev,
+        points: (prev?.points || 0) + pkg.points,
+        wallet: (prev?.wallet || 0) + pkg.referralBonus,
+      }));
 
-Payment methods: Paystack, Bank Transfer, Card`;
+      addToast(`✓ ${pkg.points} points added to your account!`, 'success');
+      addToast(`💰 +₦${pkg.referralBonus} referral bonus added!`, 'success');
 
-      addToast(msg, 'info', 6000);
-      setLoading(false);
+      // Redirect after 2 seconds
+      setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
-      console.error('Error:', err);
-      addToast('An error occurred', 'error');
+      // Payment cancelled or failed
+      if (err.message.includes('closed')) {
+        addToast('Payment cancelled', 'warning');
+      } else {
+        console.error('Payment error:', err);
+        addToast('Payment failed: ' + err.message, 'error');
+      }
+    } finally {
       setLoading(false);
     }
   };
