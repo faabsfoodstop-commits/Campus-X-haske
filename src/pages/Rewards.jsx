@@ -12,6 +12,8 @@ export default function Rewards() {
   const [selectedPhone, setSelectedPhone] = useState('');
   const navigate = useNavigate();
 
+  const MIN_REDEMPTION = 1000; // Minimum 1000 points to redeem
+
   const rewardOptions = [
     { id: 'airtime_500', name: '₦500 Airtime', points: 500, type: 'airtime', amount: 500, provider: 'MTN/Airtel/Glo' },
     { id: 'airtime_1000', name: '₦1,000 Airtime', points: 1000, type: 'airtime', amount: 1000, provider: 'MTN/Airtel/Glo' },
@@ -68,10 +70,20 @@ export default function Rewards() {
       return;
     }
 
-    if ((userData?.points || 0) < reward.points) {
+    const currentPoints = userData?.points || 0;
+
+    if (currentPoints < MIN_REDEMPTION) {
       setNotification({
         type: 'error',
-        message: `Not enough points. You need ${reward.points} but have ${userData?.points || 0}`
+        message: `Minimum ${MIN_REDEMPTION} points required to redeem. You have ${currentPoints} points. Need ${MIN_REDEMPTION - currentPoints} more!`
+      });
+      return;
+    }
+
+    if (currentPoints < reward.points) {
+      setNotification({
+        type: 'error',
+        message: `Not enough points. You need ${reward.points} but have ${currentPoints}`
       });
       return;
     }
@@ -137,8 +149,12 @@ export default function Rewards() {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
-  const earnableRewards = rewardOptions.filter(r => (userData?.points || 0) >= r.points);
-  const unavailableRewards = rewardOptions.filter(r => (userData?.points || 0) < r.points);
+  const currentPoints = userData?.points || 0;
+  const pointsToMinimum = Math.max(0, MIN_REDEMPTION - currentPoints);
+  const canRedeem = currentPoints >= MIN_REDEMPTION;
+
+  const earnableRewards = rewardOptions.filter(r => currentPoints >= r.points && canRedeem);
+  const unavailableRewards = rewardOptions.filter(r => currentPoints < r.points || !canRedeem);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -196,21 +212,67 @@ export default function Rewards() {
           </div>
         )}
 
+        {/* Minimum Redemption Requirement */}
+        {!canRedeem && (
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-yellow-800">🎯 Minimum Redemption Requirement</h3>
+              <span className="text-sm font-semibold text-yellow-800">{currentPoints}/{MIN_REDEMPTION} pts</span>
+            </div>
+
+            <div className="w-full bg-yellow-200 rounded-full h-4 mb-3 overflow-hidden">
+              <div
+                className="bg-yellow-600 h-4 rounded-full transition-all duration-300"
+                style={{ width: `${(currentPoints / MIN_REDEMPTION) * 100}%` }}
+              ></div>
+            </div>
+
+            <p className="text-yellow-800 font-semibold mb-2">
+              {pointsToMinimum > 0 ? (
+                <>🚀 Keep earning! You need <span className="text-lg">{pointsToMinimum}</span> more points to unlock redemptions</>
+              ) : (
+                <>✅ You're eligible to redeem rewards now!</>
+              )}
+            </p>
+            <p className="text-sm text-yellow-700">
+              This ensures you're an active user before redeeming rewards. Complete more missions, watch ads, and follow brands!
+            </p>
+          </div>
+        )}
+
+        {canRedeem && (
+          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-8">
+            <p className="text-green-800 font-bold text-lg">✅ You've unlocked redemptions! Pick a reward below.</p>
+          </div>
+        )}
+
         {/* Phone Number Input */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number (where to send rewards)</label>
+        <div className={`rounded-lg shadow p-6 mb-8 ${canRedeem ? 'bg-white' : 'bg-gray-100 opacity-50'}`}>
+          <label className={`block text-sm font-semibold mb-2 ${canRedeem ? 'text-gray-700' : 'text-gray-500'}`}>
+            Phone Number (where to send rewards)
+          </label>
           <input
             type="tel"
             placeholder="e.g., 08012345678"
             value={selectedPhone}
             onChange={(e) => setSelectedPhone(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+            disabled={!canRedeem}
+            className={`w-full px-4 py-2 border rounded-lg focus:outline-none ${
+              canRedeem
+                ? 'border-gray-300 focus:border-primary'
+                : 'border-gray-300 bg-gray-50 cursor-not-allowed'
+            }`}
           />
-          <p className="text-xs text-gray-500 mt-2">Make sure to enter the correct number - rewards go to this phone number</p>
+          <p className={`text-xs mt-2 ${canRedeem ? 'text-gray-500' : 'text-gray-400'}`}>
+            {canRedeem
+              ? 'Make sure to enter the correct number - rewards go to this phone number'
+              : 'Reach the minimum threshold to enable this'
+            }
+          </p>
         </div>
 
         {/* Available Rewards */}
-        {earnableRewards.length > 0 && (
+        {canRedeem && earnableRewards.length > 0 && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">✅ Rewards You Can Redeem</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
