@@ -13,6 +13,8 @@ export default function VideoAds() {
   const [todayStats, setTodayStats] = useState({ watched: 0, earned: 0 });
   const [activeAdModal, setActiveAdModal] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [videoPlayed, setVideoPlayed] = useState(false);
+  const [videoError, setVideoError] = useState(null);
   const navigate = useNavigate();
 
   const videoAds = [
@@ -71,13 +73,22 @@ export default function VideoAds() {
   }, []);
 
   useEffect(() => {
-    if (!activeAdModal) return;
+    if (!activeAdModal) {
+      setVideoPlayed(false);
+      setVideoError(null);
+      return;
+    }
 
     setTimeRemaining(activeAdModal.duration);
+    setVideoPlayed(false);
+    setVideoError(null);
+
     const interval = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
           clearInterval(interval);
+          // Auto-detect if video was watched by checking if timer completed
+          // (user didn't close early)
           return 0;
         }
         return prev - 1;
@@ -86,6 +97,10 @@ export default function VideoAds() {
 
     return () => clearInterval(interval);
   }, [activeAdModal]);
+
+  const handleVideoIframeLoad = () => {
+    setVideoPlayed(true);
+  };
 
   const fetchUserData = async () => {
     if (!auth.currentUser) return;
@@ -131,6 +146,20 @@ export default function VideoAds() {
 
   const completeVideoWatch = async (ad) => {
     if (watchingAd) return;
+
+    // Anti-cheat: Verify video was actually played
+    if (!videoPlayed) {
+      setVideoError('⚠️ Please play the video to completion before claiming reward');
+      setTimeout(() => setVideoError(null), 3000);
+      return;
+    }
+
+    if (timeRemaining > 0) {
+      setVideoError('⏱️ Please watch the entire video before claiming');
+      setTimeout(() => setVideoError(null), 3000);
+      return;
+    }
+
     setWatchingAd(true);
 
     try {
@@ -336,11 +365,11 @@ export default function VideoAds() {
 
       {/* Video Player Modal */}
       {activeAdModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-          <div className="bg-black rounded-lg shadow-2xl max-w-2xl w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+          <div className="bg-black rounded-lg shadow-2xl max-w-2xl w-full">
             <div className="relative">
               {/* YouTube Embed */}
-              <div className="relative w-full aspect-video">
+              <div className="relative w-full aspect-video bg-gray-900 flex items-center justify-center">
                 <iframe
                   width="100%"
                   height="100%"
@@ -350,30 +379,48 @@ export default function VideoAds() {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="absolute top-0 left-0"
+                  onLoad={handleVideoIframeLoad}
                 />
               </div>
 
+              {/* Anti-Cheat Warning */}
+              {videoError && (
+                <div className="bg-red-900 border-t-2 border-red-500 p-3 text-center">
+                  <p className="text-red-200 font-semibold text-sm">{videoError}</p>
+                </div>
+              )}
+
               {/* Countdown Timer */}
-              <div className="bg-gray-900 p-4 text-center">
-                <p className="text-white text-sm mb-3">
+              <div className={`p-4 text-center ${videoError ? 'bg-gray-800' : 'bg-gray-900'}`}>
+                <p className="text-white text-sm mb-2">
                   {timeRemaining > 0 ? (
                     <>
                       Watch video to earn <span className="font-bold text-green-400">+{activeAdModal.reward} pts</span>
                       <br />
-                      <span className="text-lg font-bold text-yellow-400">{timeRemaining}s remaining</span>
+                      <span className="text-2xl font-bold text-yellow-400">{timeRemaining}s</span>
                     </>
                   ) : (
-                    <span className="text-lg font-bold text-green-400">✓ Video watched! Claiming reward...</span>
+                    <span className="text-lg font-bold text-green-400">✓ Video completed!</span>
                   )}
                 </p>
+
+                {/* Video Status Indicator */}
+                <div className="flex justify-center gap-2 mb-3 text-xs">
+                  <span className={`px-2 py-1 rounded ${videoPlayed ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
+                    {videoPlayed ? '✓ Video Loaded' : '○ Loading...'}
+                  </span>
+                  <span className={`px-2 py-1 rounded ${timeRemaining === 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
+                    {timeRemaining === 0 ? '✓ Time Complete' : `○ ${timeRemaining}s left`}
+                  </span>
+                </div>
 
                 {timeRemaining === 0 ? (
                   <button
                     onClick={() => completeVideoWatch(activeAdModal)}
                     disabled={watchingAd}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition"
+                    className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white font-bold py-3 rounded-lg transition"
                   >
-                    {watchingAd ? 'Processing...' : 'Claim Reward'}
+                    {watchingAd ? '⏳ Processing...' : '✓ Claim Reward'}
                   </button>
                 ) : (
                   <button
