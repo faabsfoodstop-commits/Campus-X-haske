@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
+import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
 
 export default function Wallet() {
+  const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -16,6 +19,7 @@ export default function Wallet() {
   const [bankDetails, setBankDetails] = useState({ accountName: '', accountNumber: '', bankName: '' });
   const [showBankForm, setShowBankForm] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [processing, setProcessing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,39 +67,53 @@ export default function Wallet() {
 
   const handleRequestWithdrawal = async () => {
     if (!withdrawalAmount || parseFloat(withdrawalAmount) <= 0) {
-      alert('Please enter a valid amount');
+      addToast('Please enter a valid amount', 'error');
       return;
     }
 
     if (parseFloat(withdrawalAmount) > (userData?.wallet || 0)) {
-      alert('Insufficient funds');
+      addToast('Insufficient funds', 'error');
       return;
     }
 
+    if (withdrawalMethod === 'bank_transfer' &&
+      (!bankDetails.accountNumber || !bankDetails.bankName || !bankDetails.accountName)) {
+      addToast('Please fill in all bank details', 'error');
+      return;
+    }
+
+    setProcessing(true);
+
     try {
-      await addDoc(collection(db, 'withdrawals'), {
-        userId: auth.currentUser.uid,
+      const functions = getFunctions();
+      const requestWithdrawalFn = httpsCallable(functions, 'requestWithdrawal');
+
+      const result = await requestWithdrawalFn({
         amount: parseFloat(withdrawalAmount),
         method: withdrawalMethod,
-        bankDetails: withdrawalMethod === 'bank_transfer' ? bankDetails : null,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        processedAt: null
+        bankDetails: withdrawalMethod === 'bank_transfer' ? bankDetails : null
       });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to request withdrawal');
+      }
 
       setWithdrawalAmount('');
       setShowWithdrawalForm(false);
+      setBankDetails({ accountName: '', accountNumber: '', bankName: '' });
       await fetchWalletData();
-      alert('Withdrawal request submitted! You will receive your funds within 2-3 business days.');
+      addToast('✓ Withdrawal request submitted! You will receive your funds within 2-3 business days.', 'success');
     } catch (err) {
       console.error('Error requesting withdrawal:', err);
-      alert('Failed to request withdrawal');
+      addToast(err.message || 'Failed to request withdrawal', 'error');
+    } finally {
+      setProcessing(false);
     }
   };
 
   const handleUpdateBankDetails = async () => {
     if (!bankDetails.accountNumber || !bankDetails.bankName || !bankDetails.accountName) {
-      alert('Please fill in all bank details');
+      addToast('Please fill in all bank details', 'error');
       return;
     }
 
@@ -105,9 +123,10 @@ export default function Wallet() {
       });
       setUserData({ ...userData, bankDetails });
       setShowBankForm(false);
-      alert('Bank details updated successfully');
+      addToast('✓ Bank details updated successfully', 'success');
     } catch (err) {
       console.error('Error updating bank details:', err);
+      addToast('Failed to update bank details', 'error');
     }
   };
 
@@ -285,6 +304,7 @@ export default function Wallet() {
                   onClick={() => setShowWithdrawalForm(false)}
                   variant="secondary"
                   fullWidth
+                  disabled={processing}
                 >
                   Cancel
                 </Button>
@@ -292,8 +312,10 @@ export default function Wallet() {
                   onClick={handleRequestWithdrawal}
                   variant="primary"
                   fullWidth
+                  disabled={processing}
+                  loading={processing}
                 >
-                  Request
+                  {processing ? 'Processing...' : 'Request'}
                 </Button>
               </div>
             </div>

@@ -1381,3 +1381,90 @@ export const verifyInstagramFollow = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('internal', error.message);
   }
 });
+
+// ============================================================================
+// SPONSORED MISSIONS - Claim Sponsored Mission Rewards
+// ============================================================================
+
+export const claimSponsoredMission = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { missionId, brand, baseReward } = data;
+    const userId = context.auth.uid;
+
+    if (!missionId || !baseReward) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing mission data');
+    }
+
+    // Check if mission already completed
+    const completionQuery = await db
+      .collection('sponsored_mission_completions')
+      .where('userId', '==', userId)
+      .where('missionId', '==', missionId)
+      .get();
+
+    if (completionQuery.size > 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Mission already completed');
+    }
+
+    // Get user data to check premium status
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    // Calculate final reward
+    const pointsAwarded = isPremium ? Math.floor(baseReward * 2) : baseReward;
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Award points
+    batch.update(db.collection('users').doc(userId), {
+      points: admin.firestore.FieldValue.increment(pointsAwarded),
+      totalEarnings: admin.firestore.FieldValue.increment(pointsAwarded)
+    });
+
+    // Log mission completion
+    batch.add(db.collection('sponsored_mission_completions'), {
+      userId,
+      missionId,
+      brand,
+      pointsEarned: baseReward,
+      pointsAwarded,
+      premiumMultiplier: isPremium ? 2 : 1,
+      completedDate: new Date().toDateString(),
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'sponsored_mission',
+      description: `Sponsored mission from ${brand}`,
+      amount: pointsAwarded,
+      missionId,
+      brand,
+      multiplier: isPremium ? 2 : 1,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      pointsAwarded,
+      message: `Mission claimed! Earned ${pointsAwarded} points`
+    };
+  } catch (error) {
+    console.error('Claim sponsored mission error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});

@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc, query, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft, IconRocket, IconCheckmark } from '../components/Icons';
@@ -123,34 +124,31 @@ export default function SponsoredMissions() {
     }
 
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const functions = getFunctions();
+      const claimSponsoredMission = httpsCallable(functions, 'claimSponsoredMission');
 
-      // Update user points
-      await updateDoc(userRef, {
-        points: (userData?.points || 0) + mission.reward,
-        totalEarnings: (userData?.totalEarnings || 0) + mission.reward,
-      });
-
-      // Log mission completion
-      await addDoc(collection(db, 'sponsored_mission_completions'), {
-        userId: auth.currentUser.uid,
+      const result = await claimSponsoredMission({
         missionId: mission.id,
         brand: mission.brand,
-        pointsEarned: mission.reward,
-        completedDate: new Date().toDateString(),
-        timestamp: new Date(),
+        baseReward: mission.reward
       });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to claim mission');
+      }
+
+      const pointsAwarded = result.data.pointsAwarded;
 
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + mission.reward,
+        points: (prev?.points || 0) + pointsAwarded,
       }));
 
       setCompletedMissions([...completedMissions, mission.id]);
-      addToast(`Mission claimed! +${mission.reward} points 🎉`, 'success');
+      addToast(`Mission claimed! +${pointsAwarded} points 🎉`, 'success');
     } catch (err) {
       console.error('Claim error:', err);
-      addToast('Failed to claim mission. Try again.', 'error');
+      addToast(err.message || 'Failed to claim mission. Try again.', 'error');
     }
   };
 
