@@ -1600,3 +1600,76 @@ export const postUserAd = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', error.message);
   }
 });
+
+// ============================================================================
+// PROFILE - Update User Profile
+// ============================================================================
+
+export const updateUserProfile = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { fullName, university, department, course, isNewCompletion } = data;
+    const userId = context.auth.uid;
+
+    if (!fullName?.trim() || !university || !department || !course) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required profile fields');
+    }
+
+    // Get user data to check premium status and if profile was already complete
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    // Calculate bonus points
+    const baseBonusPoints = isNewCompletion ? 1000 : 0;
+    const bonusPointsAwarded = isPremium ? Math.floor(baseBonusPoints * 2) : baseBonusPoints;
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Update profile
+    batch.update(db.collection('users').doc(userId), {
+      fullName,
+      university,
+      department,
+      course,
+      profileComplete: true,
+      profileCompletedAt: isNewCompletion ? admin.firestore.FieldValue.serverTimestamp() : user.profileCompletedAt,
+      points: admin.firestore.FieldValue.increment(bonusPointsAwarded)
+    });
+
+    // Log transaction if bonus was awarded
+    if (bonusPointsAwarded > 0) {
+      batch.add(db.collection('transactions'), {
+        userId,
+        type: 'profile_completion',
+        description: 'Profile completion bonus',
+        amount: bonusPointsAwarded,
+        baseBonus: baseBonusPoints,
+        multiplier: isPremium ? 2 : 1,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    await batch.commit();
+
+    return {
+      success: true,
+      bonusPointsAwarded,
+      message: isNewCompletion
+        ? `Profile completed! You earned ${bonusPointsAwarded} bonus points!`
+        : 'Your profile has been updated successfully!'
+    };
+  } catch (error) {
+    console.error('Update user profile error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});

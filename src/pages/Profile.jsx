@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -76,23 +77,29 @@ export default function Profile() {
         });
       }
 
-      const profileWasIncomplete = !isProfileComplete;
-      const bonusPoints = profileWasIncomplete ? 1000 : 0;
+      const functions = getFunctions();
+      const updateUserProfile = httpsCallable(functions, 'updateUserProfile');
 
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      const profileWasIncomplete = !isProfileComplete;
+
+      const result = await updateUserProfile({
         fullName: formData.fullName,
         university: formData.university,
         department: formData.department,
         course: formData.course,
-        profileComplete: true,
-        profileCompletedAt: profileWasIncomplete ? new Date() : userData?.profileCompletedAt,
-        points: (userData?.points || 0) + bonusPoints,
+        isNewCompletion: profileWasIncomplete
       });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to update profile');
+      }
+
+      const bonusPointsAwarded = result.data.bonusPointsAwarded || 0;
 
       const updatedData = {
         ...formData,
         profileComplete: true,
-        points: (userData?.points || 0) + bonusPoints,
+        points: (userData?.points || 0) + bonusPointsAwarded,
       };
       setUserData(updatedData);
       setEditing(false);
@@ -100,7 +107,7 @@ export default function Profile() {
       await showAlert({
         title: 'Success',
         message: profileWasIncomplete
-          ? `Profile completed! You earned 1,000 bonus points! 🎉`
+          ? `Profile completed! You earned ${bonusPointsAwarded} bonus points! 🎉`
           : 'Your profile has been updated successfully!',
         type: 'success'
       });
@@ -108,7 +115,7 @@ export default function Profile() {
       console.error('Error updating profile:', err);
       await showAlert({
         title: 'Error',
-        message: 'Failed to update profile. Please try again.',
+        message: err.message || 'Failed to update profile. Please try again.',
         type: 'error'
       });
     } finally {
