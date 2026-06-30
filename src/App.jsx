@@ -29,6 +29,7 @@ import SellPoints from './pages/SellPoints';
 import AchievementsPage from './pages/AchievementsPage';
 import WeeklyChallenges from './pages/WeeklyChallenges';
 import Menu from './pages/Menu';
+import AdminWithdrawals from './pages/AdminWithdrawals';
 import TransactionHistory from './pages/TransactionHistory';
 import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
@@ -203,6 +204,10 @@ function App() {
           <Route
             path="/menu"
             element={<PrivateRoute user={user}><Menu /></PrivateRoute>}
+          />
+          <Route
+            path="/admin/withdrawals"
+            element={<PrivateRoute user={user}><AdminWithdrawals /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />
