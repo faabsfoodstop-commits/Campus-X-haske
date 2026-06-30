@@ -98,11 +98,16 @@ export default function Profile() {
       const bonusPointsAwarded = result.data.bonusPointsAwarded || 0;
 
       const updatedData = {
-        ...formData,
+        ...userData,
+        fullName: formData.fullName,
+        university: formData.university,
+        department: formData.department,
+        course: formData.course,
         profileComplete: true,
         points: (userData?.points || 0) + bonusPointsAwarded,
       };
       setUserData(updatedData);
+      setFormData(updatedData);
       setEditing(false);
       setIsSaving(false);
 
