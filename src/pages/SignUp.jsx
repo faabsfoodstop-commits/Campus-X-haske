@@ -7,12 +7,13 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    university: 'BUK',
+    university: NIGERIAN_UNIVERSITIES[0]?.code || '',
     password: '',
     confirmPassword: '',
   });
@@ -106,10 +107,12 @@ export default function SignUp() {
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
             >
-              <option value="BUK">Bayero University Kano (BUK)</option>
-              <option value="ABU">Ahmadu Bello University (ABU)</option>
-              <option value="OAU">Obafemi Awolowo University (OAU)</option>
-              <option value="UNILAG">University of Lagos (UNILAG)</option>
+              <option value="">Select a university</option>
+              {NIGERIAN_UNIVERSITIES.map((uni) => (
+                <option key={uni.code} value={uni.code}>
+                  {uni.name} ({uni.code})
+                </option>
+              ))}
             </select>
           </div>
 
