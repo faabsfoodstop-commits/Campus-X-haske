@@ -104,6 +104,7 @@ export default function Profile() {
       };
       setUserData(updatedData);
       setEditing(false);
+      setIsSaving(false);
 
       await showAlert({
         title: 'Success',
@@ -114,13 +115,12 @@ export default function Profile() {
       });
     } catch (err) {
       console.error('Error updating profile:', err);
+      setIsSaving(false);
       await showAlert({
         title: 'Error',
         message: err.message || 'Failed to update profile. Please try again.',
         type: 'error'
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -199,127 +199,75 @@ export default function Profile() {
             )}
           </div>
 
-          <div className="space-y-6">
-            {/* Full Name */}
-            <div>
-              {editing ? (
-                <Input
-                  label="Full Name *"
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName || ''}
+          {editing ? (
+            <div className="space-y-6">
+              {/* Full Name */}
+              <Input
+                label="Full Name *"
+                type="text"
+                name="fullName"
+                value={formData.fullName || ''}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+              />
+
+              {/* Email (read-only in edit) */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Email</label>
+                <p className="text-gray-600">{userData?.email || user?.email}</p>
+              </div>
+
+              {/* University */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">University *</label>
+                <select
+                  name="university"
+                  value={formData.university || ''}
                   onChange={handleChange}
-                  placeholder="Enter your full name"
-                />
-              ) : (
-                <>
-                  <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
-                  <p className="text-gray-600">{userData?.fullName || user?.displayName}</p>
-                </>
-              )}
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">Email</label>
-              <p className="text-gray-600">{userData?.email || user?.email}</p>
-            </div>
-
-            {/* University */}
-            <div>
-              {editing ? (
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">University *</label>
-                  <select
-                    name="university"
-                    value={formData.university || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                  >
-                    <option value="">Select a university</option>
-                    {NIGERIAN_UNIVERSITIES.map((uni) => (
-                      <option key={uni.code} value={uni.code}>
-                        {uni.name} ({uni.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <>
-                  <label className="block text-gray-700 font-semibold mb-2">University</label>
-                  <p className="text-gray-600">
-                    {userData?.university
-                      ? NIGERIAN_UNIVERSITIES.find(u => u.code === userData.university)?.name || userData.university
-                      : 'Not set'}
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Department */}
-            <div>
-              {editing ? (
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">Department *</label>
-                  <select
-                    name="department"
-                    value={formData.department || ''}
-                    onChange={handleChange}
-                    disabled={!formData.university}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">
-                      {formData.university ? 'Select a department' : 'Select university first'}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  <option value="">Select a university</option>
+                  {NIGERIAN_UNIVERSITIES.map((uni) => (
+                    <option key={uni.code} value={uni.code}>
+                      {uni.name} ({uni.code})
                     </option>
-                    {availableDepartments.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <>
-                  <label className="block text-gray-700 font-semibold mb-2">Department</label>
-                  <p className="text-gray-600">{userData?.department || 'Not set'}</p>
-                </>
-              )}
-            </div>
+                  ))}
+                </select>
+              </div>
 
-            {/* Course */}
-            <div>
-              {editing ? (
-                <Input
-                  label="Course/Level *"
-                  type="text"
-                  name="course"
-                  value={formData.course || ''}
+              {/* Department */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Department *</label>
+                <select
+                  name="department"
+                  value={formData.department || ''}
                   onChange={handleChange}
-                  placeholder="e.g., 300L, 2nd Year"
-                />
-              ) : (
-                <>
-                  <label className="block text-gray-700 font-semibold mb-2">Course/Level</label>
-                  <p className="text-gray-600">{userData?.course || 'Not set'}</p>
-                </>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-6 pt-6 border-t">
-              <div>
-                <p className="text-gray-500 text-sm">Total Points</p>
-                <p className="text-2xl font-bold text-primary">{userData?.points || 0}</p>
+                  disabled={!formData.university}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {formData.university ? 'Select a department' : 'Select university first'}
+                  </option>
+                  {availableDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <p className="text-gray-500 text-sm">Wallet Balance</p>
-                <p className="text-2xl font-bold text-primary">₦{userData?.wallet || 0}</p>
-              </div>
-            </div>
 
-            {/* Actions */}
-            {editing && (
-              <div className="flex gap-4 pt-6">
+              {/* Course */}
+              <Input
+                label="Course/Level *"
+                type="text"
+                name="course"
+                value={formData.course || ''}
+                onChange={handleChange}
+                placeholder="e.g., 300L, 2nd Year"
+              />
+
+              {/* Actions */}
+              <div className="flex gap-4 pt-6 border-t">
                 <Button
                   onClick={handleSave}
                   variant="primary"
@@ -340,8 +288,56 @@ export default function Profile() {
                   Cancel
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Full Name */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
+                <p className="text-gray-600">{userData?.fullName || user?.displayName}</p>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Email</label>
+                <p className="text-gray-600">{userData?.email || user?.email}</p>
+              </div>
+
+              {/* University */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">University</label>
+                <p className="text-gray-600">
+                  {userData?.university
+                    ? NIGERIAN_UNIVERSITIES.find(u => u.code === userData.university)?.name || userData.university
+                    : 'Not set'}
+                </p>
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Department</label>
+                <p className="text-gray-600">{userData?.department || 'Not set'}</p>
+              </div>
+
+              {/* Course */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Course/Level</label>
+                <p className="text-gray-600">{userData?.course || 'Not set'}</p>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-6 pt-6 border-t">
+                <div>
+                  <p className="text-gray-500 text-sm">Total Points</p>
+                  <p className="text-2xl font-bold text-primary">{userData?.points || 0}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">Wallet Balance</p>
+                  <p className="text-2xl font-bold text-primary">₦{userData?.wallet || 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <Modal {...modal} onClose={closeModal} />
