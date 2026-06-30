@@ -6,9 +6,7 @@ import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Input from '../components/Input';
-import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 
 export default function Admin() {

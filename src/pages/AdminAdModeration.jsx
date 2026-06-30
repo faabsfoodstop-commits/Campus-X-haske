@@ -5,10 +5,8 @@ import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 import { IconArrowLeft, IconCheckmark, IconX, IconTrash } from '../components/Icons';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminAdModeration() {
   const navigate = useNavigate();

@@ -5,7 +5,6 @@ import { collection, query, orderBy, limit, getDocs, doc, getDoc, where } from '
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 
 export default function Leaderboard() {

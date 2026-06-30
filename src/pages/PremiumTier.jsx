@@ -8,7 +8,6 @@ import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconRocket, IconCheckmark, IconStar } from '../components/Icons';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function PremiumTier() {
   const navigate = useNavigate();

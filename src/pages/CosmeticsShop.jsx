@@ -7,7 +7,6 @@ import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconDiamond, IconStar, IconTrophy, IconRocket, IconParty } from '../components/Icons';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function CosmeticsShop() {
   const navigate = useNavigate();

@@ -6,7 +6,6 @@ import { httpsCallable, getFunctions } from 'firebase/functions';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 import {
   IconSpinWheel,

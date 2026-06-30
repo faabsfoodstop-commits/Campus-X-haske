@@ -6,7 +6,6 @@ import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconCheckmark, IconX } from '../components/Icons';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminWithdrawals() {
   const navigate = useNavigate();
