@@ -4,7 +4,9 @@ import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebas
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconCheckmark, IconX } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminWithdrawals() {
   const navigate = useNavigate();
@@ -79,7 +81,7 @@ export default function AdminWithdrawals() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   if (!isAdmin) {

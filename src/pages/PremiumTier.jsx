@@ -6,7 +6,9 @@ import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconRocket, IconCheckmark, IconStar } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function PremiumTier() {
   const navigate = useNavigate();
@@ -120,7 +122,7 @@ export default function PremiumTier() {
     new Date(userData.premiumUntil) > new Date();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

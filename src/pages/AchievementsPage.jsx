@@ -33,7 +33,7 @@ export default function AchievementsPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const unlockedAchievements = getUnlockedAchievements(userData || {});

@@ -5,7 +5,9 @@ import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconDiamond, IconStar, IconTrophy, IconRocket, IconParty } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function CosmeticsShop() {
   const navigate = useNavigate();
@@ -101,7 +103,7 @@ export default function CosmeticsShop() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const allCosmetics = [...cosmetics.frames, ...cosmetics.badges, ...cosmetics.titles];

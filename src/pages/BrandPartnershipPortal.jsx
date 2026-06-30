@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where, doc, getDoc, orderBy } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrendingUp, IconCheckmark } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function BrandPartnershipPortal() {
   const navigate = useNavigate();
@@ -44,7 +46,7 @@ export default function BrandPartnershipPortal() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const totalRevenue = campaigns.reduce((sum, camp) => sum + (camp.revenue || 0), 0);

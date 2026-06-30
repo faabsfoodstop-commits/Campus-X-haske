@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { IconArrowLeft } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Menu() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function Menu() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const menuItems = [

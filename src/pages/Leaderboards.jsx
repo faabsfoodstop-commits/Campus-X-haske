@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { collection, query, orderBy, limit, getDocs, doc, getDoc, where } from 'firebase/firestore';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 
 export default function Leaderboard() {
@@ -131,7 +133,7 @@ export default function Leaderboard() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

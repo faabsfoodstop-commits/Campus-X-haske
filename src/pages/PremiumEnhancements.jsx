@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconCheckmark, IconDiamond, IconTrendingUp } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function PremiumEnhancements() {
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ export default function PremiumEnhancements() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const isPremium = userData?.premiumActive;

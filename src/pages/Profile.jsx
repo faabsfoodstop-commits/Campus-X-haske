@@ -4,6 +4,7 @@ import { signOut, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
@@ -133,7 +134,7 @@ export default function Profile() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

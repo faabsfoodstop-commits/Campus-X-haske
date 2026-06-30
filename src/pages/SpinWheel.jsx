@@ -4,7 +4,9 @@ import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 import {
   IconSpinWheel,
@@ -278,7 +280,7 @@ export default function SpinWheel() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

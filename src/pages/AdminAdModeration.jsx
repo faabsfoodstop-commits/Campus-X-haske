@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 import { IconArrowLeft, IconCheckmark, IconX, IconTrash } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminAdModeration() {
   const navigate = useNavigate();
@@ -190,7 +193,7 @@ export default function AdminAdModeration() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const pendingCount = ads.filter(ad => ad.status === 'pending').length;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import RichMarketplaceCard from '../components/RichMarketplaceCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Marketplace() {
   const [user, setUser] = useState(null);
@@ -182,7 +183,7 @@ export default function Marketplace() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

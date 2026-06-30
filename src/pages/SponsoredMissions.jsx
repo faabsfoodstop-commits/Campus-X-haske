@@ -4,6 +4,7 @@ import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc, query, getDocs } from 'firebase/firestore';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft, IconRocket, IconCheckmark } from '../components/Icons';
 
@@ -153,7 +154,7 @@ export default function SponsoredMissions() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

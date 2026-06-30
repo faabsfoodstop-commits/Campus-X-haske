@@ -4,8 +4,11 @@ import { signOut } from 'firebase/auth';
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Input from '../components/Input';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { useConfirm } from '../hooks/useConfirm';
 
 export default function Admin() {
@@ -141,7 +144,7 @@ export default function Admin() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

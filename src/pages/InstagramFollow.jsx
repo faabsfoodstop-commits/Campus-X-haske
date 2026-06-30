@@ -165,7 +165,7 @@ export default function InstagramFollow() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const categories = [...new Set(brands.map(b => b.category))];

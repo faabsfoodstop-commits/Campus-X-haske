@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
 import ActivityCard from '../components/ActivityCard';
 import Button from '../components/Button';
@@ -102,7 +103,7 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" message="Loading your dashboard..." />;
   }
 
   return (
