@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
@@ -276,51 +277,34 @@ export default function DailyMissions() {
     }
 
     try {
-      const today = new Date().toDateString();
-      const totalReward = mission.reward + comboBonus;
+      const functions = getFunctions();
+      const awardMissionReward = httpsCallable(functions, 'awardMissionReward');
 
-      // Immediately update UI (optimistic update)
+      const result = await awardMissionReward({
+        missionId: mission.id,
+        missionName: mission.name,
+        baseReward: mission.reward,
+        comboBonus
+      });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to award mission');
+      }
+
+      const finalPoints = result.data.pointsAwarded;
+
+      // Update UI
       setCompletedToday([...completedToday, mission.id]);
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + totalReward
+        points: (prev?.points || 0) + finalPoints
       }));
 
-      // Update Firestore in background
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-
-      // First ensure user document exists
-      const userDoc = await getDoc(userRef);
-      if (!userDoc.exists()) {
-        await setDoc(userRef, {
-          points: totalReward,
-          createdAt: new Date()
-        });
-      } else {
-        // User exists, just update points
-        await setDoc(userRef, {
-          points: (userDoc.data().points || 0) + totalReward
-        }, { merge: true });
-      }
-
-      // Add mission record to tracking collection
-      await addDoc(collection(db, 'daily_missions'), {
-        userId: auth.currentUser.uid,
-        missionId: mission.id,
-        missionName: mission.name,
-        pointsEarned: mission.reward,
-        comboBonus,
-        completedDate: today,
-        timestamp: new Date()
-      });
-
-      // Show notification instead of alert
-      const totalRewardNotif = mission.reward + comboBonus;
       setNotification({
         type: 'success',
         title: 'Mission Completed! 🎉',
-        message: `${mission.name}\n+${mission.reward} pts${comboBonus > 0 ? ` + ${comboBonus} bonus!` : ''}\nTotal: +${totalRewardNotif} pts`,
-        reward: totalRewardNotif
+        message: `${mission.name}\n+${mission.reward} pts${comboBonus > 0 ? ` + ${comboBonus} bonus!` : ''}\nTotal: +${finalPoints} pts`,
+        reward: finalPoints
       });
 
       // Refresh combo bonus calculation
@@ -330,12 +314,12 @@ export default function DailyMissions() {
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error('Error completing mission:', err);
-      // Revert optimistic update on error
-      setCompletedToday(completedToday.filter(id => id !== mission.id));
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) - mission.reward
-      }));
+      setNotification({
+        type: 'error',
+        title: 'Failed to Complete Mission',
+        message: err.message || 'An error occurred'
+      });
+      setTimeout(() => setNotification(null), 3000);
 
       // Show error notification
       setNotification({

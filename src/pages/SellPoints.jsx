@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import { ToastContext } from '../context/ToastContext';
 
@@ -84,17 +85,17 @@ export default function SellPoints() {
     setError('');
 
     try {
-      await addDoc(collection(db, 'point_sell_orders'), {
-        userId: auth.currentUser.uid,
-        userName: auth.currentUser.displayName || 'Anonymous',
+      const functions = getFunctions();
+      const createSellOrder = httpsCallable(functions, 'createPointSellOrder');
+
+      const result = await createSellOrder({
         points: pointsNum,
-        askPrice: parseFloat(pricePerPoint),
-        totalValue: pointsNum * parseFloat(pricePerPoint),
-        status: 'active',
-        createdAt: new Date(),
+        askPrice: parseFloat(pricePerPoint)
       });
 
-      addToast(`📈 Someone just sold ${pointsNum} points at ₦${pricePerPoint}/pt!`, 'info');
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to create sell order');
+      }
 
       setPointsToSell('');
       setPricePerPoint('0.40');
@@ -103,7 +104,7 @@ export default function SellPoints() {
       setTimeout(() => navigate('/point-market'), 1500);
     } catch (err) {
       console.error('Error creating sell order:', err);
-      setError('Failed to create order: ' + err.message);
+      setError(err.message || 'Failed to create order');
     } finally {
       setSubmitting(false);
     }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
@@ -158,14 +159,30 @@ export default function SpinWheel() {
 
     setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
 
-    // Update user data with optimistic updates
+    // Update user data with Cloud Function
     try {
+      // Call Cloud Function to complete task
+      const functions = getFunctions();
+      const completeTask = httpsCallable(functions, 'completeTask');
+
+      const cfResult = await completeTask({
+        taskId: `spin_${Date.now()}`,
+        taskType: 'spin_wheel',
+        points: earnedPoints
+      });
+
+      if (!cfResult.data.success) {
+        throw new Error('Failed to award points');
+      }
+
+      const finalPoints = cfResult.data.points;
+
       const userRef = doc(db, 'users', auth.currentUser.uid);
 
-      // Immediately update UI (optimistic)
+      // Immediately update UI with actual points
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + earnedPoints,
+        points: (prev?.points || 0) + finalPoints,
         wallet: useFreeSpins ? prev?.wallet : ((prev?.wallet || 0) - 50)
       }));
 
@@ -173,18 +190,10 @@ export default function SpinWheel() {
         setFreeSpin(freeSpin - 1);
       }
 
-      // Update Firestore in background
-      // Ensure user doc exists before updating
+      // Update last spin timestamp
       const userDoc = await getDoc(userRef);
-      if (!userDoc.exists()) {
+      if (userDoc.exists()) {
         await setDoc(userRef, {
-          points: earnedPoints,
-          createdAt: new Date(),
-          lastSpin: new Date()
-        });
-      } else {
-        await setDoc(userRef, {
-          points: (userDoc.data().points || 0) + earnedPoints,
           lastSpin: new Date()
         }, { merge: true });
       }

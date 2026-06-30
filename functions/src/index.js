@@ -854,3 +854,530 @@ export const weeklyReset = functions.pubsub.schedule('0 0 * * 1').onRun(async (c
     console.error('Weekly reset error:', error);
   }
 });
+
+// ============================================================================
+// POINT MARKET - Create Sell Orders
+// ============================================================================
+
+export const createPointSellOrder = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { points, askPrice } = data;
+    const userId = context.auth.uid;
+
+    if (!points || !askPrice || points <= 0 || askPrice <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid points or price');
+    }
+
+    // Get user data
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const userPoints = user.points || 0;
+
+    if (userPoints < points) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient points');
+    }
+
+    // Create transaction to deduct points and create sell order
+    const batch = db.batch();
+
+    // Deduct points from user
+    batch.update(db.collection('users').doc(userId), {
+      points: admin.firestore.FieldValue.increment(-points)
+    });
+
+    // Create sell order
+    const orderRef = db.collection('point_sell_orders').doc();
+    batch.set(orderRef, {
+      userId,
+      userName: context.auth.token.name || 'Anonymous',
+      points,
+      askPrice,
+      totalValue: points * askPrice,
+      status: 'active',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'point_sell_order',
+      description: `Listed ${points} points for sale at ₦${askPrice}/pt`,
+      amount: -points,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      orderId: orderRef.id,
+      message: 'Sell order created successfully'
+    };
+  } catch (error) {
+    console.error('Create sell order error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// POINT MARKET - Execute Trades
+// ============================================================================
+
+export const executePointTrade = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { orderId, orderType } = data;
+    const buyerId = context.auth.uid;
+
+    if (!orderId || !orderType) {
+      throw new functions.https.HttpsError('invalid-argument', 'Order ID and type are required');
+    }
+
+    if (!['sell_order', 'buy_offer'].includes(orderType)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid order type');
+    }
+
+    // Get the order/offer
+    const orderRef = orderType === 'sell_order'
+      ? db.collection('point_sell_orders').doc(orderId)
+      : db.collection('point_buy_offers').doc(orderId);
+
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Order not found or already completed');
+    }
+
+    const order = orderDoc.data();
+
+    if (order.status !== 'active') {
+      throw new functions.https.HttpsError('failed-precondition', 'Order is no longer available');
+    }
+
+    // Get buyer data
+    const buyerDoc = await db.collection('users').doc(buyerId).get();
+    if (!buyerDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Buyer not found');
+    }
+
+    const buyer = buyerDoc.data();
+
+    // Get seller data
+    const sellerDoc = await db.collection('users').doc(order.userId).get();
+    if (!sellerDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Seller not found');
+    }
+
+    const seller = sellerDoc.data();
+
+    // Verify sufficient points are available (in case seller has already sold them)
+    if ((seller.points || 0) < order.points) {
+      throw new functions.https.HttpsError('failed-precondition', 'Seller no longer has sufficient points');
+    }
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Transfer points from seller to buyer
+    batch.update(db.collection('users').doc(order.userId), {
+      points: admin.firestore.FieldValue.increment(order.points)
+    });
+
+    batch.update(db.collection('users').doc(buyerId), {
+      points: admin.firestore.FieldValue.increment(order.points)
+    });
+
+    // Mark order as completed
+    batch.update(orderRef, {
+      status: 'completed',
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      buyerId
+    });
+
+    // Log transactions
+    batch.add(db.collection('transactions'), {
+      userId: order.userId,
+      type: 'point_sold',
+      description: `Sold ${order.points} points at ₦${order.askPrice}/pt to ${buyer.displayName || 'user'}`,
+      amount: order.points,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    batch.add(db.collection('transactions'), {
+      userId: buyerId,
+      type: 'point_purchased',
+      description: `Bought ${order.points} points at ₦${order.askPrice}/pt from ${seller.displayName || 'user'}`,
+      amount: order.points,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      pointsReceived: order.points,
+      message: `Successfully traded ${order.points} points`
+    };
+  } catch (error) {
+    console.error('Execute trade error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// DAILY MISSIONS - Award Mission Rewards with Bonuses
+// ============================================================================
+
+export const awardMissionReward = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { missionId, missionName, baseReward, comboBonus } = data;
+    const userId = context.auth.uid;
+
+    if (!missionId || !missionName || !baseReward) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required mission data');
+    }
+
+    // Verify mission not already completed today
+    const today = new Date().toDateString();
+    const missionQuery = await db
+      .collection('daily_missions')
+      .where('userId', '==', userId)
+      .where('missionId', '==', missionId)
+      .where('completedDate', '==', today)
+      .get();
+
+    if (missionQuery.size > 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Mission already completed today');
+    }
+
+    // Get user data to check premium status
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    // Calculate final reward: base + combo + premium 2x
+    let finalReward = baseReward + (comboBonus || 0);
+    if (isPremium) {
+      finalReward = Math.floor(finalReward * 2);
+    }
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Award points
+    batch.update(db.collection('users').doc(userId), {
+      points: admin.firestore.FieldValue.increment(finalReward)
+    });
+
+    // Record mission completion
+    batch.add(db.collection('daily_missions'), {
+      userId,
+      missionId,
+      missionName,
+      pointsEarned: baseReward,
+      comboBonus: comboBonus || 0,
+      premiumMultiplier: isPremium ? 2 : 1,
+      finalPoints: finalReward,
+      completedDate: today,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'daily_mission',
+      description: `Completed mission: ${missionName}`,
+      amount: finalReward,
+      breakdown: {
+        base: baseReward,
+        bonus: comboBonus || 0,
+        multiplier: isPremium ? 2 : 1
+      },
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      pointsAwarded: finalReward,
+      message: `Mission completed! Earned ${finalReward} points`
+    };
+  } catch (error) {
+    console.error('Award mission reward error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// WEEKLY CHALLENGES - Claim Challenge Rewards
+// ============================================================================
+
+export const claimWeeklyChallenge = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { challengeId } = data;
+    const userId = context.auth.uid;
+
+    if (!challengeId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Challenge ID is required');
+    }
+
+    // Get user data to check if already claimed and premium status
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+
+    // Check if already claimed
+    if (user[`claimed_${challengeId}`]) {
+      throw new functions.https.HttpsError('failed-precondition', 'Challenge reward already claimed');
+    }
+
+    // Define challenge bonuses
+    const challengeBonuses = {
+      'earn_1000': 200,
+      'sell_500': 150,
+      'complete_5': 100,
+      'refer_2': 250,
+      'login_5': 50,
+      'streak_7': 300
+    };
+
+    const baseBonus = challengeBonuses[challengeId];
+    if (!baseBonus) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid challenge ID');
+    }
+
+    // Check premium status for 2x multiplier
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    const bonusAwarded = isPremium ? Math.floor(baseBonus * 2) : baseBonus;
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Award points
+    batch.update(db.collection('users').doc(userId), {
+      points: admin.firestore.FieldValue.increment(bonusAwarded),
+      [`claimed_${challengeId}`]: true
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'weekly_challenge_bonus',
+      description: `Weekly challenge bonus: ${challengeId}`,
+      amount: bonusAwarded,
+      breakdown: {
+        base: baseBonus,
+        multiplier: isPremium ? 2 : 1
+      },
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      bonusAwarded,
+      message: `Claimed ${bonusAwarded} bonus points`
+    };
+  } catch (error) {
+    console.error('Claim weekly challenge error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// COSMETICS - Buy Cosmetic Items
+// ============================================================================
+
+export const buyCosmeticItem = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { cosmeticId, cosmeticName, price } = data;
+    const userId = context.auth.uid;
+
+    if (!cosmeticId || !price) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing cosmetic data');
+    }
+
+    // Get user data
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const userPoints = user.points || 0;
+
+    if (userPoints < price) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient points');
+    }
+
+    // Check if already owns this cosmetic
+    const owned = user.cosmeticsPurchased || [];
+    if (owned.includes(cosmeticId)) {
+      throw new functions.https.HttpsError('failed-precondition', 'Item already owned');
+    }
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    const newPoints = userPoints - price;
+
+    // Deduct points and add cosmetic
+    batch.update(db.collection('users').doc(userId), {
+      points: newPoints,
+      cosmeticsPurchased: admin.firestore.FieldValue.arrayUnion(cosmeticId)
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'cosmetic_purchase',
+      description: `Purchased: ${cosmeticName}`,
+      amount: -price,
+      itemId: cosmeticId,
+      itemName: cosmeticName,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      newPoints,
+      message: `${cosmeticName} purchased successfully`
+    };
+  } catch (error) {
+    console.error('Buy cosmetic item error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// INSTAGRAM - Verify Brand Follow
+// ============================================================================
+
+export const verifyInstagramFollow = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { brandId, brandHandle, brandName, reward } = data;
+    const userId = context.auth.uid;
+
+    if (!brandId || !reward) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing brand data');
+    }
+
+    // Check if already followed
+    const followQuery = await db
+      .collection('instagram_follows')
+      .where('userId', '==', userId)
+      .where('brandId', '==', brandId)
+      .get();
+
+    if (followQuery.size > 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Already followed this brand');
+    }
+
+    // Get user data to check premium status
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    // In production, verify with Instagram Graph API here
+    // For now, simulated verification
+    const isVerified = true;
+
+    if (!isVerified) {
+      throw new functions.https.HttpsError('failed-precondition', 'Could not verify follow');
+    }
+
+    // Calculate final reward
+    const pointsAwarded = isPremium ? Math.floor(reward * 2) : reward;
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    // Award points
+    batch.update(db.collection('users').doc(userId), {
+      points: admin.firestore.FieldValue.increment(pointsAwarded),
+      instagram_follows: admin.firestore.FieldValue.increment(1)
+    });
+
+    // Record the follow
+    batch.add(db.collection('instagram_follows'), {
+      userId,
+      brandId,
+      brandHandle,
+      brandName,
+      reward,
+      pointsAwarded,
+      verified: true,
+      verificationMethod: 'simulated',
+      premiumMultiplier: isPremium ? 2 : 1,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Log transaction
+    batch.add(db.collection('transactions'), {
+      userId,
+      type: 'instagram_follow',
+      description: `Followed ${brandHandle} on Instagram`,
+      amount: pointsAwarded,
+      brandId,
+      brandName,
+      multiplier: isPremium ? 2 : 1,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      pointsAwarded,
+      message: `Successfully followed ${brandHandle}!`
+    };
+  } catch (error) {
+    console.error('Verify Instagram follow error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});

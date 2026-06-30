@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 
 export default function WeeklyChallenges() {
@@ -107,22 +108,35 @@ export default function WeeklyChallenges() {
       return;
     }
 
+    if (userData?.[`claimed_${challenge.id}`]) {
+      addToast('You already claimed this reward!', 'warning');
+      return;
+    }
+
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        points: (userData?.points || 0) + challenge.bonus,
-        [`claimed_${challenge.id}`]: true,
+      const functions = getFunctions();
+      const claimWeeklyChallenge = httpsCallable(functions, 'claimWeeklyChallenge');
+
+      const result = await claimWeeklyChallenge({
+        challengeId: challenge.id
       });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to claim reward');
+      }
+
+      const bonusAwarded = result.data.bonusAwarded;
 
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + challenge.bonus,
+        points: (prev?.points || 0) + bonusAwarded,
         [`claimed_${challenge.id}`]: true
       }));
 
-      addToast(`🎉 Claimed ${challenge.bonus} bonus points!`, 'success');
+      addToast(`🎉 Claimed ${bonusAwarded} bonus points!`, 'success');
     } catch (err) {
-      addToast('Error claiming reward', 'error');
+      console.error('Error claiming reward:', err);
+      addToast(err.message || 'Error claiming reward', 'error');
     }
   };
 

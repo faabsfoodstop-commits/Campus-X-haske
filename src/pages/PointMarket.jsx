@@ -1,20 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
+import { ToastContext } from '../context/ToastContext';
 
 export default function PointMarket() {
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
   const [sellOrders, setSellOrders] = useState([]);
   const [buyOffers, setBuyOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [executing, setExecuting] = useState(null);
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
+    fetchUserData();
     fetchMarketData();
     const interval = setInterval(fetchMarketData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchUserData = async () => {
+    if (!auth.currentUser) return;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
+      }
+    } catch (err) {
+      console.error('Error fetching user:', err);
+    }
+  };
 
   const fetchMarketData = async () => {
     try {
@@ -62,6 +80,38 @@ export default function PointMarket() {
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h ago`;
     return date.toLocaleDateString();
+  };
+
+  const executeTrade = async (orderId, type) => {
+    if (executing) return;
+    if (!auth.currentUser) {
+      addToast('Please log in to trade', 'error');
+      return;
+    }
+
+    setExecuting(orderId);
+    try {
+      const functions = getFunctions();
+      const buyPoints = httpsCallable(functions, 'executePointTrade');
+
+      const result = await buyPoints({
+        orderId,
+        orderType: type
+      });
+
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Trade failed');
+      }
+
+      addToast(`✓ Trade completed! +${result.data.pointsReceived} points`, 'success');
+      await fetchUserData();
+      await fetchMarketData();
+    } catch (err) {
+      console.error('Error executing trade:', err);
+      addToast(err.message || 'Failed to complete trade', 'error');
+    } finally {
+      setExecuting(null);
+    }
   };
 
   if (loading) {
@@ -196,11 +246,16 @@ export default function PointMarket() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/sell-points?offerId=${offer.id}`);
+                            executeTrade(offer.id, 'buy_offer');
                           }}
-                          className="text-primary hover:text-blue-600 text-sm font-semibold mt-2 transition"
+                          disabled={executing === offer.id}
+                          className={`text-sm font-semibold mt-2 transition ${
+                            executing === offer.id
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-primary hover:text-blue-600'
+                          }`}
                         >
-                          Sell →
+                          {executing === offer.id ? '⏳ Trading...' : 'Sell →'}
                         </button>
                       </div>
                     </div>
@@ -248,11 +303,16 @@ export default function PointMarket() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/point-market?orderId=${order.id}`);
+                            executeTrade(order.id, 'sell_order');
                           }}
-                          className="text-primary hover:text-blue-600 text-sm font-semibold mt-2 transition"
+                          disabled={executing === order.id}
+                          className={`text-sm font-semibold mt-2 transition ${
+                            executing === order.id
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-primary hover:text-blue-600'
+                          }`}
                         >
-                          Buy →
+                          {executing === order.id ? '⏳ Trading...' : 'Buy →'}
                         </button>
                       </div>
                     </div>

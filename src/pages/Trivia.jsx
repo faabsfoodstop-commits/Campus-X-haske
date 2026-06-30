@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import {
   IconTrivia,
   IconStar,
@@ -165,7 +166,23 @@ export default function Trivia() {
 
     try {
       const correctAnswers = Math.round((score / 1000) * 10);
-      const totalReward = score + 500; // Score + bonus (increased from 50)
+      const totalReward = score + 500; // Score + bonus
+
+      // Call Cloud Function to complete task
+      const functions = getFunctions();
+      const completeTask = httpsCallable(functions, 'completeTask');
+
+      const result = await completeTask({
+        taskId: `trivia_quiz_${Date.now()}`,
+        taskType: 'trivia',
+        points: totalReward
+      });
+
+      if (!result.data.success) {
+        throw new Error('Failed to award points');
+      }
+
+      const finalPoints = result.data.points;
 
       // Save result
       await addDoc(collection(db, 'trivia_results'), {
@@ -174,18 +191,12 @@ export default function Trivia() {
         correctAnswers,
         totalQuestions: 10,
         timestamp: new Date(),
-        pointsEarned: totalReward
+        pointsEarned: finalPoints
       });
-
-      // Update user points
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await setDoc(userRef, {
-        points: (userData?.points || 0) + totalReward
-      }, { merge: true });
 
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + totalReward
+        points: (prev?.points || 0) + finalPoints
       }));
 
       await fetchTriviaStats();

@@ -2,7 +2,9 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
+import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
 import { IconArrowLeft, IconRocket, IconCheckmark, IconStar } from '../components/Icons';
 
@@ -58,40 +60,57 @@ export default function PremiumTier() {
         return;
       }
 
-      // Calculate premium expiry (30 days from now)
-      const premiumUntil = new Date();
-      premiumUntil.setDate(premiumUntil.getDate() + 30);
+      // Generate payment reference
+      const reference = generateReference();
 
-      // Update user with premium status
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        premiumTier: true,
-        premiumUntil: premiumUntil.toISOString(),
-        totalSpent: (userData?.totalSpent || 0) + premiumPrice,
-      });
-
-      // Log subscription
-      await addDoc(collection(db, 'transactions'), {
-        userId: auth.currentUser.uid,
-        type: 'premium_subscription',
+      // Initialize Paystack payment
+      addToast('Opening payment form...', 'info');
+      await initializePayment({
+        email: auth.currentUser.email,
         amount: premiumPrice,
-        duration: '30 days',
-        status: 'active',
-        expiresAt: premiumUntil.toISOString(),
-        timestamp: new Date(),
+        reference: reference,
+        metadata: {
+          userId: auth.currentUser.uid,
+          type: 'premium_subscription',
+        },
       });
 
-      setUserData(prev => ({
-        ...prev,
-        premiumTier: true,
-        premiumUntil: premiumUntil.toISOString(),
-      }));
+      // Verify payment
+      addToast('Verifying payment...', 'info');
+      const functions = getFunctions();
+      const verifyPayment = httpsCallable(functions, 'verifyPaystackPayment');
+      const verifyResult = await verifyPayment({ reference });
 
-      addToast('Welcome to Premium! 🎉 2x points on all activities!', 'success');
+      if (!verifyResult.data.success) {
+        throw new Error('Payment verification failed');
+      }
+
+      // Activate premium via Cloud Function
+      addToast('Activating premium...', 'info');
+      const activatePremium = httpsCallable(functions, 'activatePremium');
+      const activateResult = await activatePremium({ reference });
+
+      if (!activateResult.data.success) {
+        throw new Error('Failed to activate premium');
+      }
+
+      // Update local state
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const updatedUser = userDoc.data();
+      setUserData(updatedUser);
+
+      addToast('✓ Premium activated for 30 days!', 'success');
+      addToast('Enjoy 2x points on all activities!', 'success');
+
+      // Redirect after 2 seconds
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
-      console.error('Subscription error:', err);
-      addToast('Subscription failed. Try again.', 'error');
+      if (err.message.includes('closed') || err.message.includes('popup')) {
+        addToast('Payment cancelled', 'warning');
+      } else {
+        console.error('Subscription error:', err);
+        addToast('Error: ' + err.message, 'error');
+      }
     } finally {
       setProcessing(false);
     }

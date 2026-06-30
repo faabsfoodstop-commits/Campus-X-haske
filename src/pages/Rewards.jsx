@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 
 export default function Rewards() {
   const [user, setUser] = useState(null);
@@ -89,51 +90,39 @@ export default function Rewards() {
     }
 
     try {
-      // Optimistic update
-      const newPoints = (userData?.points || 0) - reward.points;
-      setUserData(prev => ({
-        ...prev,
-        points: newPoints
-      }));
+      // Call Cloud Function to process redemption
+      setNotification({
+        type: 'info',
+        message: 'Processing your redemption request...'
+      });
 
-      // Create redemption request
-      const redemptionDoc = {
-        userId: auth.currentUser.uid,
-        userEmail: auth.currentUser.email,
+      const functions = getFunctions();
+      const processRedemption = httpsCallable(functions, 'processRedemption');
+
+      const result = await processRedemption({
         rewardId: reward.id,
-        rewardName: reward.name,
-        rewardType: reward.type,
-        pointsRedeemed: reward.points,
         phoneNumber: selectedPhone,
         amount: reward.amount,
-        unit: reward.unit || '',
-        provider: reward.provider,
-        status: 'pending',
-        timestamp: new Date(),
-        completedAt: null
-      };
+        type: reward.type,
+        provider: reward.provider
+      });
 
-      await addDoc(collection(db, 'redemptions'), redemptionDoc);
-
-      // Update user points in Firestore
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        await setDoc(userRef, {
-          points: (userDoc.data().points || 0) - reward.points
-        }, { merge: true });
+      if (!result.data.success) {
+        throw new Error('Failed to process redemption');
       }
+
+      // Update local state to reflect point deduction
+      await fetchUserData();
 
       setNotification({
         type: 'success',
-        message: `✓ Redemption request submitted! ${reward.name} will be sent to ${selectedPhone} within 24 hours.`
+        message: `✓ Redemption submitted! ${reward.name} will be sent to ${selectedPhone} within 24 hours.`
       });
 
       setSelectedPhone('');
       await fetchRedemptions();
 
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 5000);
     } catch (err) {
       console.error('Error redeeming reward:', err);
       // Revert optimistic update

@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft, IconDiamond, IconStar, IconTrophy, IconRocket, IconParty } from '../components/Icons';
@@ -72,29 +73,26 @@ export default function CosmeticsShop() {
     }
 
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const newPoints = (userData?.points || 0) - cosmetic.price;
-      const newPurchased = [...purchasedItems, cosmetic.id];
+      const functions = getFunctions();
+      const buyCosmeticItem = httpsCallable(functions, 'buyCosmeticItem');
 
-      await updateDoc(userRef, {
-        points: newPoints,
-        cosmeticsPurchased: newPurchased,
+      const result = await buyCosmeticItem({
+        cosmeticId: cosmetic.id,
+        cosmeticName: cosmetic.name,
+        price: cosmetic.price
       });
 
-      await addDoc(collection(db, 'transactions'), {
-        userId: auth.currentUser.uid,
-        type: 'cosmetic_purchase',
-        amount: cosmetic.price,
-        item: cosmetic.id,
-        itemName: cosmetic.name,
-        timestamp: new Date(),
-      });
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Purchase failed');
+      }
+
+      const newPoints = result.data.newPoints;
 
       setUserData(prev => ({
         ...prev,
         points: newPoints,
       }));
-      setPurchasedItems(newPurchased);
+      setPurchasedItems([...purchasedItems, cosmetic.id]);
       addToast(`${cosmetic.name} purchased! ✨`, 'success');
     } catch (err) {
       console.error('Purchase error:', err);

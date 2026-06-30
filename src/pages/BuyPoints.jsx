@@ -2,6 +2,7 @@ import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ToastContext } from '../context/ToastContext';
 import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
@@ -84,14 +85,11 @@ export default function BuyPoints() {
     setLoading(true);
 
     try {
-      // Fetch user data
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const currentUserData = userDoc.data() || {};
-
       // Generate payment reference
       const reference = generateReference();
 
-      // Initialize Paystack payment
+      // Initialize Paystack payment popup
+      addToast('Opening payment form...', 'info');
       await initializePayment({
         email: auth.currentUser.email,
         amount: pkg.price,
@@ -103,45 +101,44 @@ export default function BuyPoints() {
         },
       });
 
-      // Payment successful - now update the database
-      addToast(`Someone just bought ${pkg.points} points!`, 'info');
+      // Payment successful - verify with Cloud Function
+      addToast('Verifying payment...', 'info');
+      const functions = getFunctions();
+      const verifyPayment = httpsCallable(functions, 'verifyPaystackPayment');
 
-      // Update user points
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        points: (currentUserData.points || 0) + pkg.points,
-        wallet: (currentUserData.wallet || 0) + pkg.referralBonus, // Add referral bonus
-        totalSpent: (currentUserData.totalSpent || 0) + pkg.price,
-        [`purchase_${reference}`]: true,
-      });
+      const verifyResult = await verifyPayment({ reference });
 
-      // Log transaction
-      await addDoc(collection(db, 'transactions'), {
-        userId: auth.currentUser.uid,
-        type: 'point_purchase',
-        amount: pkg.price,
-        points: pkg.points,
-        reference: reference,
+      if (!verifyResult.data.success) {
+        throw new Error('Payment verification failed');
+      }
+
+      addToast('Payment verified! Crediting points...', 'info');
+
+      // Credit points via Cloud Function
+      const creditPoints = httpsCallable(functions, 'creditPointsAfterPayment');
+      const creditResult = await creditPoints({
+        reference,
         packageId: pkg.id,
-        status: 'completed',
-        timestamp: new Date(),
+        points: pkg.points,
       });
+
+      if (!creditResult.data.success) {
+        throw new Error('Failed to credit points');
+      }
 
       // Update local state
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + pkg.points,
-        wallet: (prev?.wallet || 0) + pkg.referralBonus,
-      }));
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const updatedUser = userDoc.data();
+      setUserData(updatedUser);
 
-      addToast(`${pkg.points} points added to your account!`, 'success');
-      addToast(`Referral bonus: +₦${pkg.referralBonus}!`, 'success');
+      addToast(`✓ ${pkg.points} points added to your account!`, 'success');
+      addToast(`Bonus: +${pkg.referralBonus} points (referral)!`, 'success');
 
       // Redirect after 2 seconds
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
       // Payment cancelled or failed
-      if (err.message.includes('closed')) {
+      if (err.message.includes('closed') || err.message.includes('popup')) {
         addToast('Payment cancelled', 'warning');
       } else {
         console.error('Payment error:', err);

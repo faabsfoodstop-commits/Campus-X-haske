@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 
 export default function InstagramFollow() {
   const [user, setUser] = useState(null);
@@ -121,69 +122,41 @@ export default function InstagramFollow() {
     setVerificationResult(null);
 
     try {
-      // Simulate verification delay (normally would hit Instagram API)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const functions = getFunctions();
+      const verifyInstagramFollow = httpsCallable(functions, 'verifyInstagramFollow');
 
-      // In production, this would verify via Instagram Graph API
-      // For now, we simulate successful follow verification (always success for UX)
-      const success = true; // Auto-success for better UX
+      const result = await verifyInstagramFollow({
+        brandId: brand.id,
+        brandHandle: brand.handle,
+        brandName: brand.name,
+        reward: brand.reward
+      });
 
-      if (success) {
-        // Immediately update UI (optimistic)
-        setUserData(prev => ({
-          ...prev,
-          points: (prev?.points || 0) + brand.reward,
-          instagram_follows: (prev?.instagram_follows || 0) + 1
-        }));
-
-        setFollowedBrands([...followedBrands, brand.id]);
-
-        setVerificationResult({
-          success: true,
-          message: `✓ Successfully followed ${brand.handle}! +${brand.reward} pts`
-        });
-
-        // Update Firestore in background
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        const userDoc = await getDoc(userRef);
-
-        if (!userDoc.exists()) {
-          await setDoc(userRef, {
-            points: brand.reward,
-            instagram_follows: 1,
-            createdAt: new Date()
-          });
-        } else {
-          await setDoc(userRef, {
-            points: (userDoc.data().points || 0) + brand.reward,
-            instagram_follows: (userDoc.data().instagram_follows || 0) + 1
-          }, { merge: true });
-        }
-
-        // Record the follow
-        await addDoc(collection(db, 'instagram_follows'), {
-          userId: auth.currentUser.uid,
-          brandId: brand.id,
-          brandHandle: brand.handle,
-          brandName: brand.name,
-          reward: brand.reward,
-          verified: true,
-          verificationMethod: 'simulated', // In production: 'api'
-          timestamp: new Date()
-        });
-      } else {
-        setVerificationResult({
-          success: false,
-          message: `We couldn't verify the follow. Please make sure you're following ${brand.handle} and try again.`
-        });
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Verification failed');
       }
+
+      const pointsAwarded = result.data.pointsAwarded;
+
+      setUserData(prev => ({
+        ...prev,
+        points: (prev?.points || 0) + pointsAwarded,
+        instagram_follows: (prev?.instagram_follows || 0) + 1
+      }));
+
+      setFollowedBrands([...followedBrands, brand.id]);
+
+      setVerificationResult({
+        success: true,
+        message: `✓ Successfully followed ${brand.handle}! +${pointsAwarded} pts`
+      });
 
       setTimeout(() => setVerificationResult(null), 3000);
     } catch (err) {
       console.error('Error verifying follow:', err);
       setVerificationResult({
         success: false,
-        message: `Error: ${err.message}`
+        message: err.message || 'Verification failed'
       });
       setTimeout(() => setVerificationResult(null), 3000);
     }

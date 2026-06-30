@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 
 export default function VideoAds() {
   const [user, setUser] = useState(null);
@@ -163,44 +164,42 @@ export default function VideoAds() {
     setWatchingAd(true);
 
     try {
-      const today = new Date().toDateString();
+      // Call Cloud Function to complete task
+      const functions = getFunctions();
+      const completeTask = httpsCallable(functions, 'completeTask');
 
-      // Immediately update UI (optimistic)
+      const result = await completeTask({
+        taskId: ad.id,
+        taskType: 'video_ad',
+        points: ad.reward
+      });
+
+      if (!result.data.success) {
+        throw new Error('Failed to claim reward');
+      }
+
+      // Optimistic UI update
+      const finalPoints = result.data.points;
+
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + ad.reward
+        points: (prev?.points || 0) + finalPoints
       }));
 
       setAdResult({
         success: true,
-        reward: ad.reward,
-        title: ad.title
+        reward: finalPoints,
+        title: ad.title,
+        message: result.data.message
       });
 
-      // Update Firestore in background
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        await setDoc(userRef, {
-          points: ad.reward,
-          createdAt: new Date(),
-          lastAdWatched: new Date()
-        });
-      } else {
-        await setDoc(userRef, {
-          points: (userDoc.data().points || 0) + ad.reward,
-          lastAdWatched: new Date()
-        }, { merge: true });
-      }
-
-      // Record ad watched
+      // Record ad watched for analytics
       await addDoc(collection(db, 'video_ads_watched'), {
         userId: auth.currentUser.uid,
         adId: ad.id,
         adTitle: ad.title,
-        reward: ad.reward,
-        watchedDate: today,
+        pointsEarned: finalPoints,
+        watchedDate: new Date().toDateString(),
         timestamp: new Date(),
         duration: ad.duration
       });
