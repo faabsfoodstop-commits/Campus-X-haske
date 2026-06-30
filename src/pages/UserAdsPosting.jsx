@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, addDoc, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -120,37 +121,29 @@ export default function UserAdsPosting() {
 
     setSubmitting(true);
     try {
-      const accountAgeHours = (Date.now() - new Date(userData?.createdAt?.toDate?.() || userData?.createdAt).getTime()) / (1000 * 60 * 60);
-      const needsModeration = accountAgeHours < (AD_MODERATION_DAYS * 24);
+      const functions = getFunctions();
+      const postUserAd = httpsCallable(functions, 'postUserAd');
 
-      const adData = {
-        userId: auth.currentUser.uid,
-        userName: userData?.fullName || auth.currentUser.displayName,
-        university: userData?.university,
-        department: userData?.department,
-        ...formData,
+      const result = await postUserAd({
+        adId: editingAdId || null,
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
         price: formData.price ? parseFloat(formData.price) : null,
-        createdAt: serverTimestamp(),
-        status: needsModeration ? 'pending' : 'approved',
-        views: 0,
-        contacts: 0
-      };
+        image: formData.image,
+        contactPhone: formData.contactPhone,
+        contactEmail: formData.contactEmail
+      });
 
-      if (editingAdId) {
-        await updateDoc(doc(db, 'user_ads', editingAdId), {
-          ...formData,
-          price: formData.price ? parseFloat(formData.price) : null,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        await addDoc(collection(db, 'user_ads'), adData);
+      if (!result.data.success) {
+        throw new Error(result.data.message || 'Failed to post ad');
+      }
 
-        // Deduct points if not premium
-        if (!userData?.premiumActive) {
-          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-            points: (userData?.points || 0) - POSTING_COST
-          });
-        }
+      if (!editingAdId && !userData?.premiumActive && result.data.pointsDeducted) {
+        setUserData(prev => ({
+          ...prev,
+          points: (prev?.points || 0) - result.data.pointsDeducted
+        }));
       }
 
       await fetchUserData();
@@ -168,16 +161,14 @@ export default function UserAdsPosting() {
 
       await showAlert({
         title: 'Success',
-        message: needsModeration && !editingAdId
-          ? 'Ad posted! It will be visible after moderation (usually within 12 hours).'
-          : editingAdId ? 'Ad updated successfully!' : 'Ad posted successfully!',
+        message: result.data.message || (editingAdId ? 'Ad updated successfully!' : 'Ad posted successfully!'),
         type: 'success'
       });
     } catch (err) {
       console.error('Error posting ad:', err);
       await showAlert({
         title: 'Error',
-        message: 'Failed to post ad. Please try again.',
+        message: err.message || 'Failed to post ad. Please try again.',
         type: 'error'
       });
     } finally {

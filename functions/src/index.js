@@ -1468,3 +1468,135 @@ export const claimSponsoredMission = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('internal', error.message);
   }
 });
+
+// ============================================================================
+// USER ADS - Post User Ads
+// ============================================================================
+
+export const postUserAd = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const { adId, title, description, category, price, image, contactPhone, contactEmail } = data;
+    const userId = context.auth.uid;
+
+    if (!title?.trim() || !description?.trim() || !category) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required ad fields');
+    }
+
+    const POSTING_COST = 500;
+    const AD_MODERATION_DAYS = 0.5;
+
+    // Get user data
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const user = userDoc.data();
+
+    // Check profile completion
+    if (!user.profileComplete) {
+      throw new functions.https.HttpsError('failed-precondition', 'Please complete your profile first');
+    }
+
+    // If creating new ad (not editing), check if points deduction needed
+    if (!adId) {
+      const isPremium = user.premiumTier && user.premiumUntil &&
+        new Date(user.premiumUntil) > new Date();
+
+      if (!isPremium && (user.points || 0) < POSTING_COST) {
+        throw new functions.https.HttpsError('failed-precondition', `Insufficient points. Need ${POSTING_COST}, have ${user.points || 0}`);
+      }
+
+      // Check monthly ad count
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+      const adsQuery = await db.collection('user_ads')
+        .where('userId', '==', userId)
+        .where('createdAt', '>=', thisMonth)
+        .get();
+
+      const PREMIUM_FREE_ADS = 10;
+      if (isPremium && adsQuery.size >= PREMIUM_FREE_ADS) {
+        throw new functions.https.HttpsError('failed-precondition', 'Free ad limit reached for this month');
+      }
+    }
+
+    // Determine moderation status
+    const accountAgeHours = (Date.now() - new Date(user.createdAt?.toDate?.() || user.createdAt).getTime()) / (1000 * 60 * 60);
+    const needsModeration = accountAgeHours < (AD_MODERATION_DAYS * 24);
+
+    // Execute atomic transaction
+    const batch = db.batch();
+
+    const isPremium = user.premiumTier && user.premiumUntil &&
+      new Date(user.premiumUntil) > new Date();
+
+    if (adId) {
+      // Update existing ad
+      batch.update(db.collection('user_ads').doc(adId), {
+        title,
+        description,
+        category,
+        price: price || null,
+        image,
+        contactPhone,
+        contactEmail,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      // Create new ad
+      const newAdRef = db.collection('user_ads').doc();
+      batch.set(newAdRef, {
+        userId,
+        userName: user.fullName || user.displayName || 'Anonymous',
+        university: user.university,
+        department: user.department,
+        title,
+        description,
+        category,
+        price: price || null,
+        image,
+        contactPhone,
+        contactEmail,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: needsModeration ? 'pending' : 'approved',
+        views: 0,
+        contacts: 0
+      });
+
+      // Deduct points if not premium
+      if (!isPremium) {
+        batch.update(db.collection('users').doc(userId), {
+          points: admin.firestore.FieldValue.increment(-500)
+        });
+
+        // Log transaction
+        batch.add(db.collection('transactions'), {
+          userId,
+          type: 'ad_posting',
+          description: `Posted ad: ${title}`,
+          amount: -500,
+          adId: newAdRef.id,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    await batch.commit();
+
+    return {
+      success: true,
+      pointsDeducted: !adId && !isPremium ? 500 : 0,
+      message: needsModeration && !adId
+        ? 'Ad posted! It will be visible after moderation (usually within 12 hours).'
+        : adId ? 'Ad updated successfully!' : 'Ad posted successfully!'
+    };
+  } catch (error) {
+    console.error('Post user ad error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
