@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { collection, query, orderBy, limit, getDocs, doc, getDoc, where } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
@@ -23,44 +22,42 @@ export default function Leaderboard() {
       setSelectedUniversity('');
     }
     fetchLeaderboard();
-    if (auth.currentUser) {
-      fetchUserRank();
-    }
+    fetchUserRank();
   }, [timeframe, leaderboardType, selectedUniversity]);
 
   const fetchLeaderboard = async () => {
     try {
-      const usersRef = collection(db, 'users');
-      let q;
       let orderByField;
 
       if (timeframe === 'week') {
-        orderByField = 'weeklyPoints';
+        orderByField = 'weekly_points';
       } else if (timeframe === 'month') {
-        orderByField = 'monthlyPoints';
+        orderByField = 'monthly_points';
       } else {
         orderByField = 'points';
       }
 
-      if (leaderboardType === 'global') {
-        q = query(usersRef, orderBy(orderByField, 'desc'), limit(100));
-      } else {
-        q = query(
-          usersRef,
-          where('university', '==', selectedUniversity),
-          orderBy(orderByField, 'desc'),
-          limit(100)
-        );
+      let query = supabase
+        .from('users')
+        .select('*')
+        .order(orderByField, { ascending: false })
+        .limit(100);
+
+      if (leaderboardType === 'university' && selectedUniversity) {
+        query = query.eq('university', selectedUniversity);
       }
 
-      const snapshot = await getDocs(q);
-      const users = snapshot.docs.map((doc, idx) => ({
-        ...doc.data(),
-        uid: doc.id,
+      const { data: users, error } = await query;
+
+      if (error) throw error;
+
+      const mappedUsers = users.map((user, idx) => ({
+        ...user,
+        uid: user.id,
         rank: idx + 1,
       }));
 
-      setLeaderboard(users);
+      setLeaderboard(mappedUsers);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
@@ -70,42 +67,52 @@ export default function Leaderboard() {
 
   const fetchUserRank = async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setCurrentUser(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) throw userError;
+      if (user) {
+        const normalizedUser = {
+          ...user,
+          fullName: user.full_name,
+          weeklyPoints: user.weekly_points || 0,
+          monthlyPoints: user.monthly_points || 0
+        };
+        setCurrentUser(normalizedUser);
       }
 
-      const usersRef = collection(db, 'users');
-      let q;
       let orderByField;
 
       if (timeframe === 'week') {
-        orderByField = 'weeklyPoints';
+        orderByField = 'weekly_points';
       } else if (timeframe === 'month') {
-        orderByField = 'monthlyPoints';
+        orderByField = 'monthly_points';
       } else {
         orderByField = 'points';
       }
 
-      if (leaderboardType === 'global') {
-        q = query(usersRef, orderBy(orderByField, 'desc'));
-      } else {
-        q = query(
-          usersRef,
-          where('university', '==', selectedUniversity),
-          orderBy(orderByField, 'desc')
-        );
+      let query = supabase
+        .from('users')
+        .select('id')
+        .order(orderByField, { ascending: false });
+
+      if (leaderboardType === 'university' && selectedUniversity) {
+        query = query.eq('university', selectedUniversity);
       }
 
-      const snapshot = await getDocs(q);
-      const users = snapshot.docs.map((doc, idx) => ({
-        uid: doc.id,
-        rank: idx + 1,
-      }));
+      const { data: users, error } = await query;
 
-      const userIndex = users.findIndex(u => u.uid === auth.currentUser.uid);
+      if (error) throw error;
+
+      const userIndex = users.findIndex(u => u.id === session.user.id);
       if (userIndex !== -1) {
-        setUserRank(users[userIndex].rank);
+        setUserRank(userIndex + 1);
       }
     } catch (err) {
       console.error('Error fetching user rank:', err);
