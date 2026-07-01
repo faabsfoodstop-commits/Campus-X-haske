@@ -1,41 +1,47 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const supabase = createClient(supabaseUrl, supabaseKey);
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
-  try {
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-      });
-    }
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
-    const { challengeId, bonus, userId } = await req.json();
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { userId, challengeId, bonus } = await req.json();
 
     if (!userId || !challengeId || !bonus) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Get user data
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseClient
       .from("users")
       .select("*")
       .eq("id", userId)
       .single();
 
     if (userError) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
-        status: 404,
-      });
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Check if already claimed
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from("weekly_challenges")
       .select("*")
       .eq("user_id", userId)
@@ -45,7 +51,7 @@ serve(async (req) => {
     if (existing && existing.claimed) {
       return new Response(
         JSON.stringify({ error: "Already claimed this week" }),
-        { status: 400 }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -57,19 +63,20 @@ serve(async (req) => {
 
     // Update points
     const newPoints = user.points + bonusAwarded;
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseClient
       .from("users")
       .update({ points: newPoints })
       .eq("id", userId);
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: "Failed to claim reward" }), {
-        status: 500,
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to claim reward" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Log transaction
-    await supabase.from("transactions").insert({
+    await supabaseClient.from("transactions").insert({
       user_id: userId,
       type: "weekly_challenge",
       description: `Claimed weekly challenge: ${challengeId}`,
@@ -80,12 +87,12 @@ serve(async (req) => {
 
     // Record claim
     if (existing) {
-      await supabase
+      await supabaseClient
         .from("weekly_challenges")
         .update({ claimed: true, claimed_at: new Date() })
         .eq("id", existing.id);
     } else {
-      await supabase.from("weekly_challenges").insert({
+      await supabaseClient.from("weekly_challenges").insert({
         user_id: userId,
         challenge_id: challengeId,
         claimed: true,
@@ -100,15 +107,13 @@ serve(async (req) => {
         multiplier,
         message: `Claimed ${bonusAwarded} bonus points!`,
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

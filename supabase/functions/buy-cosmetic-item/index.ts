@@ -1,51 +1,58 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const supabase = createClient(supabaseUrl, supabaseKey);
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
-  try {
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-      });
-    }
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
-    const { cosmeticId, cosmeticName, price, userId } = await req.json();
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { userId, cosmeticId, cosmeticName, price } = await req.json();
 
     if (!userId || !cosmeticId || !price) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Get user data
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseClient
       .from("users")
       .select("*")
       .eq("id", userId)
       .single();
 
     if (userError) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
-        status: 404,
-      });
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Check if user already owns it
     if (user.cosmetics_purchased && user.cosmetics_purchased.includes(cosmeticId)) {
-      return new Response(JSON.stringify({ error: "Already owned" }), {
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ error: "Already owned" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Check if user has enough points
     if (user.points < price) {
       return new Response(
         JSON.stringify({ error: "Insufficient points" }),
-        { status: 400 }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -53,7 +60,7 @@ serve(async (req) => {
     const newPoints = user.points - price;
     const updatedCosmetics = [...(user.cosmetics_purchased || []), cosmeticId];
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseClient
       .from("users")
       .update({
         points: newPoints,
@@ -62,13 +69,14 @@ serve(async (req) => {
       .eq("id", userId);
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: "Failed to purchase" }), {
-        status: 500,
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to purchase" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Log transaction
-    await supabase.from("transactions").insert({
+    await supabaseClient.from("transactions").insert({
       user_id: userId,
       type: "cosmetic_purchase",
       description: `Purchased: ${cosmeticName}`,
@@ -76,7 +84,7 @@ serve(async (req) => {
     });
 
     // Record purchase
-    await supabase.from("cosmetics_purchases").insert({
+    await supabaseClient.from("cosmetics_purchases").insert({
       user_id: userId,
       cosmetic_id: cosmeticId,
       cosmetic_name: cosmeticName,
@@ -89,15 +97,13 @@ serve(async (req) => {
         newPoints,
         message: `${cosmeticName} purchased!`,
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
