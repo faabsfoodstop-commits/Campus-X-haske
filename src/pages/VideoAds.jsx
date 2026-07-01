@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function VideoAds() {
   const [user, setUser] = useState(null);
@@ -104,13 +103,20 @@ export default function VideoAds() {
   };
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await checkDailyAdStats();
       setLoading(false);
@@ -122,16 +128,20 @@ export default function VideoAds() {
 
   const checkDailyAdStats = async () => {
     try {
-      const today = new Date().toDateString();
-      const adQuery = query(
-        collection(db, 'video_ads_watched'),
-        where('userId', '==', auth.currentUser.uid),
-        where('watchedDate', '==', today)
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const snapshot = await getDocs(adQuery);
-      const watched = snapshot.size;
-      const earned = snapshot.docs.reduce((sum, doc) => sum + doc.data().reward, 0);
+      const today = new Date().toDateString();
+      const { data: ads, error } = await supabase
+        .from('video_ads_watched')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('watched_date', today);
+
+      if (error) throw error;
+
+      const watched = ads.length;
+      const earned = ads.reduce((sum, ad) => sum + (ad.points_earned || 0), 0);
 
       setAdsWatched(watched);
       setTodayStats({ watched, earned });
@@ -164,44 +174,44 @@ export default function VideoAds() {
     setWatchingAd(true);
 
     try {
-      // Call Cloud Function to complete task
-      const functions = getFunctions();
-      const completeTask = httpsCallable(functions, 'completeTask');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await completeTask({
-        taskId: ad.id,
-        taskType: 'video_ad',
-        points: ad.reward
-      });
+      const finalPoints = ad.reward;
 
-      if (!result.data.success) {
-        throw new Error('Failed to claim reward');
-      }
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          points: (userData?.points || 0) + finalPoints
+        })
+        .eq('id', session.user.id);
 
-      // Optimistic UI update
-      const finalPoints = result.data.points;
+      if (updateError) throw updateError;
 
       setUserData(prev => ({
         ...prev,
         points: (prev?.points || 0) + finalPoints
       }));
 
+      // Record ad watched for analytics
+      const { error: insertError } = await supabase
+        .from('video_ads_watched')
+        .insert({
+          user_id: session.user.id,
+          ad_id: ad.id,
+          ad_title: ad.title,
+          points_earned: finalPoints,
+          watched_date: new Date().toDateString(),
+          duration: ad.duration
+        });
+
+      if (insertError) throw insertError;
+
       setAdResult({
         success: true,
         reward: finalPoints,
         title: ad.title,
-        message: result.data.message
-      });
-
-      // Record ad watched for analytics
-      await addDoc(collection(db, 'video_ads_watched'), {
-        userId: auth.currentUser.uid,
-        adId: ad.id,
-        adTitle: ad.title,
-        pointsEarned: finalPoints,
-        watchedDate: new Date().toDateString(),
-        timestamp: new Date(),
-        duration: ad.duration
+        message: `You earned ${finalPoints} points!`
       });
 
       await checkDailyAdStats();
