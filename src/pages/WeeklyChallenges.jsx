@@ -1,9 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase, callEdgeFunction } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function WeeklyChallenges() {
   const navigate = useNavigate();
@@ -16,15 +15,22 @@ export default function WeeklyChallenges() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) {
-      navigate('/login');
-      return;
-    }
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
       }
       setLoading(false);
     } catch (err) {
@@ -114,18 +120,20 @@ export default function WeeklyChallenges() {
     }
 
     try {
-      const functions = getFunctions();
-      const claimWeeklyChallenge = httpsCallable(functions, 'claimWeeklyChallenge');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await claimWeeklyChallenge({
-        challengeId: challenge.id
+      const result = await callEdgeFunction('claim-weekly-challenge', {
+        userId: session.user.id,
+        challengeId: challenge.id,
+        bonus: challenge.bonus
       });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to claim reward');
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to claim reward');
       }
 
-      const bonusAwarded = result.data.bonusAwarded;
+      const bonusAwarded = result.bonusAwarded;
 
       setUserData(prev => ({
         ...prev,
