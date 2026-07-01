@@ -1,8 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
@@ -27,37 +25,42 @@ export default function Wallet() {
   }, []);
 
   const fetchWalletData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) throw userError;
+      if (user) {
+        const normalizedUser = {
+          ...user,
+          bankDetails: user.bank_details || {}
+        };
+        setUserData(normalizedUser);
       }
 
-      const transactionsQuery = query(
-        collection(db, 'transactions'),
-        where('userId', '==', auth.currentUser.uid),
-        orderBy('timestamp', 'desc')
-      );
-      const transactionsDocs = await getDocs(transactionsQuery);
-      const transactionsList = transactionsDocs.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTransactions(transactionsList);
+      const { data: transactionsList, error: transError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-      const withdrawalsQuery = query(
-        collection(db, 'withdrawals'),
-        where('userId', '==', auth.currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const withdrawalsDocs = await getDocs(withdrawalsQuery);
-      const withdrawalsList = withdrawalsDocs.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setWithdrawals(withdrawalsList);
+      if (transError) throw transError;
+      setTransactions(transactionsList || []);
+
+      const { data: withdrawalsList, error: withError } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (withError) throw withError;
+      setWithdrawals(withdrawalsList || []);
     } catch (err) {
       console.error('Error fetching wallet data:', err);
     } finally {
@@ -85,18 +88,20 @@ export default function Wallet() {
     setProcessing(true);
 
     try {
-      const functions = getFunctions();
-      const requestWithdrawalFn = httpsCallable(functions, 'requestWithdrawal');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await requestWithdrawalFn({
-        amount: parseFloat(withdrawalAmount),
-        method: withdrawalMethod,
-        bankDetails: withdrawalMethod === 'bank_transfer' ? bankDetails : null
-      });
+      const { error: insertError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: session.user.id,
+          amount: parseFloat(withdrawalAmount),
+          method: withdrawalMethod,
+          bank_details: withdrawalMethod === 'bank_transfer' ? bankDetails : null,
+          status: 'pending'
+        });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to request withdrawal');
-      }
+      if (insertError) throw insertError;
 
       setWithdrawalAmount('');
       setShowWithdrawalForm(false);
@@ -118,9 +123,18 @@ export default function Wallet() {
     }
 
     try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        bankDetails: bankDetails
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          bank_details: bankDetails
+        })
+        .eq('id', session.user.id);
+
+      if (error) throw error;
+
       setUserData({ ...userData, bankDetails });
       setShowBankForm(false);
       addToast('✓ Bank details updated successfully', 'success');
