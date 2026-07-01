@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
 import ActivityCard from '../components/ActivityCard';
@@ -36,13 +34,26 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!auth.currentUser) return;
-
       try {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-          setUser(auth.currentUser);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) throw error;
+        if (user) {
+          const normalizedUser = {
+            ...user,
+            fullName: user.full_name,
+            profileComplete: user.profile_complete,
+            currentStreak: user.current_streak || 0
+          };
+          setUserData(normalizedUser);
+          setUser(session.user);
           checkTodayCheckIn();
         }
       } catch (err) {
@@ -63,13 +74,20 @@ export default function Dashboard() {
 
   const handleCheckIn = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       const today = new Date().toDateString();
       const pointsEarned = 10;
-      const userRef = doc(db, 'users', auth.currentUser.uid);
 
-      await setDoc(userRef, {
-        points: (userData?.points || 0) + pointsEarned,
-      }, { merge: true });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          points: (userData?.points || 0) + pointsEarned,
+        })
+        .eq('id', session.user.id);
+
+      if (error) throw error;
 
       localStorage.setItem('lastCheckIn', today);
       setUserData((prev) => ({
@@ -95,7 +113,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate('/');
     } catch (err) {
       console.error('Error logging out:', err);
