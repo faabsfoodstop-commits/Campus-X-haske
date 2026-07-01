@@ -1,8 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc, query, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
@@ -96,20 +94,33 @@ export default function SponsoredMissions() {
   }, []);
 
   const fetchData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) throw userError;
+      if (user) {
+        const normalizedUser = {
+          ...user,
+          points: user.points || 0
+        };
+        setUserData(normalizedUser);
       }
 
-      const missionsQuery = query(collection(db, 'sponsored_mission_completions'));
-      const snapshot = await getDocs(missionsQuery);
-      const completed = snapshot.docs
-        .filter(doc => doc.data().userId === auth.currentUser.uid)
-        .map(doc => doc.data().missionId);
+      const { data: completions, error: completionsError } = await supabase
+        .from('sponsored_mission_completions')
+        .select('mission_id')
+        .eq('user_id', session.user.id);
 
+      if (completionsError) throw completionsError;
+
+      const completed = completions.map(c => c.mission_id);
       setCompletedMissions(completed);
       setLoading(false);
     } catch (err) {
@@ -125,20 +136,31 @@ export default function SponsoredMissions() {
     }
 
     try {
-      const functions = getFunctions();
-      const claimSponsoredMission = httpsCallable(functions, 'claimSponsoredMission');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await claimSponsoredMission({
-        missionId: mission.id,
-        brand: mission.brand,
-        baseReward: mission.reward
-      });
+      const pointsAwarded = mission.reward;
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to claim mission');
-      }
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          points: (userData?.points || 0) + pointsAwarded,
+        })
+        .eq('id', session.user.id);
 
-      const pointsAwarded = result.data.pointsAwarded;
+      if (updateError) throw updateError;
+
+      const { error: recordError } = await supabase
+        .from('sponsored_mission_completions')
+        .insert({
+          user_id: session.user.id,
+          mission_id: mission.id,
+          brand: mission.brand,
+          base_reward: mission.reward,
+          completed_at: new Date()
+        });
+
+      if (recordError) throw recordError;
 
       setUserData(prev => ({
         ...prev,
