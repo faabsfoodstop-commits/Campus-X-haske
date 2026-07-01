@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { setDoc, doc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
@@ -38,28 +36,31 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-
-      await updateProfile(userCredential.user, {
-        displayName: formData.fullName,
-      });
-
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        fullName: formData.fullName,
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
-        university: formData.university,
-        wallet: 0,
-        points: 0,
-        createdAt: new Date(),
+        password: formData.password,
       });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Failed to create user');
+
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          full_name: formData.fullName,
+          email: formData.email,
+          university: formData.university,
+          wallet: 0,
+          points: 0,
+          created_at: new Date(),
+        });
+
+      if (insertError) throw insertError;
 
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Sign up failed');
     } finally {
       setLoading(false);
     }
