@@ -1,8 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase, callEdgeFunction } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -42,13 +40,20 @@ export default function CosmeticsShop() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setPurchasedItems(userDoc.data().cosmeticsPurchased || []);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setPurchasedItems(user.cosmetics_purchased || []);
       }
       setLoading(false);
     } catch (err) {
@@ -58,7 +63,8 @@ export default function CosmeticsShop() {
   };
 
   const handlePurchase = async (cosmetic) => {
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       addToast('Please log in first', 'error');
       return;
     }
@@ -74,20 +80,18 @@ export default function CosmeticsShop() {
     }
 
     try {
-      const functions = getFunctions();
-      const buyCosmeticItem = httpsCallable(functions, 'buyCosmeticItem');
-
-      const result = await buyCosmeticItem({
+      const result = await callEdgeFunction('buy-cosmetic-item', {
+        userId: session.user.id,
         cosmeticId: cosmetic.id,
         cosmeticName: cosmetic.name,
         price: cosmetic.price
       });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Purchase failed');
+      if (!result.success) {
+        throw new Error(result.message || 'Purchase failed');
       }
 
-      const newPoints = result.data.newPoints;
+      const newPoints = result.newPoints;
 
       setUserData(prev => ({
         ...prev,
