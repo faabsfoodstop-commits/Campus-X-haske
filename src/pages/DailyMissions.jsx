@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase, callEdgeFunction } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
@@ -128,13 +126,20 @@ export default function DailyMissions() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (userData) {
+        setUserData(userData);
+        setUser(session.user);
       }
       await checkDailyMissionsSimple();
       setLoading(false);
@@ -147,16 +152,21 @@ export default function DailyMissions() {
   // Simple check - just get completed missions (for initial load)
   const checkDailyMissionsSimple = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const today = new Date().toDateString();
       console.log('📅 Checking for missions completed on:', today);
-      const missionsQuery = query(
-        collection(db, 'daily_missions'),
-        where('userId', '==', auth.currentUser.uid),
-        where('completedDate', '==', today)
-      );
 
-      const snapshot = await getDocs(missionsQuery);
-      const completed = snapshot.docs.map(doc => doc.data().missionId);
+      const { data: missions, error } = await supabase
+        .from('daily_missions')
+        .select('mission_id')
+        .eq('user_id', session.user.id)
+        .eq('completed_date', today);
+
+      if (error) throw error;
+
+      const completed = missions.map(m => m.mission_id);
       console.log('Found completed missions:', completed);
       setCompletedToday(completed);
 
@@ -176,77 +186,77 @@ export default function DailyMissions() {
   // Full check with auto-detect (when user returns from activity)
   const checkDailyMissionsWithAutoDetect = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const today = new Date().toDateString();
       const completed = [];
 
-      // Check daily_missions collection (already completed)
-      const missionsQuery = query(
-        collection(db, 'daily_missions'),
-        where('userId', '==', auth.currentUser.uid),
-        where('completedDate', '==', today)
-      );
+      // Check daily_missions (already completed)
+      const { data: missions, error: missionsError } = await supabase
+        .from('daily_missions')
+        .select('mission_id')
+        .eq('user_id', session.user.id)
+        .eq('completed_date', today);
 
-      const missionsSnapshot = await getDocs(missionsQuery);
-      const existingCompleted = missionsSnapshot.docs.map(doc => doc.data().missionId);
+      if (missionsError) throw missionsError;
+
+      const existingCompleted = missions.map(m => m.mission_id);
       completed.push(...existingCompleted);
 
-      // Auto-check if activities were completed (mark mission as done)
       // Check video ads watched
-      const adsQuery = query(
-        collection(db, 'video_ads_watched'),
-        where('userId', '==', auth.currentUser.uid),
-        where('watchedDate', '==', today)
-      );
-      const adsSnapshot = await getDocs(adsQuery);
-      if (adsSnapshot.size > 0 && !completed.includes('video_ad')) {
+      const { data: adsData, error: adsError } = await supabase
+        .from('video_ads_watched')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('watched_date', today);
+
+      if (adsError) throw adsError;
+
+      if (adsData.length > 0 && !completed.includes('video_ad')) {
         completed.push('video_ad');
-        // Auto-record mission completion
         if (!existingCompleted.includes('video_ad')) {
-          await addDoc(collection(db, 'daily_missions'), {
-            userId: auth.currentUser.uid,
-            missionId: 'video_ad',
-            missionName: 'Watch an Ad',
-            pointsEarned: 250,
-            comboBonus: 0,
-            completedDate: today,
-            timestamp: new Date()
+          await supabase.from('daily_missions').insert({
+            user_id: session.user.id,
+            mission_id: 'video_ad',
+            mission_name: 'Watch an Ad',
+            base_reward: 250,
+            completed_date: today
           });
         }
       }
 
-      if (adsSnapshot.size >= 3 && !completed.includes('watch_videos')) {
+      if (adsData.length >= 3 && !completed.includes('watch_videos')) {
         completed.push('watch_videos');
         if (!existingCompleted.includes('watch_videos')) {
-          await addDoc(collection(db, 'daily_missions'), {
-            userId: auth.currentUser.uid,
-            missionId: 'watch_videos',
-            missionName: 'Watch 3 Videos',
-            pointsEarned: 1000,
-            comboBonus: 0,
-            completedDate: today,
-            timestamp: new Date()
+          await supabase.from('daily_missions').insert({
+            user_id: session.user.id,
+            mission_id: 'watch_videos',
+            mission_name: 'Watch 3 Videos',
+            base_reward: 1000,
+            completed_date: today
           });
         }
       }
 
       // Check Instagram follows
-      const igQuery = query(
-        collection(db, 'instagram_follows'),
-        where('userId', '==', auth.currentUser.uid),
-        where('verified', '==', true)
-      );
-      const igSnapshot = await getDocs(igQuery);
-      if (igSnapshot.size > 0 && !completed.includes('instagram')) {
+      const { data: igData, error: igError } = await supabase
+        .from('instagram_follows')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('verified', true);
+
+      if (igError) throw igError;
+
+      if (igData.length > 0 && !completed.includes('instagram')) {
         completed.push('instagram');
         if (!existingCompleted.includes('instagram')) {
-          await addDoc(collection(db, 'daily_missions'), {
-            userId: auth.currentUser.uid,
-            missionId: 'instagram',
-            missionName: 'Follow a Brand',
-            pointsEarned: 375,
-            comboBonus: 0,
-            completedDate: today,
-            timestamp: new Date()
+          await supabase.from('daily_missions').insert({
+            user_id: session.user.id,
+            mission_id: 'instagram',
+            mission_name: 'Follow a Brand',
+            base_reward: 375,
+            completed_date: today
           });
         }
       }
@@ -278,21 +288,21 @@ export default function DailyMissions() {
     }
 
     try {
-      const functions = getFunctions();
-      const awardMissionReward = httpsCallable(functions, 'awardMissionReward');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await awardMissionReward({
+      const result = await callEdgeFunction('award-mission-reward', {
+        userId: session.user.id,
         missionId: mission.id,
         missionName: mission.name,
-        baseReward: mission.reward,
-        comboBonus
+        baseReward: mission.reward
       });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to award mission');
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to award mission');
       }
 
-      const finalPoints = result.data.pointsAwarded;
+      const finalPoints = result.pointsAwarded;
 
       // Update UI
       setCompletedToday([...completedToday, mission.id]);
@@ -304,7 +314,7 @@ export default function DailyMissions() {
       setNotification({
         type: 'success',
         title: 'Mission Completed! 🎉',
-        message: `${mission.name}\n+${mission.reward} pts${comboBonus > 0 ? ` + ${comboBonus} bonus!` : ''}\nTotal: +${finalPoints} pts`,
+        message: `${mission.name}\n+${mission.reward} pts${result.multiplier > 1 ? ` x${result.multiplier} (premium)` : ''}\nTotal: +${finalPoints} pts`,
         reward: finalPoints
       });
 
@@ -317,18 +327,9 @@ export default function DailyMissions() {
       console.error('Error completing mission:', err);
       setNotification({
         type: 'error',
-        title: 'Failed to Complete Mission',
-        message: err.message || 'An error occurred'
-      });
-      setTimeout(() => setNotification(null), 3000);
-
-      // Show error notification
-      setNotification({
-        type: 'error',
         title: 'Mission Failed ❌',
         message: `${err.message}\nPlease try again.`
       });
-
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -362,26 +363,33 @@ export default function DailyMissions() {
     if (!confirmed) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       const today = new Date().toDateString();
-      const missionsQuery = query(
-        collection(db, 'daily_missions'),
-        where('userId', '==', auth.currentUser.uid),
-        where('completedDate', '==', today)
-      );
+      const { data: missions, error: fetchError } = await supabase
+        .from('daily_missions')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('completed_date', today);
 
-      const snapshot = await getDocs(missionsQuery);
-      const batch = writeBatch(db);
+      if (fetchError) throw fetchError;
 
-      snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
+      if (missions.length > 0) {
+        const missionIds = missions.map(m => m.id);
+        const { error: deleteError } = await supabase
+          .from('daily_missions')
+          .delete()
+          .in('id', missionIds);
 
-      await batch.commit();
+        if (deleteError) throw deleteError;
+      }
+
       setCompletedToday([]);
       setComboBonus(0);
       await showAlert({
         title: 'Success',
-        message: `Deleted ${snapshot.size} test missions. Refresh the page to see the clean slate.`,
+        message: `Deleted ${missions.length} test missions. Refresh the page to see the clean slate.`,
         type: 'success'
       });
     } catch (err) {
