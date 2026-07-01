@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase, callEdgeFunction } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -26,15 +23,27 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!auth.currentUser) return;
-
       try {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-          setFormData(userDoc.data());
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) throw error;
+        if (user) {
+          const normalizedUser = {
+            ...user,
+            fullName: user.full_name,
+            email: user.email || session.user.email
+          };
+          setUserData(normalizedUser);
+          setFormData(normalizedUser);
         }
-        setUser(auth.currentUser);
+        setUser(session.user);
       } catch (err) {
         console.error('Error fetching user:', err);
       } finally {
@@ -72,39 +81,31 @@ export default function Profile() {
 
     setIsSaving(true);
     try {
-      if (formData.fullName !== user.displayName) {
-        await updateProfile(auth.currentUser, {
-          displayName: formData.fullName,
-        });
-      }
-
-      const functions = getFunctions();
-      const updateUserProfile = httpsCallable(functions, 'updateUserProfile');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
       const profileWasIncomplete = !isProfileComplete;
 
-      const result = await updateUserProfile({
-        fullName: formData.fullName,
-        university: formData.university,
-        department: formData.department,
-        course: formData.course,
-        isNewCompletion: profileWasIncomplete
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: formData.fullName,
+          university: formData.university,
+          department: formData.department,
+          course: formData.course,
+          profile_complete: true
+        })
+        .eq('id', session.user.id);
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to update profile');
-      }
-
-      const bonusPointsAwarded = result.data.bonusPointsAwarded || 0;
+      if (error) throw error;
 
       const updatedData = {
         ...userData,
-        fullName: formData.fullName,
+        full_name: formData.fullName,
         university: formData.university,
         department: formData.department,
         course: formData.course,
-        profileComplete: true,
-        points: (userData?.points || 0) + bonusPointsAwarded,
+        profile_complete: true,
       };
       setUserData(updatedData);
       setFormData(updatedData);
@@ -114,7 +115,7 @@ export default function Profile() {
       await showAlert({
         title: 'Success',
         message: profileWasIncomplete
-          ? `Profile completed! You earned ${bonusPointsAwarded} bonus points! 🎉`
+          ? 'Profile completed! 🎉'
           : 'Your profile has been updated successfully!',
         type: 'success'
       });
@@ -131,7 +132,7 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate('/');
     } catch (err) {
       console.error('Error logging out:', err);
