@@ -1,152 +1,92 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_ANON_KEY') || ''
-    )
-
-    const { userId, featureName } = await req.json()
+    const { userId, featureName } = await req.json();
 
     if (!userId || !featureName) {
-      return new Response(
-        JSON.stringify({ error: 'Missing userId or featureName' }),
-        { status: 400, headers: corsHeaders }
-      )
+      return new Response(JSON.stringify({ error: "Missing userId or featureName" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Get feature limits
-    const { data: featureLimit, error: limitError } = await supabase
-      .from('feature_limits')
-      .select('*')
-      .eq('feature_name', featureName)
-      .single()
+    const { data: limits } = await supabase
+      .from("feature_limits")
+      .select("*")
+      .eq("feature_name", featureName)
+      .single();
 
-    if (limitError || !featureLimit) {
-      return new Response(
-        JSON.stringify({ error: 'Feature limit not found' }),
-        { status: 404, headers: corsHeaders }
-      )
+    if (!limits) {
+      return new Response(JSON.stringify({ allowed: false, message: "Feature not configured" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    if (!featureLimit.enabled) {
-      return new Response(
-        JSON.stringify({ allowed: false, reason: 'Feature is disabled' }),
-        { status: 200, headers: corsHeaders }
-      )
-    }
+    // Get user's rate limit record
+    const { data: userLimit } = await supabase
+      .from("rate_limits")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("feature_name", featureName)
+      .single();
 
-    // Get current user limits
-    const { data: rateLimit, error: rateLimitError } = await supabase
-      .from('rate_limits')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('feature_name', featureName)
-      .single()
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
 
-    // Check cooldown
-    if (rateLimit?.cooldown_until && new Date(rateLimit.cooldown_until) > new Date()) {
-      const secondsRemaining = Math.ceil(
-        (new Date(rateLimit.cooldown_until).getTime() - new Date().getTime()) / 1000
-      )
-      return new Response(
-        JSON.stringify({
-          allowed: false,
-          reason: 'Feature is on cooldown',
-          secondsRemaining
-        }),
-        { status: 200, headers: corsHeaders }
-      )
+    // Check if cooldown active
+    if (userLimit?.cooldown_until) {
+      const cooldownUntil = new Date(userLimit.cooldown_until);
+      if (now < cooldownUntil) {
+        const secondsRemaining = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
+        return new Response(
+          JSON.stringify({
+            allowed: false,
+            message: `Please wait ${secondsRemaining}s before trying again`,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Check daily limit
-    if (featureLimit.daily_limit) {
-      const today = new Date().toDateString()
-      if (rateLimit?.reset_at_date !== today) {
-        // Reset daily count
-        await supabase
-          .from('rate_limits')
-          .update({ count_today: 0, reset_at_date: today })
-          .eq('user_id', userId)
-          .eq('feature_name', featureName)
-      }
-
-      if ((rateLimit?.count_today || 0) >= featureLimit.daily_limit) {
-        return new Response(
-          JSON.stringify({
-            allowed: false,
-            reason: `Daily limit exceeded (${featureLimit.daily_limit} per day)`,
-            currentCount: rateLimit?.count_today || 0,
-            limit: featureLimit.daily_limit
-          }),
-          { status: 200, headers: corsHeaders }
-        )
-      }
+    if (limits.daily_limit && userLimit?.reset_at_date === today && userLimit.count_today >= limits.daily_limit) {
+      return new Response(
+        JSON.stringify({ allowed: false, message: `Daily limit reached (${limits.daily_limit}/${limits.daily_limit})` }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     // Check weekly limit
-    if (featureLimit.weekly_limit) {
-      if ((rateLimit?.count_this_week || 0) >= featureLimit.weekly_limit) {
-        return new Response(
-          JSON.stringify({
-            allowed: false,
-            reason: `Weekly limit exceeded (${featureLimit.weekly_limit} per week)`,
-            currentCount: rateLimit?.count_this_week || 0,
-            limit: featureLimit.weekly_limit
-          }),
-          { status: 200, headers: corsHeaders }
-        )
-      }
+    if (limits.weekly_limit && userLimit?.count_this_week >= limits.weekly_limit) {
+      return new Response(
+        JSON.stringify({ allowed: false, message: `Weekly limit reached (${limits.weekly_limit}/${limits.weekly_limit})` }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // Check hourly limit
-    if (featureLimit.hourly_limit) {
-      const oneHourAgo = new Date(new Date().getTime() - 3600000)
-      if (rateLimit?.last_action_timestamp && new Date(rateLimit.last_action_timestamp) > oneHourAgo) {
-        if ((rateLimit?.count_today || 0) >= featureLimit.hourly_limit) {
-          return new Response(
-            JSON.stringify({
-              allowed: false,
-              reason: `Hourly limit exceeded (${featureLimit.hourly_limit} per hour)`,
-              currentCount: rateLimit?.count_today || 0,
-              limit: featureLimit.hourly_limit
-            }),
-            { status: 200, headers: corsHeaders }
-          )
-        }
-      }
-    }
+    const remaining = limits.daily_limit ? limits.daily_limit - (userLimit?.count_today || 0) : null;
 
-    // All checks passed
     return new Response(
-      JSON.stringify({
-        allowed: true,
-        currentDailyCount: rateLimit?.count_today || 0,
-        currentWeeklyCount: rateLimit?.count_this_week || 0,
-        dailyLimit: featureLimit.daily_limit,
-        weeklyLimit: featureLimit.weekly_limit,
-        hourlyLimit: featureLimit.hourly_limit,
-        cooldownSeconds: featureLimit.cooldown_seconds
-      }),
-      { status: 200, headers: corsHeaders }
-    )
+      JSON.stringify({ allowed: true, message: "Action allowed", remaining }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error('Rate limit check error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: corsHeaders }
-    )
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
-})
+});
