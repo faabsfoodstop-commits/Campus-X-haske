@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { ToastContext } from '../context/ToastContext';
+import { checkRateLimit, recordRateLimitAction } from '../utils/rateLimiter';
 import {
   IconSpinWheel,
   IconStar,
@@ -15,12 +17,14 @@ export default function SpinWheel() {
   const [userData, setUserData] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinResult, setSpinResult] = useState(null);
-  const [freeSpin, setFreeSpin] = useState(2);
+  const [freeSpin, setFreeSpin] = useState(0);
+  const [purchasedSpin, setPurchasedSpin] = useState(0);
   const [loading, setLoading] = useState(true);
   const [spinHistory, setSpinHistory] = useState([]);
   const [showBuySpins, setShowBuySpins] = useState(false);
   const navigate = useNavigate();
   const { alert: showAlert, modal, closeModal } = useConfirm();
+  const { addToast } = useContext(ToastContext);
 
   const wheelOptions = [
     { label: '250 pts', points: 250, color: '#fbbf24', probability: 0.30 },
@@ -65,30 +69,20 @@ export default function SpinWheel() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const today = new Date().toDateString();
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('daily_spins_remaining, last_spin_reset_date')
-        .eq('id', session.user.id)
-        .single();
+      // Check rate limits for both free and purchased spins
+      const freeResult = await checkRateLimit(session.user.id, 'spin_wheel_free');
+      const purchasedResult = await checkRateLimit(session.user.id, 'spin_wheel_purchase');
 
-      if (error) throw error;
+      // Calculate remaining spins (3 daily for free, 10 daily for purchased)
+      const freeRemaining = Math.max(0, (freeResult.dailyLimit || 3) - (freeResult.currentDailyCount || 0));
+      const purchasedRemaining = Math.max(0, (purchasedResult.dailyLimit || 10) - (purchasedResult.currentDailyCount || 0));
 
-      if (user?.last_spin_reset_date === today) {
-        setFreeSpin(user?.daily_spins_remaining || 2);
-      } else {
-        await supabase
-          .from('users')
-          .update({
-            daily_spins_remaining: 2,
-            last_spin_reset_date: today
-          })
-          .eq('id', session.user.id);
-        setFreeSpin(2);
-      }
+      setFreeSpin(freeRemaining);
+      setPurchasedSpin(purchasedRemaining);
     } catch (err) {
       console.error('Error checking spins:', err);
-      setFreeSpin(2);
+      setFreeSpin(3);
+      setPurchasedSpin(10);
     }
   };
 
@@ -127,90 +121,100 @@ export default function SpinWheel() {
   const handleSpin = async (useFreeSpins = true) => {
     if (isSpinning) return;
 
-    if (useFreeSpins && freeSpin <= 0) {
-      setShowBuySpins(true);
-      return;
-    }
-
-    if (!useFreeSpins && (userData?.wallet || 0) < 50) {
-      showAlert({
-        title: 'Not Enough Tokens',
-        message: 'You need 50 tokens to buy a spin. Complete tasks to earn more tokens.',
-        type: 'warning'
-      });
-      return;
-    }
-
-    setIsSpinning(true);
-    setSpinResult(null);
-
-    // Simulate spin animation (3 seconds)
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    const result = getWeightedRandom();
-    let earnedPoints = result.points;
-
-    // Check for streak bonus
-    const today = new Date().toDateString();
-    const lastCheckIn = localStorage.getItem('lastCheckIn');
-    if (lastCheckIn === today && result.points > 0) {
-      earnedPoints = Math.floor(earnedPoints * 1.5);
-    }
-
-    // Apply multiplier if applicable
-    if (result.multiplier) {
-      earnedPoints = 0; // Multipliers don't give immediate points
-    }
-
-    setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const finalPoints = earnedPoints;
-      const newPoints = (userData?.points || 0) + finalPoints;
+      // Check rate limit before spinning
+      const featureName = useFreeSpins ? 'spin_wheel_free' : 'spin_wheel_purchase';
+      const rateCheckResult = await checkRateLimit(session.user.id, featureName);
+
+      if (!rateCheckResult.allowed) {
+        if (rateCheckResult.reason?.includes('cooldown')) {
+          addToast(`Wait ${rateCheckResult.secondsRemaining || 30} seconds before your next spin`, 'warning');
+        } else if (rateCheckResult.reason?.includes('Daily limit')) {
+          const limit = useFreeSpins ? 3 : 10;
+          addToast(`You've reached your daily ${useFreeSpins ? 'free' : 'purchased'} spin limit (${limit}/day)`, 'warning');
+        } else {
+          addToast(rateCheckResult.reason || 'You cannot spin right now', 'warning');
+        }
+        return;
+      }
+
+      if (!useFreeSpins && (userData?.wallet || 0) < 50) {
+        addToast('You need 50 tokens to buy a spin. Complete tasks to earn more tokens.', 'warning');
+        return;
+      }
+
+      setIsSpinning(true);
+      setSpinResult(null);
+
+      // Simulate spin animation (3 seconds)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const result = getWeightedRandom();
+      let earnedPoints = result.points;
+
+      // Check for streak bonus
+      const today = new Date().toDateString();
+      const lastCheckIn = localStorage.getItem('lastCheckIn');
+      if (lastCheckIn === today && result.points > 0) {
+        earnedPoints = Math.floor(earnedPoints * 1.5);
+      }
+
+      // Apply multiplier if applicable
+      if (result.multiplier) {
+        earnedPoints = 0; // Multipliers don't give immediate points
+      }
+
+      setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
+
+      // Update points in database
+      const newPoints = (userData?.points || 0) + earnedPoints;
       const newWallet = useFreeSpins ? userData?.wallet : ((userData?.wallet || 0) - 50);
 
       const { error: updateError } = await supabase
         .from('users')
         .update({
           points: newPoints,
-          wallet: newWallet,
-          daily_spins_remaining: useFreeSpins ? freeSpin - 1 : freeSpin
+          wallet: newWallet
         })
         .eq('id', session.user.id);
 
       if (updateError) throw updateError;
 
+      // Record the spin in history
+      await supabase.from('spin_history').insert({
+        user_id: session.user.id,
+        result: result.label,
+        earned_points: earnedPoints,
+        spin_type: useFreeSpins ? 'free' : 'purchased',
+        timestamp: new Date().toISOString()
+      });
+
+      // Record rate limit action (increments counter)
+      await recordRateLimitAction(session.user.id, featureName);
+
+      // Update local state
       setUserData(prev => ({
         ...prev,
         points: newPoints,
         wallet: newWallet
       }));
 
-      if (useFreeSpins) {
-        setFreeSpin(freeSpin - 1);
-      }
-
-      await supabase.from('spin_history').insert({
-        user_id: session.user.id,
-        result: result.label,
-        earned_points: earnedPoints,
-        spin_type: useFreeSpins ? 'free' : 'purchased'
-      });
-
+      // Refresh spin counts
+      await checkDailySpins();
       await fetchSpinHistory();
+
+      if (earnedPoints > 0) {
+        addToast(`🎉 You won ${earnedPoints} points!`, 'success');
+      }
     } catch (err) {
       console.error('Error processing spin:', err);
-      showAlert({
-        title: 'Spin Error',
-        message: 'Your spin was recorded but we encountered an error processing it. Please refresh the page.',
-        type: 'error'
-      });
+      addToast('Spin error: ' + (err.message || 'Please try again'), 'error');
+    } finally {
+      setIsSpinning(false);
     }
-
-    setIsSpinning(false);
   };
 
   const buySpins = async (quantity = 1) => {
@@ -294,12 +298,18 @@ export default function SpinWheel() {
               <IconSpinWheel className="w-8 h-8 text-primary" />
               <h2 className="text-3xl font-bold">Lucky Spin</h2>
             </div>
-            <div className="text-right">
-              <p className="text-gray-600">Free Spins Today</p>
-              <p className="text-4xl font-bold text-primary">{freeSpin}</p>
+            <div className="text-right space-y-2">
+              <div>
+                <p className="text-gray-600 text-sm">Free Spins</p>
+                <p className="text-3xl font-bold text-green-600">{freeSpin}/3</p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">Purchased Spins</p>
+                <p className="text-3xl font-bold text-blue-600">{purchasedSpin}/10</p>
+              </div>
             </div>
           </div>
-          <p className="text-gray-600">Spin daily to earn random points! Resets at 6 AM.</p>
+          <p className="text-gray-600">Spin daily to earn random points! Resets at midnight.</p>
         </div>
 
         {/* Spinning Wheel */}
@@ -365,20 +375,22 @@ export default function SpinWheel() {
             <div className="flex gap-4 justify-center mb-6 flex-wrap">
               <Button
                 onClick={() => handleSpin(true)}
-                disabled={freeSpin <= 0}
+                disabled={freeSpin <= 0 || isSpinning}
                 loading={isSpinning}
                 variant="success"
                 size="lg"
               >
-                {isSpinning ? 'Spinning...' : `Free Spin (${freeSpin})`}
+                {isSpinning ? 'Spinning...' : freeSpin > 0 ? `Free Spin (${freeSpin})` : 'No Free Spins'}
               </Button>
 
               <Button
-                onClick={() => setShowBuySpins(true)}
+                onClick={() => handleSpin(false)}
+                disabled={purchasedSpin <= 0 || isSpinning || (userData?.wallet || 0) < 50}
+                loading={isSpinning}
                 variant="primary"
                 size="lg"
               >
-                Buy Spin (50 tokens)
+                {isSpinning ? 'Spinning...' : purchasedSpin > 0 ? `Paid Spin (${purchasedSpin}, 50 tokens)` : 'No Paid Spins'}
               </Button>
             </div>
 
@@ -442,9 +454,9 @@ export default function SpinWheel() {
                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                   <div>
                     <p className="font-semibold">{spin.result}</p>
-                    <p className="text-sm text-gray-600">{new Date(spin.timestamp.toDate()).toLocaleTimeString()}</p>
+                    <p className="text-sm text-gray-600">{new Date(spin.timestamp).toLocaleTimeString()}</p>
                   </div>
-                  <p className="text-lg font-bold text-primary">+{spin.earnedPoints}</p>
+                  <p className="text-lg font-bold text-primary">+{spin.earned_points}</p>
                 </div>
               ))
             ) : (
