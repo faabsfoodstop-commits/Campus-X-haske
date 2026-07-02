@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Rewards() {
   const [user, setUser] = useState(null);
@@ -31,13 +30,20 @@ export default function Rewards() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await fetchRedemptions();
       setLoading(false);
@@ -49,14 +55,17 @@ export default function Rewards() {
 
   const fetchRedemptions = async () => {
     try {
-      const redemptionsQuery = query(
-        collection(db, 'redemptions'),
-        where('userId', '==', auth.currentUser.uid)
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const snapshot = await getDocs(redemptionsQuery);
-      const data = snapshot.docs.map(doc => doc.data()).sort((a, b) => b.timestamp - a.timestamp);
-      setRedemptions(data);
+      const { data: redemptions, error } = await supabase
+        .from('redemptions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRedemptions(redemptions || []);
     } catch (err) {
       console.error('Error fetching redemptions:', err);
     }
@@ -90,28 +99,36 @@ export default function Rewards() {
     }
 
     try {
-      // Call Cloud Function to process redemption
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       setNotification({
         type: 'info',
         message: 'Processing your redemption request...'
       });
 
-      const functions = getFunctions();
-      const processRedemption = httpsCallable(functions, 'processRedemption');
+      const newPoints = currentPoints - reward.points;
 
-      const result = await processRedemption({
-        rewardId: reward.id,
-        phoneNumber: selectedPhone,
-        amount: reward.amount,
-        type: reward.type,
-        provider: reward.provider
-      });
+      const { error: insertError } = await supabase
+        .from('redemptions')
+        .insert({
+          user_id: session.user.id,
+          reward_name: reward.name,
+          status: 'pending',
+          points_used: reward.points,
+          phone_number: selectedPhone,
+          reward_type: reward.type
+        });
 
-      if (!result.data.success) {
-        throw new Error('Failed to process redemption');
-      }
+      if (insertError) throw insertError;
 
-      // Update local state to reflect point deduction
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: newPoints })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
+
       await fetchUserData();
 
       setNotification({
@@ -125,7 +142,6 @@ export default function Rewards() {
       setTimeout(() => setNotification(null), 5000);
     } catch (err) {
       console.error('Error redeeming reward:', err);
-      // Revert optimistic update
       await fetchUserData();
       setNotification({
         type: 'error',
@@ -135,7 +151,7 @@ export default function Rewards() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const currentPoints = userData?.points || 0;

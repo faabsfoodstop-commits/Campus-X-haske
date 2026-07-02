@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
 import RichMarketplaceCard from '../components/RichMarketplaceCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -58,13 +57,20 @@ export default function Marketplace() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await fetchPurchases();
       setLoading(false);
@@ -76,14 +82,17 @@ export default function Marketplace() {
 
   const fetchPurchases = async () => {
     try {
-      const purchasesQuery = query(
-        collection(db, 'purchases'),
-        where('userId', '==', auth.currentUser.uid)
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const snapshot = await getDocs(purchasesQuery);
-      const data = snapshot.docs.map(doc => doc.data()).sort((a, b) => b.timestamp - a.timestamp);
-      setPurchases(data);
+      const { data: purchases, error } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPurchases(purchases || []);
     } catch (err) {
       console.error('Error fetching purchases:', err);
     }
@@ -138,37 +147,37 @@ export default function Marketplace() {
     }
 
     try {
-      // Optimistic update
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       const newPoints = currentPoints - pointsNeeded;
       setUserData(prev => ({ ...prev, points: newPoints }));
 
-      // Create purchase record
-      await addDoc(collection(db, 'purchases'), {
-        userId: auth.currentUser.uid,
-        userEmail: auth.currentUser.email,
-        rewardId: reward.id,
-        rewardName: reward.name,
-        rewardType: reward.type,
-        pointsSpent: pointsNeeded,
-        phoneNumber: selectedPhone,
-        amount: reward.amount,
-        unit: reward.unit || '',
-        provider: selectedProviderName,
-        telecomProvider: selectedProvider,
-        status: 'pending',
-        timestamp: new Date(),
-        completedAt: null
-      });
+      const { error: insertError } = await supabase
+        .from('purchases')
+        .insert({
+          user_id: session.user.id,
+          user_email: session.user.email,
+          reward_id: reward.id,
+          reward_name: reward.name,
+          reward_type: reward.type,
+          points_spent: pointsNeeded,
+          phone_number: selectedPhone,
+          amount: reward.amount,
+          unit: reward.unit || '',
+          provider: selectedProviderName,
+          telecom_provider: selectedProvider,
+          status: 'pending'
+        });
 
-      // Update user points in Firestore
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userDoc = await getDoc(userRef);
+      if (insertError) throw insertError;
 
-      if (userDoc.exists()) {
-        await setDoc(userRef, {
-          points: (userDoc.data().points || 0) - reward.points
-        }, { merge: true });
-      }
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: newPoints })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
 
       setNotification({ type: 'success', message: `✓ Purchase confirmed! ${reward.name} will be delivered within 24 hours.` });
       setSelectedPhone('');

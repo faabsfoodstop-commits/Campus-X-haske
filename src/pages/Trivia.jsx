@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   IconTrivia,
   IconStar,
@@ -88,13 +87,20 @@ export default function Trivia() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await fetchTriviaStats();
       setLoading(false);
@@ -106,16 +112,19 @@ export default function Trivia() {
 
   const fetchTriviaStats = async () => {
     try {
-      const q = query(
-        collection(db, 'trivia_results'),
-        where('userId', '==', auth.currentUser.uid)
-      );
-      const snapshot = await getDocs(q);
-      const results = snapshot.docs.map(doc => doc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const totalGames = results.length;
-      const totalCorrect = results.reduce((sum, r) => sum + r.correctAnswers, 0);
-      const bestScore = Math.max(...results.map(r => r.score), 0);
+      const { data: results, error } = await supabase
+        .from('trivia_results')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+
+      const totalGames = results?.length || 0;
+      const totalCorrect = results?.reduce((sum, r) => sum + (r.correct_answers || 0), 0) || 0;
+      const bestScore = results?.length > 0 ? Math.max(...results.map(r => r.score || 0)) : 0;
 
       setTriviaStats({
         totalGames,
@@ -165,38 +174,32 @@ export default function Trivia() {
     setGameState('finished');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
       const correctAnswers = Math.round((score / 1000) * 10);
-      const totalReward = score + 500; // Score + bonus
+      const totalReward = score + 500;
 
-      // Call Cloud Function to complete task
-      const functions = getFunctions();
-      const completeTask = httpsCallable(functions, 'completeTask');
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({ points: (userData?.points || 0) + totalReward })
+        .eq('id', session.user.id)
+        .select()
+        .single();
 
-      const result = await completeTask({
-        taskId: `trivia_quiz_${Date.now()}`,
-        taskType: 'trivia',
-        points: totalReward
-      });
+      if (updateError) throw updateError;
 
-      if (!result.data.success) {
-        throw new Error('Failed to award points');
-      }
-
-      const finalPoints = result.data.points;
-
-      // Save result
-      await addDoc(collection(db, 'trivia_results'), {
-        userId: auth.currentUser.uid,
+      await supabase.from('trivia_results').insert({
+        user_id: session.user.id,
         score,
-        correctAnswers,
-        totalQuestions: 10,
-        timestamp: new Date(),
-        pointsEarned: finalPoints
+        correct_answers: correctAnswers,
+        total_questions: 10,
+        points_earned: totalReward
       });
 
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + finalPoints
+        points: (prev?.points || 0) + totalReward
       }));
 
       await fetchTriviaStats();

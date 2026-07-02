@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
@@ -38,13 +36,20 @@ export default function SpinWheel() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await checkDailySpins();
       await fetchSpinHistory();
@@ -57,47 +62,50 @@ export default function SpinWheel() {
 
   const checkDailySpins = async () => {
     try {
-      const today = new Date().toDateString();
-      const spinsDoc = await getDoc(doc(db, 'user_spins', auth.currentUser.uid));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      if (spinsDoc.exists()) {
-        const data = spinsDoc.data();
-        if (data.lastResetDate === today) {
-          setFreeSpin(data.remainingSpins);
-        } else {
-          // Reset to 2 spins for new day
-          await setDoc(doc(db, 'user_spins', auth.currentUser.uid), {
-            remainingSpins: 2,
-            lastResetDate: today,
-            totalSpinsUsed: (data?.totalSpinsUsed || 0),
-            totalPointsEarned: (data?.totalPointsEarned || 0)
-          });
-          setFreeSpin(2);
-        }
+      const today = new Date().toDateString();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('daily_spins_remaining, last_spin_reset_date')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (user?.last_spin_reset_date === today) {
+        setFreeSpin(user?.daily_spins_remaining || 2);
       } else {
-        // First time spinning
-        await setDoc(doc(db, 'user_spins', auth.currentUser.uid), {
-          remainingSpins: 2,
-          lastResetDate: today,
-          totalSpinsUsed: 0,
-          totalPointsEarned: 0
-        });
+        await supabase
+          .from('users')
+          .update({
+            daily_spins_remaining: 2,
+            last_spin_reset_date: today
+          })
+          .eq('id', session.user.id);
         setFreeSpin(2);
       }
     } catch (err) {
       console.error('Error checking spins:', err);
+      setFreeSpin(2);
     }
   };
 
   const fetchSpinHistory = async () => {
     try {
-      const q = query(
-        collection(db, 'spin_history'),
-        where('userId', '==', auth.currentUser.uid)
-      );
-      const snapshot = await getDocs(q);
-      const history = snapshot.docs.map(doc => doc.data()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
-      setSpinHistory(history);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: history, error } = await supabase
+        .from('spin_history')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setSpinHistory(history || []);
     } catch (err) {
       console.error('Error fetching spin history:', err);
     }
@@ -160,76 +168,41 @@ export default function SpinWheel() {
 
     setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
 
-    // Update user data with Cloud Function
     try {
-      // Call Cloud Function to complete task
-      const functions = getFunctions();
-      const completeTask = httpsCallable(functions, 'completeTask');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const cfResult = await completeTask({
-        taskId: `spin_${Date.now()}`,
-        taskType: 'spin_wheel',
-        points: earnedPoints
-      });
+      const finalPoints = earnedPoints;
+      const newPoints = (userData?.points || 0) + finalPoints;
+      const newWallet = useFreeSpins ? userData?.wallet : ((userData?.wallet || 0) - 50);
 
-      if (!cfResult.data.success) {
-        throw new Error('Failed to award points');
-      }
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          points: newPoints,
+          wallet: newWallet,
+          daily_spins_remaining: useFreeSpins ? freeSpin - 1 : freeSpin
+        })
+        .eq('id', session.user.id);
 
-      const finalPoints = cfResult.data.points;
+      if (updateError) throw updateError;
 
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-
-      // Immediately update UI with actual points
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + finalPoints,
-        wallet: useFreeSpins ? prev?.wallet : ((prev?.wallet || 0) - 50)
+        points: newPoints,
+        wallet: newWallet
       }));
 
       if (useFreeSpins) {
         setFreeSpin(freeSpin - 1);
       }
 
-      // Update last spin timestamp
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists()) {
-        await setDoc(userRef, {
-          lastSpin: new Date()
-        }, { merge: true });
-      }
-
-      // Log spin history
-      await addDoc(collection(db, 'spin_history'), {
-        userId: auth.currentUser.uid,
+      await supabase.from('spin_history').insert({
+        user_id: session.user.id,
         result: result.label,
-        earnedPoints,
-        timestamp: new Date(),
-        spinType: useFreeSpins ? 'free' : 'purchased'
+        earned_points: earnedPoints,
+        spin_type: useFreeSpins ? 'free' : 'purchased'
       });
-
-      // Update spin counts
-      const spinsRef = doc(db, 'user_spins', auth.currentUser.uid);
-      const spinsDoc = await getDoc(spinsRef);
-
-      if (useFreeSpins) {
-        if (spinsDoc.exists()) {
-          await updateDoc(spinsRef, {
-            remainingSpins: freeSpin - 1,
-            totalSpinsUsed: (spinsDoc.data().totalSpinsUsed || 0) + 1
-          });
-        } else {
-          await setDoc(spinsRef, {
-            remainingSpins: 1,
-            totalSpinsUsed: 1,
-            lastResetDate: new Date().toDateString()
-          });
-        }
-      } else {
-        await setDoc(userRef, {
-          wallet: (userDoc?.data().wallet || 0) - 50
-        }, { merge: true });
-      }
 
       await fetchSpinHistory();
     } catch (err) {
@@ -256,14 +229,20 @@ export default function SpinWheel() {
     }
 
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await setDoc(userRef, {
-        wallet: (userData?.wallet || 0) - cost
-      }, { merge: true });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const newWallet = (userData?.wallet || 0) - cost;
+      const { error } = await supabase
+        .from('users')
+        .update({ wallet: newWallet })
+        .eq('id', session.user.id);
+
+      if (error) throw error;
 
       setUserData(prev => ({
         ...prev,
-        wallet: (prev?.wallet || 0) - cost
+        wallet: newWallet
       }));
 
       setFreeSpin(freeSpin + quantity);

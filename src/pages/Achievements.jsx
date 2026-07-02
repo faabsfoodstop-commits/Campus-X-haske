@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   IconSpinWheel,
   IconTrivia,
@@ -155,15 +155,22 @@ export default function Achievements() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
+        await checkAchievements(user);
       }
-      await checkAchievements(userDoc.data());
       setLoading(false);
     } catch (err) {
       console.error('Error fetching user:', err);
@@ -173,43 +180,39 @@ export default function Achievements() {
 
   const checkAchievements = async (userData_temp) => {
     try {
-      const userData = userData_temp || (await getDoc(doc(db, 'users', auth.currentUser.uid))).data();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const userData = userData_temp;
       const unlocked = [];
 
-      // Check each achievement
       for (let achievement of allAchievements) {
         let isUnlocked = false;
 
         switch (achievement.requirement) {
           case 'spins':
-            // Count spins from spin_history
-            const spinQuery = query(
-              collection(db, 'spin_history'),
-              where('userId', '==', auth.currentUser.uid)
-            );
-            const spinSnapshot = await getDocs(spinQuery);
-            isUnlocked = spinSnapshot.size >= achievement.threshold;
+            const { data: spins } = await supabase
+              .from('spin_history')
+              .select('id')
+              .eq('user_id', session.user.id);
+            isUnlocked = (spins?.length || 0) >= achievement.threshold;
             break;
 
           case 'trivia_perfect':
-            // Check for perfect trivia score
-            const triviaQuery = query(
-              collection(db, 'trivia_results'),
-              where('userId', '==', auth.currentUser.uid)
-            );
-            const triviaSnapshot = await getDocs(triviaQuery);
-            isUnlocked = triviaSnapshot.docs.some(doc => doc.data().score === 100);
+            const { data: triviaResults } = await supabase
+              .from('trivia_results')
+              .select('score')
+              .eq('user_id', session.user.id);
+            isUnlocked = (triviaResults || []).some(r => r.score === 1000);
             break;
 
           case 'missions_completed':
-            // Count completed missions
-            const missionsQuery = query(
-              collection(db, 'daily_missions'),
-              where('userId', '==', auth.currentUser.uid)
-            );
-            const missionsSnapshot = await getDocs(missionsQuery);
-            const uniqueDays = new Set(missionsSnapshot.docs.map(doc => doc.data().completedDate));
-            isUnlocked = uniqueDays.size >= achievement.threshold;
+            const { data: missions } = await supabase
+              .from('daily_missions')
+              .select('id')
+              .eq('user_id', session.user.id)
+              .eq('completed', true);
+            isUnlocked = (missions?.length || 0) >= achievement.threshold;
             break;
 
           case 'total_points':
@@ -222,7 +225,6 @@ export default function Achievements() {
             break;
 
           case 'early_adopter':
-            // Assume anyone using this is an early adopter
             isUnlocked = true;
             break;
 
@@ -231,7 +233,6 @@ export default function Achievements() {
           case 'successful_referrals':
           case 'checkin_streak':
           case 'achievements_unlocked':
-            // These would be tracked in user document
             isUnlocked = (userData?.[achievement.requirement] || 0) >= achievement.threshold;
             break;
 

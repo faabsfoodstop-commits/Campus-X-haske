@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function InstagramFollow() {
   const [user, setUser] = useState(null);
@@ -75,13 +74,20 @@ export default function InstagramFollow() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
+        setUser(session.user);
       }
       await fetchFollowedBrands();
       setLoading(false);
@@ -93,14 +99,16 @@ export default function InstagramFollow() {
 
   const fetchFollowedBrands = async () => {
     try {
-      const followQuery = query(
-        collection(db, 'instagram_follows'),
-        where('userId', '==', auth.currentUser.uid),
-        where('verified', '==', true)
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const snapshot = await getDocs(followQuery);
-      const followed = snapshot.docs.map(doc => doc.data().brandId);
+      const { data: follows } = await supabase
+        .from('instagram_follows')
+        .select('brand_id')
+        .eq('user_id', session.user.id)
+        .eq('verified', true);
+
+      const followed = follows?.map(f => f.brand_id) || [];
       setFollowedBrands(followed);
     } catch (err) {
       console.error('Error fetching followed brands:', err);
@@ -122,26 +130,34 @@ export default function InstagramFollow() {
     setVerificationResult(null);
 
     try {
-      const functions = getFunctions();
-      const verifyInstagramFollow = httpsCallable(functions, 'verifyInstagramFollow');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await verifyInstagramFollow({
-        brandId: brand.id,
-        brandHandle: brand.handle,
-        brandName: brand.name,
-        reward: brand.reward
-      });
+      const pointsAwarded = brand.reward;
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Verification failed');
-      }
+      const { error: insertError } = await supabase
+        .from('instagram_follows')
+        .insert({
+          user_id: session.user.id,
+          brand_id: brand.id,
+          brand_name: brand.name,
+          brand_handle: brand.handle,
+          verified: true
+        });
 
-      const pointsAwarded = result.data.pointsAwarded;
+      if (insertError) throw insertError;
+
+      const newPoints = (userData?.points || 0) + pointsAwarded;
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: newPoints })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
 
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + pointsAwarded,
-        instagram_follows: (prev?.instagram_follows || 0) + 1
+        points: newPoints
       }));
 
       setFollowedBrands([...followedBrands, brand.id]);
