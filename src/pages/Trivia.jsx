@@ -177,15 +177,13 @@ export default function Trivia() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const correctAnswers = Math.round((score / 1000) * 10);
+      const correctAnswers = Math.round(score / 100); // score is 100 per correct answer
       const totalReward = score + 500;
 
-      const { data: updatedUser, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .update({ points: (userData?.points || 0) + totalReward })
-        .eq('id', session.user.id)
-        .select()
-        .single();
+        .eq('id', session.user.id);
 
       if (updateError) throw updateError;
 
