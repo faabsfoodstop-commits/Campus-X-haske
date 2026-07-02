@@ -1,89 +1,75 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-
 serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-
   try {
-    const { userId, featureName } = await req.json();
-
-    if (!userId || !featureName) {
-      return new Response(JSON.stringify({ error: "Missing userId or featureName" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json" } });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { userId, featureName } = await req.json();
+    if (!userId || !featureName) {
+      return new Response(JSON.stringify({ error: "Missing userId or featureName" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || ""
+    );
 
     // Get feature limits
-    const { data: limitsArray } = await supabase
+    const { data: limits } = await supabase
       .from("feature_limits")
       .select("*")
       .eq("feature_name", featureName);
 
-    const limits = limitsArray?.[0];
-    if (!limits) {
-      return new Response(JSON.stringify({ error: "Feature not configured" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (!limits || limits.length === 0) {
+      return new Response(JSON.stringify({ error: "Feature not configured" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
+    const limit = limits[0];
     const now = new Date();
     const today = now.toISOString().split("T")[0];
-    const cooldownUntil = limits.cooldown_seconds
-      ? new Date(now.getTime() + limits.cooldown_seconds * 1000).toISOString()
+    const cooldownUntil = limit.cooldown_seconds
+      ? new Date(now.getTime() + limit.cooldown_seconds * 1000).toISOString()
       : null;
 
     // Get current counts
-    const { data: currentArray } = await supabase
+    const { data: current } = await supabase
       .from("rate_limits")
       .select("count_today, count_this_week")
       .eq("user_id", userId)
       .eq("feature_name", featureName);
 
-    const current = currentArray?.[0];
-    const countToday = (current?.count_today || 0) + 1;
-    const countThisWeek = (current?.count_this_week || 0) + 1;
+    const currentRecord = current?.[0];
+    const countToday = (currentRecord?.count_today || 0) + 1;
+    const countThisWeek = (currentRecord?.count_this_week || 0) + 1;
 
     // Upsert rate limit record
-    const { data: dataArray, error } = await supabase
+    const { error } = await supabase
       .from("rate_limits")
-      .upsert(
-        {
-          user_id: userId,
-          feature_name: featureName,
-          count_today: countToday,
-          count_this_week: countThisWeek,
-          last_action_timestamp: now.toISOString(),
-          cooldown_until: cooldownUntil,
-          reset_at_date: today,
-          updated_at: now.toISOString(),
-        },
-        { onConflict: "user_id,feature_name" }
-      )
-      .select();
+      .upsert({
+        user_id: userId,
+        feature_name: featureName,
+        count_today: countToday,
+        count_this_week: countThisWeek,
+        last_action_timestamp: now.toISOString(),
+        cooldown_until: cooldownUntil,
+        reset_at_date: today,
+        updated_at: now.toISOString(),
+      });
 
-    const data = dataArray?.[0];
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ success: true, countToday, countThisWeek }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("Error:", error.message);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 });
