@@ -1,15 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const { taskId, taskName, rewardPoints, userId } = await req.json();
     if (!taskId || !taskName || !rewardPoints || !userId) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const supabase = createClient(
@@ -27,7 +36,7 @@ serve(async (req) => {
     if (existing && existing.length > 0 && existing[0].points_awarded) {
       return new Response(
         JSON.stringify({ error: "Task already completed", success: false }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -38,7 +47,7 @@ serve(async (req) => {
       .eq("id", userId);
 
     if (!users || users.length === 0) {
-      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const newPoints = (users[0].points || 0) + rewardPoints;
@@ -68,13 +77,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, newPoints }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error) {
     console.error("Error:", error.message);
     return new Response(
       JSON.stringify({ error: error.message, success: false }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });

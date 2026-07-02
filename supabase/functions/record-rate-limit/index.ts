@@ -1,15 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const { userId, featureName } = await req.json();
     if (!userId || !featureName) {
-      return new Response(JSON.stringify({ error: "Missing userId or featureName" }), { status: 400, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Missing userId or featureName" }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const supabase = createClient(
@@ -24,7 +33,7 @@ serve(async (req) => {
       .eq("feature_name", featureName);
 
     if (!limits || limits.length === 0) {
-      return new Response(JSON.stringify({ error: "Feature not configured" }), { status: 400, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Feature not configured" }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const limit = limits[0];
@@ -63,13 +72,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, countToday, countThisWeek }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error) {
     console.error("Error:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
