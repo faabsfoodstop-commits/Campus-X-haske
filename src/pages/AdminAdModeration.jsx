@@ -41,9 +41,8 @@ export default function AdminAdModeration() {
 
       const { data: adsData, error } = await query.order('created_at', { ascending: false });
 
-      if (!error && adsData) {
-
-      setAds(adsData);
+      if (error) throw error;
+      setAds(adsData || []);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching ads:', err);
@@ -53,11 +52,16 @@ export default function AdminAdModeration() {
 
   const handleApprove = async (adId) => {
     try {
-      await updateDoc(doc(db, 'user_ads', adId), {
-        status: 'approved',
-        reviewedAt: new Date(),
-        reviewedBy: auth.currentUser?.uid
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase
+        .from('user_ads')
+        .update({
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: session?.user?.id
+        })
+        .eq('id', adId);
+
       await fetchAds();
       await showAlert({
         title: 'Approved',
@@ -85,12 +89,16 @@ export default function AdminAdModeration() {
     }
 
     try {
-      await updateDoc(doc(db, 'user_ads', adId), {
-        status: 'rejected',
-        rejectionReason,
-        reviewedAt: new Date(),
-        reviewedBy: auth.currentUser?.uid
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase
+        .from('user_ads')
+        .update({
+          status: 'rejected',
+          rejection_reason: rejectionReason,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: session?.user?.id
+        })
+        .eq('id', adId);
 
       setRejectionReason('');
       setSelectedAdId(null);
@@ -114,7 +122,11 @@ export default function AdminAdModeration() {
     if (!window.confirm('Permanently delete this ad?')) return;
 
     try {
-      await deleteDoc(doc(db, 'user_ads', adId));
+      await supabase
+        .from('user_ads')
+        .delete()
+        .eq('id', adId);
+
       await fetchAds();
       await showAlert({
         title: 'Deleted',
@@ -142,12 +154,16 @@ export default function AdminAdModeration() {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       for (const adId of selectedAds) {
-        await updateDoc(doc(db, 'user_ads', adId), {
-          status: 'approved',
-          reviewedAt: new Date(),
-          reviewedBy: auth.currentUser?.uid
-        });
+        await supabase
+          .from('user_ads')
+          .update({
+            status: 'approved',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: session?.user?.id
+          })
+          .eq('id', adId);
       }
       setSelectedAds(new Set());
       await fetchAds();
