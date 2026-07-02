@@ -152,10 +152,6 @@ export default function SpinWheel() {
 
     // Check for streak bonus
     const today = new Date().toDateString();
-    const checkInDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-    const userData_temp = checkInDoc.data();
-
-    // If user checked in today, apply 1.5x bonus
     const lastCheckIn = localStorage.getItem('lastCheckIn');
     if (lastCheckIn === today && result.points > 0) {
       earnedPoints = Math.floor(earnedPoints * 1.5);

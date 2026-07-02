@@ -78,23 +78,30 @@ export default function AdminRedemptions() {
 
   const rejectRedemption = async (redemptionId, redemption) => {
     try {
-      const redemptionRef = doc(db, 'redemptions', redemptionId);
-      await updateDoc(redemptionRef, {
-        status: 'rejected',
-        completedAt: new Date(),
-        rejectionReason: 'Rejected by admin',
-        processedBy: auth.currentUser.email
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      // Refund points to user
-      const userRef = doc(db, 'users', redemption.userId);
-      const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', redemption.userId)));
+      await supabase
+        .from('redemptions')
+        .update({
+          status: 'rejected',
+          completed_at: new Date().toISOString(),
+          rejection_reason: 'Rejected by admin',
+          processed_by: session.user.email
+        })
+        .eq('id', redemptionId);
 
-      if (userDoc.docs.length > 0) {
-        const userData = userDoc.docs[0].data();
-        await updateDoc(userRef, {
-          points: (userData.points || 0) + redemption.pointsRedeemed
-        });
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('points')
+        .eq('id', redemption.user_id)
+        .single();
+
+      if (userData) {
+        await supabase
+          .from('users')
+          .update({ points: (userData.points || 0) + redemption.points_redeemed })
+          .eq('id', redemption.user_id);
       }
 
       setNotification({
@@ -233,7 +240,7 @@ export default function AdminRedemptions() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">{redemption.provider}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(redemption.timestamp.toDate?.() || redemption.timestamp).toLocaleDateString()}
+                        {new Date(redemption.timestamp).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
@@ -283,7 +290,7 @@ export default function AdminRedemptions() {
                           )}
                           {redemption.status === 'completed' && (
                             <span className="text-xs text-gray-600">
-                              {redemption.completedAt && `Completed: ${new Date(redemption.completedAt.toDate?.() || redemption.completedAt).toLocaleDateString()}`}
+                              {redemption.completed_at && `Completed: ${new Date(redemption.completed_at).toLocaleDateString()}`}
                             </span>
                           )}
                         </div>

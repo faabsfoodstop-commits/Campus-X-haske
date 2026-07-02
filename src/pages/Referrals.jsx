@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Referrals() {
   const [user, setUser] = useState(null);
@@ -10,9 +10,9 @@ export default function Referrals() {
   const [referralHistory, setReferralHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
   const navigate = useNavigate();
 
-  const referralCode = auth.currentUser?.uid?.substring(0, 8).toUpperCase() || '';
   const referralLink = `https://campus-x-haske.vercel.app/signup?ref=${referralCode}`;
 
   useEffect(() => {
@@ -20,15 +20,23 @@ export default function Referrals() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
-        setUser(auth.currentUser);
+      setUser(session.user);
+      setReferralCode(session.user.id?.substring(0, 8).toUpperCase() || '');
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userData) {
+        setUserData(userData);
       }
-      await fetchReferralStats();
+      await fetchReferralStats(session.user.id);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching user:', err);
@@ -36,34 +44,31 @@ export default function Referrals() {
     }
   };
 
-  const fetchReferralStats = async () => {
+  const fetchReferralStats = async (userId) => {
     try {
-      // Get referrals made by this user
-      const madeQuery = query(
-        collection(db, 'referrals'),
-        where('referrerId', '==', auth.currentUser.uid)
-      );
+      const { data: madeReferrals, error } = await supabase
+        .from('referrals')
+        .select('*')
+        .eq('referrer_id', userId)
+        .order('timestamp', { ascending: false });
 
-      const madeSnapshot = await getDocs(madeQuery);
-      const madeReferrals = madeSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      if (error) throw error;
 
-      const successful = madeReferrals.filter(r => r.status === 'completed');
-      const pending = madeReferrals.filter(r => r.status === 'pending');
+      const referrals = madeReferrals || [];
+      const successful = referrals.filter(r => r.status === 'completed');
+      const pending = referrals.filter(r => r.status === 'pending');
 
-      const totalEarned = successful.reduce((sum, r) => sum + r.reward, 0);
+      const totalEarned = successful.reduce((sum, r) => sum + (r.reward || 0), 0);
 
       setReferralStats({
-        totalReferrals: madeReferrals.length,
+        totalReferrals: referrals.length,
         successfulReferrals: successful.length,
         pendingReferrals: pending.length,
         totalEarned,
         potentialEarning: (pending.length * 500) + totalEarned
       });
 
-      setReferralHistory(madeReferrals.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10));
+      setReferralHistory(referrals.slice(0, 10));
     } catch (err) {
       console.error('Error fetching referral stats:', err);
       setReferralStats({
@@ -86,7 +91,7 @@ export default function Referrals() {
     const message = encodeURIComponent(
       `🎉 Join Haske Campus App!\n\nJoin me and earn points! 💰\n\n` +
       `Download: ${referralLink}\n\n` +
-      `Get bonus points when you join with my code!\n- ${user?.displayName || 'Friend'}`
+      `Get bonus points when you join with my code!\n- ${userData?.name || user?.email || 'Friend'}`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -286,7 +291,7 @@ export default function Referrals() {
                   <div>
                     <p className="font-bold text-gray-800">{referral.referreeName || 'User'}</p>
                     <p className="text-sm text-gray-600">
-                      {new Date(referral.timestamp?.toDate?.() || referral.timestamp).toLocaleDateString()}
+                      {new Date(referral.timestamp).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">

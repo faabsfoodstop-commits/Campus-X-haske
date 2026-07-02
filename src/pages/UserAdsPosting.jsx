@@ -76,7 +76,7 @@ export default function UserAdsPosting() {
     thisMonth.setDate(1);
 
     const adsThisMonth = userAds.filter(ad => {
-      const adDate = new Date(ad.createdAt?.toDate?.() || ad.createdAt);
+      const adDate = new Date(ad.created_at);
       return adDate >= thisMonth;
     }).length;
 
@@ -125,29 +125,42 @@ export default function UserAdsPosting() {
 
     setSubmitting(true);
     try {
-      const functions = getFunctions();
-      const postUserAd = httpsCallable(functions, 'postUserAd');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      const result = await postUserAd({
-        adId: editingAdId || null,
+      const adData = {
         title: formData.title,
         description: formData.description,
         category: formData.category,
         price: formData.price ? parseFloat(formData.price) : null,
         image: formData.image,
-        contactPhone: formData.contactPhone,
-        contactEmail: formData.contactEmail
-      });
+        contact_phone: formData.contactPhone,
+        contact_email: formData.contactEmail,
+        user_id: session.user.id,
+        university: userData?.university,
+        user_name: userData?.name,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to post ad');
-      }
+      if (editingAdId) {
+        await supabase
+          .from('user_ads')
+          .update(adData)
+          .eq('id', editingAdId);
+      } else {
+        const { error: insertError } = await supabase
+          .from('user_ads')
+          .insert([adData]);
 
-      if (!editingAdId && !userData?.premiumActive && result.data.pointsDeducted) {
-        setUserData(prev => ({
-          ...prev,
-          points: (prev?.points || 0) - result.data.pointsDeducted
-        }));
+        if (insertError) throw insertError;
+
+        if (!userData?.premiumActive) {
+          await supabase
+            .from('users')
+            .update({ points: (userData?.points || 0) - POSTING_COST })
+            .eq('id', session.user.id);
+        }
       }
 
       await fetchUserData();
@@ -165,7 +178,7 @@ export default function UserAdsPosting() {
 
       await showAlert({
         title: 'Success',
-        message: result.data.message || (editingAdId ? 'Ad updated successfully!' : 'Ad posted successfully!'),
+        message: editingAdId ? 'Ad updated successfully!' : 'Ad posted successfully!',
         type: 'success'
       });
     } catch (err) {
@@ -182,7 +195,11 @@ export default function UserAdsPosting() {
 
   const handleDeleteAd = async (adId) => {
     try {
-      await deleteDoc(doc(db, 'user_ads', adId));
+      await supabase
+        .from('user_ads')
+        .delete()
+        .eq('id', adId);
+
       await fetchUserData();
       await showAlert({
         title: 'Deleted',
@@ -200,7 +217,7 @@ export default function UserAdsPosting() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const permission = canPostAd();
