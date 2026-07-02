@@ -42,6 +42,7 @@ import MarketplaceAds from './pages/MarketplaceAds';
 import UniversityChat from './pages/UniversityChat';
 import PremiumEnhancements from './pages/PremiumEnhancements';
 import BrandPartnershipPortal from './pages/BrandPartnershipPortal';
+import ActivityLog from './pages/ActivityLog';
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" />;
@@ -222,6 +223,10 @@ function App() {
           <Route
             path="/admin/withdrawals"
             element={<PrivateRoute user={user}><AdminWithdrawals /></PrivateRoute>}
+          />
+          <Route
+            path="/activity-log"
+            element={<PrivateRoute user={user}><ActivityLog /></PrivateRoute>}
           />
           </Routes>
           <BottomNavigation />

@@ -291,6 +291,20 @@ export default function Dashboard() {
             </p>
             <p className="text-gray-500 text-sm mt-2">Share to earn ₦50+</p>
           </div>
+
+          {/* Activity Log Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-gray-600 font-semibold mb-2">Activity Log</h3>
+            <p className="text-gray-600 text-sm mb-4">View all your point-earning activities and history</p>
+            <Button
+              onClick={() => navigate('/activity-log')}
+              variant="primary"
+              size="sm"
+              fullWidth
+            >
+              View Activity Log →
+            </Button>
+          </div>
         </div>
 
         {/* Daily Check-In */}
