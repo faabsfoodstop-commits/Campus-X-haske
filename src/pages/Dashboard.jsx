@@ -245,7 +245,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 font-semibold mb-2">Referral Code</h3>
             <p className="text-lg font-mono text-primary font-bold">
-              {auth.currentUser?.uid?.substring(0, 8).toUpperCase()}
+              {user?.id?.substring(0, 8).toUpperCase()}
             </p>
             <p className="text-gray-500 text-sm mt-2">Share to earn ₦50+</p>
           </div>

@@ -167,7 +167,7 @@ export default function Leaderboard() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* User's Rank Card */}
-        {auth.currentUser && userRank && (
+        {currentUser && userRank && (
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg p-8 mb-8">
             <div className="flex justify-between items-center">
               <div>
@@ -321,7 +321,7 @@ export default function Leaderboard() {
                 <div
                   key={user.uid}
                   className={`p-4 flex items-center justify-between hover:bg-gray-50 transition ${
-                    user.uid === auth.currentUser?.uid ? 'bg-blue-50 border-l-4 border-primary' : ''
+                    user.id === currentUser?.id ? 'bg-blue-50 border-l-4 border-primary' : ''
                   }`}
                 >
                   <div className="flex items-center gap-4 flex-1">
