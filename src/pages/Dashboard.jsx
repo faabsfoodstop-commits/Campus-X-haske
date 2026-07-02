@@ -67,6 +67,10 @@ export default function Dashboard() {
     };
 
     fetchUserData();
+
+    // Refetch user data every 3 seconds to keep points updated
+    const interval = setInterval(fetchUserData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const checkTodayCheckIn = () => {
