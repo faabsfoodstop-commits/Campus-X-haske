@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase, callEdgeFunction } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 
 export default function WeeklyChallenges() {
   const navigate = useNavigate();
@@ -134,6 +135,22 @@ export default function WeeklyChallenges() {
       }
 
       const bonusAwarded = result.bonusAwarded;
+
+      // Award getting started task on first challenge claim
+      try {
+        const { data: existingTask } = await supabase
+          .from('getting_started_tasks')
+          .select('points_awarded')
+          .eq('user_id', session.user.id)
+          .eq('task_id', 'challenge')
+          .single();
+
+        if (!existingTask?.points_awarded) {
+          await awardGettingStartedTask('challenge', 'Join a Weekly Challenge', 100);
+        }
+      } catch (err) {
+        console.warn('Error awarding challenge task:', err);
+      }
 
       setUserData(prev => ({
         ...prev,

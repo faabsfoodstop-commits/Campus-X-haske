@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 
 export default function Referrals() {
   const [user, setUser] = useState(null);
@@ -59,6 +60,24 @@ export default function Referrals() {
       const pending = referrals.filter(r => r.status === 'pending');
 
       const totalEarned = successful.reduce((sum, r) => sum + (r.reward || 0), 0);
+
+      // Award getting started task if user has at least one successful referral
+      if (successful.length > 0) {
+        try {
+          const { data: existingTask } = await supabase
+            .from('getting_started_tasks')
+            .select('points_awarded')
+            .eq('user_id', userId)
+            .eq('task_id', 'refer')
+            .single();
+
+          if (!existingTask?.points_awarded) {
+            await awardGettingStartedTask('refer', 'Refer a Friend', 50);
+          }
+        } catch (err) {
+          console.warn('Error awarding referral task:', err);
+        }
+      }
 
       setReferralStats({
         totalReferrals: referrals.length,

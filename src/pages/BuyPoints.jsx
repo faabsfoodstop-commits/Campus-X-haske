@@ -6,6 +6,7 @@ import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 import {
   IconBolt,
   IconBuyPoints,
@@ -123,6 +124,22 @@ export default function BuyPoints() {
 
       if (creditError || !creditResult.success) {
         throw new Error('Failed to credit points');
+      }
+
+      // Award getting started task on first purchase
+      try {
+        const { data: existingTask } = await supabase
+          .from('getting_started_tasks')
+          .select('points_awarded')
+          .eq('user_id', session.user.id)
+          .eq('task_id', 'purchase')
+          .single();
+
+        if (!existingTask?.points_awarded) {
+          await awardGettingStartedTask('purchase', 'Make Your First Purchase', 150);
+        }
+      } catch (err) {
+        console.warn('Error awarding purchase task:', err);
       }
 
       // Update local state
