@@ -44,19 +44,9 @@ export default function SignUp() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Failed to create user');
 
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          full_name: formData.fullName,
-          email: formData.email,
-          university: formData.university,
-          wallet: 0,
-          points: 0,
-          created_at: new Date(),
-        });
-
-      if (insertError) throw insertError;
+      // User record is automatically created by database trigger
+      // Wait a moment for trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       navigate('/dashboard');
     } catch (err) {
