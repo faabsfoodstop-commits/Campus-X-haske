@@ -104,19 +104,25 @@ export default function Dashboard() {
       }
 
       // Check if user has reached 7 check-ins for the getting started task
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const { data: checkIns } = await supabase
-        .from('streak_check_ins')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .gte('check_in_date', sevenDaysAgo);
+      try {
+        const { data: allCheckIns, error: checkInsError } = await supabase
+          .from('streak_check_ins')
+          .select('check_in_date')
+          .eq('user_id', session.user.id)
+          .order('check_in_date', { ascending: false });
 
-      if (checkIns && checkIns.length >= 7) {
-        try {
-          await awardGettingStartedTask('checkin', 'Check In 7 Days', 70);
-        } catch (err) {
-          console.error('Error awarding check-in task:', err);
+        if (!checkInsError && allCheckIns && allCheckIns.length >= 7) {
+          // Get unique dates
+          const uniqueDates = new Set(allCheckIns.map(ci => ci.check_in_date));
+          if (uniqueDates.size >= 7) {
+            const result = await awardGettingStartedTask('checkin', 'Check In 7 Days', 70);
+            if (result.success) {
+              addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
+            }
+          }
         }
+      } catch (err) {
+        console.error('Error checking 7-day task:', err);
       }
 
       localStorage.setItem('lastCheckIn', todayString);

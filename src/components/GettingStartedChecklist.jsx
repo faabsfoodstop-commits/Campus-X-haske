@@ -105,18 +105,34 @@ export default function GettingStartedChecklist() {
         });
       }
 
+      // Fetch check-in progress
+      let checkInProgress = 0;
+      try {
+        const { data: checkIns } = await supabase
+          .from('streak_check_ins')
+          .select('check_in_date')
+          .eq('user_id', session.user.id);
+        if (checkIns) {
+          const uniqueDates = new Set(checkIns.map(ci => ci.check_in_date));
+          checkInProgress = uniqueDates.size;
+        }
+      } catch (err) {
+        console.warn('Error fetching check-in progress:', err);
+      }
+
       // Update checklist based on actual user data
       const updatedChecklist = checklist.map(item => {
         const dbTask = completedMap[item.id] || {};
         let completed = false;
         let pointsAwarded = dbTask.pointsAwarded || false;
+        let progress = 0;
 
         // Check if task should be marked complete based on user data
         if (item.id === 'profile' && userData?.profile_complete) {
           completed = true;
         } else if (item.id === 'checkin') {
-          // This requires checking streak_check_ins table
-          completed = dbTask.completed || false;
+          progress = checkInProgress;
+          completed = checkInProgress >= 7;
         } else if (item.id === 'challenge') {
           // This requires checking weekly_challenges table
           completed = dbTask.completed || false;
@@ -131,7 +147,8 @@ export default function GettingStartedChecklist() {
         return {
           ...item,
           completed,
-          pointsAwarded
+          pointsAwarded,
+          progress: item.id === 'checkin' ? progress : item.progress
         };
       });
 
