@@ -49,7 +49,12 @@ serve(async (req) => {
       if (now < cooldownUntil) {
         const secondsRemaining = Math.ceil((cooldownUntil.getTime() - now.getTime()) / 1000);
         return new Response(
-          JSON.stringify({ allowed: false, message: `Please wait ${secondsRemaining}s before trying again` }),
+          JSON.stringify({
+            allowed: false,
+            message: `Please wait ${secondsRemaining}s before trying again`,
+            reason: `cooldown - ${secondsRemaining}s remaining`,
+            secondsRemaining,
+          }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -58,7 +63,11 @@ serve(async (req) => {
     // Check daily limit
     if (limit.daily_limit && userLimit?.reset_at_date === today && userLimit.count_today >= limit.daily_limit) {
       return new Response(
-        JSON.stringify({ allowed: false, message: `Daily limit reached (${limit.daily_limit}/${limit.daily_limit})` }),
+        JSON.stringify({
+          allowed: false,
+          message: `Daily limit reached (${limit.daily_limit}/${limit.daily_limit})`,
+          reason: `Daily limit reached`,
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -66,7 +75,11 @@ serve(async (req) => {
     // Check weekly limit
     if (limit.weekly_limit && userLimit?.count_this_week >= limit.weekly_limit) {
       return new Response(
-        JSON.stringify({ allowed: false, message: `Weekly limit reached (${limit.weekly_limit}/${limit.weekly_limit})` }),
+        JSON.stringify({
+          allowed: false,
+          message: `Weekly limit reached (${limit.weekly_limit}/${limit.weekly_limit})`,
+          reason: `Weekly limit reached`,
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -74,7 +87,16 @@ serve(async (req) => {
     const remaining = limit.daily_limit ? limit.daily_limit - (userLimit?.count_today || 0) : null;
 
     return new Response(
-      JSON.stringify({ allowed: true, message: "Action allowed", remaining }),
+      JSON.stringify({
+        allowed: true,
+        message: "Action allowed",
+        remaining,
+        dailyLimit: limit.daily_limit,
+        weeklyLimit: limit.weekly_limit,
+        hourlyLimit: limit.hourly_limit,
+        currentDailyCount: userLimit?.count_today || 0,
+        currentWeeklyCount: userLimit?.count_this_week || 0,
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
