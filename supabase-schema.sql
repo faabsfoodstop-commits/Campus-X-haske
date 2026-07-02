@@ -18,14 +18,60 @@ CREATE TABLE users (
   premium_tier TEXT,
   premium_until TIMESTAMP,
   premium_active BOOLEAN DEFAULT FALSE,
+  premium_removed_at TIMESTAMP,
   current_streak INTEGER DEFAULT 0,
   week_points INTEGER DEFAULT 0,
   week_sold INTEGER DEFAULT 0,
   week_redeemed INTEGER DEFAULT 0,
   week_referrals INTEGER DEFAULT 0,
   week_logins INTEGER DEFAULT 0,
+
+  -- Spin Wheel Limits
   daily_spins_remaining INTEGER DEFAULT 3,
   last_spin_reset_date DATE,
+  daily_spins_purchased_count INTEGER DEFAULT 0,
+  spin_cooldown_until TIMESTAMP,
+  last_spin_time TIMESTAMP,
+
+  -- Marketplace Ad Limits
+  daily_ads_posted_count INTEGER DEFAULT 0,
+  last_ad_posted_at TIMESTAMP,
+  active_ads_count_today INTEGER DEFAULT 0,
+
+  -- Point Selling Limits
+  points_sold_today INTEGER DEFAULT 0,
+  points_sold_this_week INTEGER DEFAULT 0,
+  last_point_sell_at TIMESTAMP,
+
+  -- Point Buying Limits
+  points_purchased_today INTEGER DEFAULT 0,
+  points_purchased_this_week INTEGER DEFAULT 0,
+
+  -- Referral Limits
+  referral_count_today INTEGER DEFAULT 0,
+  last_referral_created_at TIMESTAMP,
+  referrer_ip TEXT,
+
+  -- Cosmetics Limits
+  cosmetic_last_purchased_at TIMESTAMP,
+  cosmetic_inventory_count INTEGER DEFAULT 0,
+
+  -- Redemption Limits
+  redemption_cooldown_until TIMESTAMP,
+  redemptions_this_week INTEGER DEFAULT 0,
+
+  -- Video/Trivia Limits
+  last_trivia_played_at TIMESTAMP,
+  trivia_games_played_today INTEGER DEFAULT 0,
+  last_video_ad_at TIMESTAMP,
+  videos_watched_today INTEGER DEFAULT 0,
+  last_video_id_watched TEXT,
+
+  -- Chat Limits
+  last_chat_message_at TIMESTAMP,
+  chat_messages_this_hour INTEGER DEFAULT 0,
+
+  -- Admin
   is_admin BOOLEAN DEFAULT FALSE,
   bank_details JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
@@ -287,6 +333,51 @@ CREATE TABLE withdrawals (
   rejected_reason TEXT
 );
 
+-- Rate Limits Tracking Table
+CREATE TABLE rate_limits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  feature_name TEXT NOT NULL,
+  count_today INTEGER DEFAULT 0,
+  count_this_week INTEGER DEFAULT 0,
+  last_action_timestamp TIMESTAMP,
+  cooldown_until TIMESTAMP,
+  reset_at_date DATE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Admin Audit Log Table
+CREATE TABLE admin_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  action_type TEXT NOT NULL,
+  target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  target_resource_id TEXT,
+  resource_type TEXT,
+  details JSONB,
+  ip_address TEXT,
+  user_agent TEXT,
+  status TEXT DEFAULT 'completed',
+  error_message TEXT,
+  timestamp TIMESTAMP DEFAULT NOW()
+);
+
+-- Feature Configuration Table (for admin to update limits)
+CREATE TABLE feature_limits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feature_name TEXT UNIQUE NOT NULL,
+  daily_limit INTEGER,
+  weekly_limit INTEGER,
+  hourly_limit INTEGER,
+  cooldown_seconds INTEGER,
+  min_requirement_points INTEGER,
+  max_per_transaction DECIMAL,
+  enabled BOOLEAN DEFAULT TRUE,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_daily_missions_user_id ON daily_missions(user_id);
@@ -307,6 +398,12 @@ CREATE INDEX idx_point_buy_offers_user_id ON point_buy_offers(user_id);
 CREATE INDEX idx_streak_check_ins_user_id ON streak_check_ins(user_id);
 CREATE INDEX idx_video_ads_user_id ON video_ads_watched(user_id);
 CREATE INDEX idx_withdrawals_user_id ON withdrawals(user_id);
+CREATE INDEX idx_rate_limits_user_feature ON rate_limits(user_id, feature_name);
+CREATE INDEX idx_rate_limits_cooldown ON rate_limits(cooldown_until);
+CREATE INDEX idx_admin_audit_admin_id ON admin_audit_log(admin_id);
+CREATE INDEX idx_admin_audit_target_user ON admin_audit_log(target_user_id);
+CREATE INDEX idx_admin_audit_timestamp ON admin_audit_log(timestamp);
+CREATE INDEX idx_feature_limits_name ON feature_limits(feature_name);
 
 -- Row Level Security (RLS) - Enable it
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -330,6 +427,9 @@ ALTER TABLE point_buy_offers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE streak_check_ins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE video_ads_watched ENABLE ROW LEVEL SECURITY;
 ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feature_limits ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users
 CREATE POLICY "Users can read own profile" ON users
@@ -421,6 +521,35 @@ CREATE POLICY "Users can read own withdrawals" ON withdrawals
 CREATE POLICY "Users can insert own withdrawals" ON withdrawals
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- RLS Policies for rate limits
+CREATE POLICY "Users can read own rate limits" ON rate_limits
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "System can update rate limits" ON rate_limits
+  FOR UPDATE USING (true);
+
+-- RLS Policies for admin audit log (admin only)
+CREATE POLICY "Admins can read audit logs" ON admin_audit_log
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
+CREATE POLICY "System can insert audit logs" ON admin_audit_log
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policies for feature limits (public read, admin write)
+CREATE POLICY "Anyone can read feature limits" ON feature_limits
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admins can update feature limits" ON feature_limits
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
 -- Database Trigger for automatic user creation on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -436,3 +565,19 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Initialize Feature Limits Configuration
+INSERT INTO feature_limits (feature_name, daily_limit, weekly_limit, hourly_limit, cooldown_seconds, min_requirement_points, enabled) VALUES
+('spin_wheel_purchase', 10, NULL, NULL, 30, 0, true),
+('spin_wheel_free', 2, NULL, NULL, 30, 0, true),
+('marketplace_ad_post', 5, NULL, NULL, 7200, 100, true),
+('marketplace_ad_active', 5, NULL, NULL, NULL, 100, true),
+('point_sell_order', NULL, 50000, NULL, 3600, 1000, true),
+('point_buy_order', NULL, 50000, NULL, NULL, 0, true),
+('referral_create', 10, NULL, NULL, 86400, 0, true),
+('cosmetic_purchase', 1, NULL, NULL, 86400, 100, true),
+('redemption_claim', 1, 5, NULL, 86400, 500, true),
+('video_ad_watch', 10, NULL, 2, 60, 0, true),
+('trivia_game_play', 10, NULL, NULL, 300, 0, true),
+('university_chat_message', NULL, NULL, 20, 30, 0, true);
+
