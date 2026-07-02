@@ -1,9 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function PointMarket() {
   const navigate = useNavigate();
@@ -23,11 +22,17 @@ export default function PointMarket() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData) {
+        setUserData(userData);
       }
     } catch (err) {
       console.error('Error fetching user:', err);
@@ -37,22 +42,26 @@ export default function PointMarket() {
   const fetchMarketData = async () => {
     try {
       // Fetch active sell orders
-      const sellQuery = query(
-        collection(db, 'point_sell_orders'),
-        where('status', '==', 'active'),
-        orderBy('askPrice', 'asc')
-      );
-      const sellSnap = await getDocs(sellQuery);
-      setSellOrders(sellSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const { data: sellOrdersData, error: sellError } = await supabase
+        .from('point_sell_orders')
+        .select('*')
+        .eq('status', 'active')
+        .order('ask_price', { ascending: true });
+
+      if (!sellError && sellOrdersData) {
+        setSellOrders(sellOrdersData);
+      }
 
       // Fetch active buy offers
-      const buyQuery = query(
-        collection(db, 'point_buy_offers'),
-        where('status', '==', 'active'),
-        orderBy('offerPrice', 'desc')
-      );
-      const buySnap = await getDocs(buyQuery);
-      setBuyOffers(buySnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const { data: buyOffersData, error: buyError } = await supabase
+        .from('point_buy_offers')
+        .select('*')
+        .eq('status', 'active')
+        .order('offer_price', { ascending: false });
+
+      if (!buyError && buyOffersData) {
+        setBuyOffers(buyOffersData);
+      }
 
       setLoading(false);
     } catch (err) {
@@ -62,16 +71,16 @@ export default function PointMarket() {
   };
 
   const getHighestBid = () => {
-    return buyOffers.length > 0 ? buyOffers[0].offerPrice : null;
+    return buyOffers.length > 0 ? buyOffers[0].offer_price : null;
   };
 
   const getLowestAsk = () => {
-    return sellOrders.length > 0 ? sellOrders[0].askPrice : null;
+    return sellOrders.length > 0 ? sellOrders[0].ask_price : null;
   };
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
-    const date = new Date(timestamp.toDate?.() || timestamp);
+    const date = new Date(timestamp);
     const now = new Date();
     const diff = now - date;
     const mins = Math.floor(diff / 60000);
@@ -84,26 +93,26 @@ export default function PointMarket() {
 
   const executeTrade = async (orderId, type) => {
     if (executing) return;
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       addToast('Please log in to trade', 'error');
       return;
     }
 
     setExecuting(orderId);
     try {
-      const functions = getFunctions();
-      const buyPoints = httpsCallable(functions, 'executePointTrade');
-
-      const result = await buyPoints({
-        orderId,
-        orderType: type
+      const { data: result, error } = await supabase.functions.invoke('executePointTrade', {
+        body: {
+          orderId,
+          orderType: type
+        },
       });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Trade failed');
+      if (error || !result.success) {
+        throw new Error(result?.message || 'Trade failed');
       }
 
-      addToast(`✓ Trade completed! +${result.data.pointsReceived} points`, 'success');
+      addToast(`✓ Trade completed! +${result.pointsReceived} points`, 'success');
       await fetchUserData();
       await fetchMarketData();
     } catch (err) {
@@ -115,7 +124,7 @@ export default function PointMarket() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading market...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (
@@ -235,14 +244,14 @@ export default function PointMarket() {
                       <div className="flex-1">
                         <div className="flex items-baseline gap-3 mb-2">
                           <p className="text-lg font-bold text-gray-800">{offer.points.toLocaleString()} pts</p>
-                          <p className="text-2xl font-bold text-green-600">₦{offer.offerPrice.toFixed(2)}/pt</p>
+                          <p className="text-2xl font-bold text-green-600">₦{offer.offer_price.toFixed(2)}/pt</p>
                         </div>
                         <p className="text-xs text-gray-500">
-                          {offer.offeredBy === 'admin' ? '🏢 Official HASKE Offer' : `Offered ${formatDate(offer.createdAt)}`}
+                          {offer.offered_by === 'admin' ? '🏢 Official HASKE Offer' : `Offered ${formatDate(offer.created_at)}`}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-gray-800">₦{(offer.points * offer.offerPrice).toLocaleString()}</p>
+                        <p className="text-lg font-bold text-gray-800">₦{(offer.points * offer.offer_price).toLocaleString()}</p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -292,14 +301,14 @@ export default function PointMarket() {
                       <div className="flex-1">
                         <div className="flex items-baseline gap-3 mb-2">
                           <p className="text-lg font-bold text-gray-800">{order.points.toLocaleString()} pts</p>
-                          <p className="text-2xl font-bold text-red-600">₦{order.askPrice.toFixed(2)}/pt</p>
+                          <p className="text-2xl font-bold text-red-600">₦{order.ask_price.toFixed(2)}/pt</p>
                         </div>
                         <p className="text-xs text-gray-500">
-                          Listed {formatDate(order.createdAt)}
+                          Listed {formatDate(order.created_at)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-gray-800">₦{(order.points * order.askPrice).toLocaleString()}</p>
+                        <p className="text-lg font-bold text-gray-800">₦{(order.points * order.ask_price).toLocaleString()}</p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

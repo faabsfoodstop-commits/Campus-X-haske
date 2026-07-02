@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
@@ -34,24 +33,15 @@ export default function AdminAdModeration() {
 
   const fetchAds = async () => {
     try {
-      const adsRef = collection(db, 'user_ads');
-      let q;
+      let query = supabase.from('user_ads').select('*');
 
-      if (filter === 'all') {
-        q = query(adsRef, orderBy('createdAt', 'desc'));
-      } else {
-        q = query(
-          adsRef,
-          where('status', '==', filter),
-          orderBy('createdAt', 'desc')
-        );
+      if (filter !== 'all') {
+        query = query.eq('status', filter);
       }
 
-      const snapshot = await getDocs(q);
-      const adsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const { data: adsData, error } = await query.order('created_at', { ascending: false });
+
+      if (!error && adsData) {
 
       setAds(adsData);
       setLoading(false);

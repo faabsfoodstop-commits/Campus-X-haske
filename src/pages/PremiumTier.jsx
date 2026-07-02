@@ -1,8 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
@@ -31,12 +29,18 @@ export default function PremiumTier() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData) {
+        setUserData(userData);
       }
       setLoading(false);
     } catch (err) {
@@ -46,7 +50,8 @@ export default function PremiumTier() {
   };
 
   const handleSubscribe = async () => {
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       addToast('Please log in first', 'error');
       return;
     }
@@ -55,7 +60,7 @@ export default function PremiumTier() {
 
     try {
       // Check if already subscribed
-      if (userData?.premiumUntil && new Date(userData.premiumUntil) > new Date()) {
+      if (userData?.premium_until && new Date(userData.premium_until) > new Date()) {
         addToast('You already have an active premium subscription!', 'warning');
         setProcessing(false);
         return;
@@ -67,38 +72,45 @@ export default function PremiumTier() {
       // Initialize Paystack payment
       addToast('Opening payment form...', 'info');
       await initializePayment({
-        email: auth.currentUser.email,
+        email: session.user.email,
         amount: premiumPrice,
         reference: reference,
         metadata: {
-          userId: auth.currentUser.uid,
+          userId: session.user.id,
           type: 'premium_subscription',
         },
       });
 
       // Verify payment
       addToast('Verifying payment...', 'info');
-      const functions = getFunctions();
-      const verifyPayment = httpsCallable(functions, 'verifyPaystackPayment');
-      const verifyResult = await verifyPayment({ reference });
+      const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verifyPaystackPayment', {
+        body: { reference },
+      });
 
-      if (!verifyResult.data.success) {
+      if (verifyError || !verifyResult.success) {
         throw new Error('Payment verification failed');
       }
 
-      // Activate premium via Cloud Function
+      // Activate premium via Edge Function
       addToast('Activating premium...', 'info');
-      const activatePremium = httpsCallable(functions, 'activatePremium');
-      const activateResult = await activatePremium({ reference });
+      const { data: activateResult, error: activateError } = await supabase.functions.invoke('activatePremium', {
+        body: { reference },
+      });
 
-      if (!activateResult.data.success) {
+      if (activateError || !activateResult.success) {
         throw new Error('Failed to activate premium');
       }
 
       // Update local state
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const updatedUser = userDoc.data();
-      setUserData(updatedUser);
+      const { data: updatedUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (updatedUser) {
+        setUserData(updatedUser);
+      }
 
       addToast('✓ Premium activated for 30 days!', 'success');
       addToast('Enjoy 2x points on all activities!', 'success');
@@ -117,7 +129,7 @@ export default function PremiumTier() {
     }
   };
 
-  const isPremium = userData?.premiumTier && userData?.premiumUntil &&
+  const isPremium = userData?.premium_tier && userData?.premium_until &&
     new Date(userData.premiumUntil) > new Date();
 
   if (loading) {

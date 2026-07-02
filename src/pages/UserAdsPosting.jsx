@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, collection, addDoc, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
@@ -37,24 +36,29 @@ export default function UserAdsPosting() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!userError && userData) {
+        setUserData(userData);
       }
 
-      const adsQuery = query(
-        collection(db, 'user_ads'),
-        where('userId', '==', auth.currentUser.uid)
-      );
-      const adsDocs = await getDocs(adsQuery);
-      const ads = adsDocs.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      })).sort((a, b) => new Date(b.createdAt?.toDate?.() || b.createdAt) - new Date(a.createdAt?.toDate?.() || a.createdAt));
-      setUserAds(ads);
+      const { data: adsData, error: adsError } = await supabase
+        .from('user_ads')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (!adsError && adsData) {
+        setUserAds(adsData);
+      }
     } catch (err) {
       console.error('Error fetching user data:', err);
     } finally {

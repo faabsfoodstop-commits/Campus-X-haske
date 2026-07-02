@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function TransactionHistory() {
   const navigate = useNavigate();
@@ -14,25 +14,22 @@ export default function TransactionHistory() {
   }, []);
 
   const fetchTransactions = async () => {
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       navigate('/login');
       return;
     }
 
     try {
-      const q = query(
-        collection(db, 'transactions'),
-        where('userId', '==', auth.currentUser.uid),
-        orderBy('timestamp', 'desc')
-      );
+      const { data: transactions, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('timestamp', { ascending: false });
 
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      setTransactions(data);
+      if (!error && transactions) {
+        setTransactions(transactions);
+      }
       setLoading(false);
     } catch (err) {
       console.error('Error fetching transactions:', err);
@@ -42,7 +39,7 @@ export default function TransactionHistory() {
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
-    const date = new Date(timestamp.toDate?.() || timestamp);
+    const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

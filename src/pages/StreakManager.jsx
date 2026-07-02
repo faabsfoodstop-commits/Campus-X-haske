@@ -1,10 +1,10 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft, IconFire, IconStar, IconRocket } from '../components/Icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function StreakManager() {
   const navigate = useNavigate();
@@ -18,13 +18,18 @@ export default function StreakManager() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUserData(data);
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData) {
+        setUserData(userData);
 
         // Check streak status
         const today = new Date().toDateString();
@@ -47,6 +52,9 @@ export default function StreakManager() {
   };
 
   const handleCheckIn = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const today = new Date().toDateString();
     const lastCheckIn = localStorage.getItem('lastCheckIn');
 
@@ -56,8 +64,7 @@ export default function StreakManager() {
     }
 
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      let newStreak = (userData?.currentStreak || 0) + 1;
+      let newStreak = (userData?.current_streak || 0) + 1;
       let streakBonus = 0;
 
       // Milestone bonuses
@@ -68,25 +75,35 @@ export default function StreakManager() {
 
       const totalPoints = 250 + streakBonus;
 
-      await updateDoc(userRef, {
-        currentStreak: newStreak,
-        points: (userData?.points || 0) + totalPoints,
-        lastCheckInDate: today,
-      });
+      // Update user streak
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          current_streak: newStreak,
+          points: (userData?.points || 0) + totalPoints,
+          last_check_in_date: today,
+        })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
 
       // Log streak check-in
-      await addDoc(collection(db, 'streak_check_ins'), {
-        userId: auth.currentUser.uid,
-        streak: newStreak,
-        pointsEarned: totalPoints,
-        streakBonus,
-        timestamp: new Date(),
-      });
+      const { error: insertError } = await supabase
+        .from('streak_check_ins')
+        .insert([{
+          user_id: session.user.id,
+          streak: newStreak,
+          points_earned: totalPoints,
+          streak_bonus: streakBonus,
+          timestamp: new Date().toISOString(),
+        }]);
+
+      if (insertError) throw insertError;
 
       localStorage.setItem('lastCheckIn', today);
       setUserData(prev => ({
         ...prev,
-        currentStreak: newStreak,
+        current_streak: newStreak,
         points: (prev?.points || 0) + totalPoints,
       }));
 
@@ -103,10 +120,10 @@ export default function StreakManager() {
     }
   };
 
-  const streakMultiplier = Math.floor((userData?.currentStreak || 0) / 7);
+  const streakMultiplier = Math.floor((userData?.current_streak || 0) / 7);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (
@@ -144,10 +161,10 @@ export default function StreakManager() {
           }`}
         >
           <p className="text-lg opacity-90 mb-2">Current Streak</p>
-          <p className="text-7xl font-bold mb-4">{userData?.currentStreak || 0}</p>
+          <p className="text-7xl font-bold mb-4">{userData?.current_streak || 0}</p>
           <div className="flex items-center justify-center gap-2 text-2xl">
             <IconFire className="w-8 h-8" />
-            <p>{userData?.currentStreak || 0} Days</p>
+            <p>{userData?.current_streak || 0} Days</p>
           </div>
 
           {streakStatus === 'warning' && (
@@ -187,7 +204,7 @@ export default function StreakManager() {
               </div>
               <div className="text-center">
                 <p className="text-lg opacity-90">Keep Going!</p>
-                <p className="text-lg">{7 - ((userData?.currentStreak || 0) % 7)} days to next level</p>
+                <p className="text-lg">{7 - ((userData?.current_streak || 0) % 7)} days to next level</p>
               </div>
             </div>
           </div>
@@ -198,39 +215,39 @@ export default function StreakManager() {
           <h3 className="text-2xl font-bold text-gray-800 mb-6">Milestone Rewards</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className={`p-6 rounded-lg border-2 ${
-              (userData?.currentStreak || 0) >= 7 ? 'border-green-500 bg-green-50' : 'border-gray-200'
+              (userData?.current_streak || 0) >= 7 ? 'border-green-500 bg-green-50' : 'border-gray-200'
             }`}>
               <p className="text-lg font-bold text-gray-800 mb-2">7 Days 🔥</p>
               <p className="text-gray-600 mb-3">Complete a full week of check-ins</p>
               <p className="text-3xl font-bold text-green-600">+500 pts</p>
-              {(userData?.currentStreak || 0) >= 7 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
+              {(userData?.current_streak || 0) >= 7 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
             </div>
 
             <div className={`p-6 rounded-lg border-2 ${
-              (userData?.currentStreak || 0) >= 14 ? 'border-green-500 bg-green-50' : 'border-gray-200'
+              (userData?.current_streak || 0) >= 14 ? 'border-green-500 bg-green-50' : 'border-gray-200'
             }`}>
               <p className="text-lg font-bold text-gray-800 mb-2">14 Days 🔥</p>
               <p className="text-gray-600 mb-3">Two weeks of consistency</p>
               <p className="text-3xl font-bold text-blue-600">+1,500 pts</p>
-              {(userData?.currentStreak || 0) >= 14 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
+              {(userData?.current_streak || 0) >= 14 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
             </div>
 
             <div className={`p-6 rounded-lg border-2 ${
-              (userData?.currentStreak || 0) >= 30 ? 'border-green-500 bg-green-50' : 'border-gray-200'
+              (userData?.current_streak || 0) >= 30 ? 'border-green-500 bg-green-50' : 'border-gray-200'
             }`}>
               <p className="text-lg font-bold text-gray-800 mb-2">30 Days 🔥</p>
               <p className="text-gray-600 mb-3">One full month of commitment</p>
               <p className="text-3xl font-bold text-purple-600">+5,000 pts</p>
-              {(userData?.currentStreak || 0) >= 30 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
+              {(userData?.current_streak || 0) >= 30 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
             </div>
 
             <div className={`p-6 rounded-lg border-2 ${
-              (userData?.currentStreak || 0) >= 100 ? 'border-green-500 bg-green-50' : 'border-gray-200'
+              (userData?.current_streak || 0) >= 100 ? 'border-green-500 bg-green-50' : 'border-gray-200'
             }`}>
               <p className="text-lg font-bold text-gray-800 mb-2">100 Days 🔥🔥🔥</p>
               <p className="text-gray-600 mb-3">Legendary commitment</p>
               <p className="text-3xl font-bold text-yellow-600">+25,000 pts</p>
-              {(userData?.currentStreak || 0) >= 100 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
+              {(userData?.current_streak || 0) >= 100 && <p className="text-green-600 font-bold mt-2">✓ Unlocked</p>}
             </div>
           </div>
         </div>

@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { auth, db } from '../config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
 import { IconArrowLeft } from '../components/Icons';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -15,11 +14,17 @@ export default function Menu() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData) {
+        setUserData(userData);
       }
       setLoading(false);
     } catch (err) {
@@ -83,10 +88,10 @@ export default function Menu() {
     {
       section: 'Admin & Analytics',
       items: [
-        userData?.isAdmin && { label: 'Admin Panel', path: '/admin', icon: '⚙️' },
-        userData?.isAdmin && { label: 'Ad Moderation', path: '/admin/moderation', icon: '🛡️' },
-        userData?.isAdmin && { label: 'University Analytics', path: '/analytics/universities', icon: '📈' },
-        userData?.isAdmin && { label: 'Brand Partnerships', path: '/admin/partnerships', icon: '🤝' },
+        userData?.is_admin && { label: 'Admin Panel', path: '/admin', icon: '⚙️' },
+        userData?.is_admin && { label: 'Ad Moderation', path: '/admin/moderation', icon: '🛡️' },
+        userData?.is_admin && { label: 'University Analytics', path: '/analytics/universities', icon: '📈' },
+        userData?.is_admin && { label: 'Brand Partnerships', path: '/admin/partnerships', icon: '🤝' },
       ].filter(Boolean)
     }
   ];
@@ -125,11 +130,11 @@ export default function Menu() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Profile Status</span>
-              <span className={userData?.profileComplete ? 'font-bold text-green-600' : 'font-bold text-orange-600'}>
-                {userData?.profileComplete ? 'Complete' : 'Incomplete'}
+              <span className={userData?.profile_complete ? 'font-bold text-green-600' : 'font-bold text-orange-600'}>
+                {userData?.profile_complete ? 'Complete' : 'Incomplete'}
               </span>
             </div>
-            {userData?.premiumActive && (
+            {userData?.premium_active && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Premium Status</span>
                 <span className="font-bold text-blue-600">✓ Active</span>

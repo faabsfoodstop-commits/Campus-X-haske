@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
 
@@ -27,12 +27,19 @@ export default function UniversityChat() {
   }, [userData]);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      if (user) {
+        setUserData(user);
       }
       setLoading(false);
     } catch (err) {
@@ -45,15 +52,14 @@ export default function UniversityChat() {
     if (!userData?.university) return;
 
     try {
-      const messagesQuery = query(
-        collection(db, 'university_chat', userData.university, 'messages'),
-        orderBy('timestamp', 'desc')
-      );
-      const snapshot = await getDocs(messagesQuery);
-      const msgs = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .reverse();
-      setMessages(msgs);
+      const { data: messages, error } = await supabase
+        .from('university_chat_messages')
+        .select('*')
+        .eq('university', userData.university)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMessages((messages || []).reverse());
     } catch (err) {
       console.error('Error fetching messages:', err);
     }
@@ -64,17 +70,17 @@ export default function UniversityChat() {
 
     setSending(true);
     try {
-      await addDoc(
-        collection(db, 'university_chat', userData.university, 'messages'),
-        {
-          userId: auth.currentUser.uid,
-          userName: userData?.fullName || auth.currentUser.displayName,
-          department: userData?.department || 'N/A',
-          message: messageText.trim(),
-          timestamp: serverTimestamp(),
-          likes: 0
-        }
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      await supabase.from('university_chat_messages').insert({
+        university: userData.university,
+        user_id: session.user.id,
+        user_name: userData?.full_name || session.user.email,
+        department: userData?.department || 'N/A',
+        message: messageText.trim(),
+        likes: 0
+      });
 
       setMessageText('');
       await fetchMessages();
@@ -86,7 +92,7 @@ export default function UniversityChat() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   if (!userData?.university) {

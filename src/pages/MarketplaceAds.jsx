@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
 
@@ -26,21 +26,17 @@ export default function MarketplaceAds() {
 
   const fetchAdsAndUniversities = async () => {
     try {
-      const adsQuery = query(
-        collection(db, 'user_ads'),
-        where('status', '==', 'approved'),
-        orderBy('createdAt', 'desc')
-      );
-      const adsSnap = await getDocs(adsQuery);
-      const adsData = adsSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const { data: adsData, error } = await supabase
+        .from('user_ads')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
 
-      setAds(adsData);
+      if (error) throw error;
 
-      // Get unique universities
-      const uniqueUnis = [...new Set(adsData.map(ad => ad.university))];
+      setAds(adsData || []);
+
+      const uniqueUnis = [...new Set((adsData || []).map(ad => ad.university))];
       setUniversities(uniqueUnis.sort());
 
       setLoading(false);
@@ -65,7 +61,7 @@ export default function MarketplaceAds() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading marketplace ads...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   return (

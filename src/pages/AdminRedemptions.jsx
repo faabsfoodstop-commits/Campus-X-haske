@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   IconCheckmark,
   IconX,
@@ -26,17 +26,17 @@ export default function AdminRedemptions() {
 
   const fetchRedemptions = async () => {
     try {
-      let q = collection(db, 'redemptions');
+      let query = supabase.from('redemptions').select('*');
 
       if (filter !== 'all') {
-        q = query(collection(db, 'redemptions'), where('status', '==', filter));
+        query = query.eq('status', filter);
       }
 
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => b.timestamp - a.timestamp);
+      const { data, error } = await query.order('timestamp', { ascending: false });
 
-      setRedemptions(data);
+      if (!error && data) {
+        setRedemptions(data);
+      }
       setLoading(false);
     } catch (err) {
       console.error('Error fetching redemptions:', err);
@@ -45,13 +45,20 @@ export default function AdminRedemptions() {
   };
 
   const completeRedemption = async (redemptionId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     try {
-      const redemptionRef = doc(db, 'redemptions', redemptionId);
-      await updateDoc(redemptionRef, {
-        status: 'completed',
-        completedAt: new Date(),
-        processedBy: auth.currentUser.email
-      });
+      const { error } = await supabase
+        .from('redemptions')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          processed_by: session.user.email
+        })
+        .eq('id', redemptionId);
+
+      if (error) throw error;
 
       setNotification({
         type: 'success',

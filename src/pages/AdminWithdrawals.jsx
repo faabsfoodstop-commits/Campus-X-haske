@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconCheckmark, IconX } from '../components/Icons';
@@ -20,11 +18,17 @@ export default function AdminWithdrawals() {
   }, []);
 
   const checkAdminAndFetch = async () => {
-    if (!auth.currentUser) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists() && userDoc.data().isAdmin) {
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData && userData.is_admin) {
         setIsAdmin(true);
         await fetchWithdrawals();
       } else {
@@ -39,17 +43,14 @@ export default function AdminWithdrawals() {
 
   const fetchWithdrawals = async () => {
     try {
-      const withdrawalsQuery = query(
-        collection(db, 'withdrawals'),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(withdrawalsQuery);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt)
-      }));
-      setWithdrawals(data);
+      const { data: withdrawalsData, error } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && withdrawalsData) {
+        setWithdrawals(withdrawalsData);
+      }
     } catch (err) {
       console.error('Error fetching withdrawals:', err);
     }
@@ -59,14 +60,15 @@ export default function AdminWithdrawals() {
     setProcessing(prev => ({ ...prev, [withdrawalId]: true }));
 
     try {
-      // Call Cloud Function to process withdrawal
-      const functions = getFunctions();
-      const adminProcessWithdrawal = httpsCallable(functions, 'adminProcessWithdrawal');
-
-      await adminProcessWithdrawal({
-        withdrawalId,
-        approved
+      // Call Edge Function to process withdrawal
+      const { data, error } = await supabase.functions.invoke('adminProcessWithdrawal', {
+        body: {
+          withdrawalId,
+          approved
+        },
       });
+
+      if (error) throw error;
 
       // Refresh list
       await fetchWithdrawals();

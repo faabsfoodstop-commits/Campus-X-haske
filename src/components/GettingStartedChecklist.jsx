@@ -1,7 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from './Button';
 import './GettingStartedChecklist.css';
@@ -79,18 +78,16 @@ export default function GettingStartedChecklist() {
 
   const markTaskComplete = async (id) => {
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userDoc = await getDoc(userRef);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      if (userDoc.exists()) {
-        const newChecklist = checklist.map(item =>
-          item.id === id ? { ...item, completed: true } : item
-        );
-        setChecklist(newChecklist);
+      const newChecklist = checklist.map(item =>
+        item.id === id ? { ...item, completed: true } : item
+      );
+      setChecklist(newChecklist);
 
-        const item = checklist.find(i => i.id === id);
-        addToast(`Unlocked ${item.reward} bonus points!`, 'success');
-      }
+      const item = checklist.find(i => i.id === id);
+      addToast(`Unlocked ${item.reward} bonus points!`, 'success');
     } catch (err) {
       console.error('Error updating checklist:', err);
     }

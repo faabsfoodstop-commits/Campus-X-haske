@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, doc, getDoc, orderBy } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrendingUp, IconCheckmark } from '../components/Icons';
@@ -18,25 +17,28 @@ export default function BrandPartnershipPortal() {
   }, []);
 
   const fetchUserAndCampaigns = async () => {
-    if (!auth.currentUser) return;
-
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: user } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (user) {
+        setUserData(user);
       }
 
-      const campaignsQuery = query(
-        collection(db, 'campaigns'),
-        where('status', '==', 'active'),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(campaignsQuery);
-      const campaignsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setCampaigns(campaignsData);
+      const { data: campaignsData, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCampaigns(campaignsData || []);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching data:', err);

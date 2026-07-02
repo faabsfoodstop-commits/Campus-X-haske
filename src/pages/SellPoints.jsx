@@ -1,9 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function SellPoints() {
   const navigate = useNavigate();
@@ -22,15 +21,21 @@ export default function SellPoints() {
   }, []);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       navigate('/login');
       return;
     }
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserData(userDoc.data());
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && userData) {
+        setUserData(userData);
       }
       setLoading(false);
     } catch (err) {
@@ -41,16 +46,15 @@ export default function SellPoints() {
 
   const fetchMarketData = async () => {
     try {
-      const buyQuery = query(
-        collection(db, 'point_buy_offers'),
-        where('status', '==', 'active'),
-        orderBy('offerPrice', 'desc')
-      );
-      const snapshot = await getDocs(buyQuery);
+      const { data: buyOffers, error } = await supabase
+        .from('point_buy_offers')
+        .select('*')
+        .eq('status', 'active')
+        .order('offer_price', { ascending: false });
 
-      if (snapshot.size > 0) {
-        const highestBid = snapshot.docs[0].data().offerPrice;
-        const allPrices = snapshot.docs.map(d => d.data().offerPrice);
+      if (!error && buyOffers && buyOffers.length > 0) {
+        const highestBid = buyOffers[0].offer_price;
+        const allPrices = buyOffers.map(d => d.offer_price);
         const avgPrice = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
 
         setMarketData({
@@ -85,16 +89,15 @@ export default function SellPoints() {
     setError('');
 
     try {
-      const functions = getFunctions();
-      const createSellOrder = httpsCallable(functions, 'createPointSellOrder');
-
-      const result = await createSellOrder({
-        points: pointsNum,
-        askPrice: parseFloat(pricePerPoint)
+      const { data: result, error } = await supabase.functions.invoke('createPointSellOrder', {
+        body: {
+          points: pointsNum,
+          ask_price: parseFloat(pricePerPoint)
+        },
       });
 
-      if (!result.data.success) {
-        throw new Error(result.data.message || 'Failed to create sell order');
+      if (error || !result.success) {
+        throw new Error(result?.message || 'Failed to create sell order');
       }
 
       setPointsToSell('');

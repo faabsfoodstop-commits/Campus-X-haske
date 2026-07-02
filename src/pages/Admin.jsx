@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Input from '../components/Input';
@@ -21,26 +19,28 @@ export default function Admin() {
 
   useEffect(() => {
     const fetchAdminData = async () => {
-      if (!auth.currentUser) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
       try {
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const usersList = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setUsers(usersList);
+        const { data: usersList, error } = await supabase
+          .from('users')
+          .select('*');
 
-        const totalUsers = usersList.length;
-        const totalWallet = usersList.reduce((sum, u) => sum + (u.wallet || 0), 0);
-        const totalPoints = usersList.reduce((sum, u) => sum + (u.points || 0), 0);
+        if (!error && usersList) {
+          setUsers(usersList);
 
-        setStats({
-          totalUsers,
-          totalWallet,
-          totalPoints,
-          avgBalance: totalUsers > 0 ? (totalWallet / totalUsers).toFixed(2) : 0,
-        });
+          const totalUsers = usersList.length;
+          const totalWallet = usersList.reduce((sum, u) => sum + (u.wallet || 0), 0);
+          const totalPoints = usersList.reduce((sum, u) => sum + (u.points || 0), 0);
+
+          setStats({
+            totalUsers,
+            totalWallet,
+            totalPoints,
+            avgBalance: totalUsers > 0 ? (totalWallet / totalUsers).toFixed(2) : 0,
+          });
+        }
       } catch (err) {
         console.error('Error fetching admin data:', err);
       } finally {
@@ -57,14 +57,18 @@ export default function Admin() {
 
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'point_buy_offers'), {
-        offeredBy: 'admin',
-        points: parseInt(buyPoints),
-        offerPrice: parseFloat(buyPrice),
-        totalValue: parseInt(buyPoints) * parseFloat(buyPrice),
-        status: 'active',
-        createdAt: new Date(),
-      });
+      const { error } = await supabase
+        .from('point_buy_offers')
+        .insert([{
+          offered_by: 'admin',
+          points: parseInt(buyPoints),
+          offer_price: parseFloat(buyPrice),
+          total_value: parseInt(buyPoints) * parseFloat(buyPrice),
+          status: 'active',
+          created_at: new Date().toISOString(),
+        }]);
+
+      if (error) throw error;
 
       await showAlert({
         title: 'Success',
@@ -99,21 +103,25 @@ export default function Admin() {
     setSubmitting(true);
     try {
       const testOffers = [
-        { points: 500, offerPrice: 0.40 },
-        { points: 1000, offerPrice: 0.40 },
-        { points: 2500, offerPrice: 0.40 },
+        { points: 500, offer_price: 0.40 },
+        { points: 1000, offer_price: 0.40 },
+        { points: 2500, offer_price: 0.40 },
       ];
 
-      for (const offer of testOffers) {
-        await addDoc(collection(db, 'point_buy_offers'), {
-          offeredBy: 'admin',
-          points: offer.points,
-          offerPrice: offer.offerPrice,
-          totalValue: offer.points * offer.offerPrice,
-          status: 'active',
-          createdAt: new Date(),
-        });
-      }
+      const offersToInsert = testOffers.map(offer => ({
+        offered_by: 'admin',
+        points: offer.points,
+        offer_price: offer.offer_price,
+        total_value: offer.points * offer.offer_price,
+        status: 'active',
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('point_buy_offers')
+        .insert(offersToInsert);
+
+      if (error) throw error;
 
       await showAlert({
         title: 'Success',
@@ -134,7 +142,7 @@ export default function Admin() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate('/');
     } catch (err) {
       console.error('Error logging out:', err);
@@ -301,7 +309,7 @@ export default function Admin() {
               <tbody className="divide-y">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-800">{user.fullName}</td>
+                    <td className="px-6 py-4 text-gray-800">{user.full_name}</td>
                     <td className="px-6 py-4 text-gray-600">{user.email}</td>
                     <td className="px-6 py-4 text-gray-600">{user.university}</td>
                     <td className="px-6 py-4 font-semibold text-primary">₦{user.wallet || 0}</td>

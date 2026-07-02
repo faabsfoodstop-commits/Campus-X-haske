@@ -1,8 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../config/firebase';
-import { doc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
-import { httpsCallable, getFunctions } from 'firebase/functions';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import { initializePayment, generateReference } from '../services/paystack';
 import Button from '../components/Button';
@@ -77,7 +75,8 @@ export default function BuyPoints() {
   ];
 
   const handlePurchase = async (pkg) => {
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       addToast('Please log in first', 'error');
       return;
     }
@@ -91,45 +90,51 @@ export default function BuyPoints() {
       // Initialize Paystack payment popup
       addToast('Opening payment form...', 'info');
       await initializePayment({
-        email: auth.currentUser.email,
+        email: session.user.email,
         amount: pkg.price,
         reference: reference,
         metadata: {
-          userId: auth.currentUser.uid,
+          userId: session.user.id,
           points: pkg.points,
           packageId: pkg.id,
         },
       });
 
-      // Payment successful - verify with Cloud Function
+      // Payment successful - verify with Supabase Edge Function
       addToast('Verifying payment...', 'info');
-      const functions = getFunctions();
-      const verifyPayment = httpsCallable(functions, 'verifyPaystackPayment');
+      const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verifyPaystackPayment', {
+        body: { reference },
+      });
 
-      const verifyResult = await verifyPayment({ reference });
-
-      if (!verifyResult.data.success) {
+      if (verifyError || !verifyResult.success) {
         throw new Error('Payment verification failed');
       }
 
       addToast('Payment verified! Crediting points...', 'info');
 
-      // Credit points via Cloud Function
-      const creditPoints = httpsCallable(functions, 'creditPointsAfterPayment');
-      const creditResult = await creditPoints({
-        reference,
-        packageId: pkg.id,
-        points: pkg.points,
+      // Credit points via Supabase Edge Function
+      const { data: creditResult, error: creditError } = await supabase.functions.invoke('creditPointsAfterPayment', {
+        body: {
+          reference,
+          packageId: pkg.id,
+          points: pkg.points,
+        },
       });
 
-      if (!creditResult.data.success) {
+      if (creditError || !creditResult.success) {
         throw new Error('Failed to credit points');
       }
 
       // Update local state
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const updatedUser = userDoc.data();
-      setUserData(updatedUser);
+      const { data: updatedUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!fetchError && updatedUser) {
+        setUserData(updatedUser);
+      }
 
       addToast(`✓ ${pkg.points} points added to your account!`, 'success');
       addToast(`Bonus: +${pkg.referralBonus} points (referral)!`, 'success');

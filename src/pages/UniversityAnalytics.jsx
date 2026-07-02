@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft, IconTrendingUp, IconUsers } from '../components/Icons';
 import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
@@ -19,50 +19,29 @@ export default function UniversityAnalytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const usersRef = collection(db, 'users');
-      const adsRef = collection(db, 'user_ads');
-
-      // Get all universities with users
       const allUniversities = NIGERIAN_UNIVERSITIES.map(uni => uni.code);
       const analyticsData = [];
 
       for (const uniCode of allUniversities) {
         try {
-          // Count users per university
-          const usersQuery = query(
-            usersRef,
-            where('university', '==', uniCode)
-          );
-          const usersSnap = await getDocs(usersQuery);
-          const userCount = usersSnap.size;
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, profile_complete, points')
+            .eq('university', uniCode);
 
-          // Count ads per university
-          const adsQuery = query(
-            adsRef,
-            where('university', '==', uniCode)
-          );
-          const adsSnap = await getDocs(adsQuery);
-          const adCount = adsSnap.size;
-          const approvedAds = adsSnap.docs.filter(doc => doc.data().status === 'approved').length;
+          const { data: ads } = await supabase
+            .from('user_ads')
+            .select('id, status')
+            .eq('university', uniCode);
 
-          // Count leaderboard participants
-          const leaderboardQuery = query(
-            usersRef,
-            where('university', '==', uniCode),
-            orderBy('points', 'desc'),
-            limit(100)
-          );
-          const leaderboardSnap = await getDocs(leaderboardQuery);
-          const participantCount = leaderboardSnap.size;
+          const userCount = users?.length || 0;
+          const participantCount = users?.filter(u => (u.points || 0) > 0).length || 0;
+          const adCount = ads?.length || 0;
+          const approvedAds = ads?.filter(a => a.status === 'approved').length || 0;
 
-          // Calculate engagement rate
           const engagementRate = userCount > 0 ? ((participantCount / userCount) * 100).toFixed(1) : 0;
-
-          // Estimate revenue potential (₦30-50K per university)
           const revenuePotential = userCount > 100 ? Math.min(50000, 25000 + (userCount * 10)) : 25000;
-
-          // Calculate profile completion (rough estimate)
-          const profileCompleteCount = usersSnap.docs.filter(doc => doc.data().profileComplete).length;
+          const profileCompleteCount = users?.filter(u => u.profile_complete).length || 0;
           const profileCompletionRate = userCount > 0 ? ((profileCompleteCount / userCount) * 100).toFixed(1) : 0;
 
           if (userCount > 0 || adCount > 0) {
@@ -76,7 +55,7 @@ export default function UniversityAnalytics() {
               engagementRate: parseFloat(engagementRate),
               profileCompletionRate: parseFloat(profileCompletionRate),
               revenuePotential: revenuePotential,
-              pointsEarned: 0 // Placeholder for future calculation
+              pointsEarned: 0
             });
           }
         } catch (err) {
