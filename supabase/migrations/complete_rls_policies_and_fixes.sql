@@ -116,7 +116,7 @@ CREATE POLICY "Users can insert follows" ON instagram_follows
 -- Referrals
 DROP POLICY IF EXISTS "Users can read own referrals" ON referrals;
 CREATE POLICY "Users can read own referrals" ON referrals
-  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referred_user_id);
+  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referee_id);
 
 DROP POLICY IF EXISTS "Users can insert referrals" ON referrals;
 CREATE POLICY "Users can insert referrals" ON referrals
@@ -179,7 +179,7 @@ CREATE POLICY "Users can insert trivia results" ON trivia_results
 -- Point Buy Offers
 DROP POLICY IF EXISTS "Users can read own buy offers" ON point_buy_offers;
 CREATE POLICY "Users can read own buy offers" ON point_buy_offers
-  FOR SELECT USING (auth.uid() = user_id OR auth.uid() = seller_id);
+  FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert buy offers" ON point_buy_offers;
 CREATE POLICY "Users can insert buy offers" ON point_buy_offers
