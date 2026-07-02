@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { ToastContext } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
 import ActivityCard from '../components/ActivityCard';
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { alert: showAlert, modal, closeModal } = useConfirm();
+  const { addToast } = useContext(ToastContext);
 
   useEffect(() => {
     const fetchUserData = async () => {
