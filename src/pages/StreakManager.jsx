@@ -15,6 +15,10 @@ export default function StreakManager() {
 
   useEffect(() => {
     fetchUserData();
+
+    // Refetch every 3 seconds to keep streak updated
+    const interval = setInterval(fetchUserData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchUserData = async () => {
@@ -29,7 +33,40 @@ export default function StreakManager() {
         .single();
 
       if (!error && userData) {
-        setUserData(userData);
+        // Calculate streak from check-in history
+        const { data: checkIns } = await supabase
+          .from('streak_check_ins')
+          .select('check_in_date')
+          .eq('user_id', session.user.id)
+          .order('check_in_date', { ascending: false });
+
+        let streak = 0;
+        if (checkIns && checkIns.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+          const sortedDates = checkIns.map(ci => ci.check_in_date).sort().reverse();
+
+          // Check if today or yesterday has a check-in
+          if (sortedDates[0] === today || sortedDates[0] === yesterday) {
+            // Count consecutive days backwards
+            let currentDate = new Date(sortedDates[0]);
+            for (let i = 0; i < sortedDates.length; i++) {
+              const checkInDate = new Date(sortedDates[i]);
+              const expectedDate = new Date(currentDate);
+              expectedDate.setDate(expectedDate.getDate() - i);
+
+              if (checkInDate.toISOString().split('T')[0] === expectedDate.toISOString().split('T')[0]) {
+                streak++;
+              } else {
+                break;
+              }
+            }
+          }
+        }
+
+        const updatedUserData = { ...userData, current_streak: streak };
+        setUserData(updatedUserData);
 
         // Check streak status
         const today = new Date().toDateString();
