@@ -216,14 +216,23 @@ export default function StreakManager() {
         <div className="bg-white rounded-lg shadow p-8 mb-8 text-center">
           <h3 className="text-2xl font-bold text-gray-800 mb-4">Daily Check-In</h3>
           <p className="text-gray-600 mb-6">Check in every day to maintain your streak and earn bonus points!</p>
-          <Button
-            onClick={handleCheckIn}
-            variant="primary"
-            size="lg"
-            className="min-w-64"
-          >
-            Check In Now (+250 pts)
-          </Button>
+          {streakStatus === 'active' ? (
+            <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6">
+              <p className="text-green-700 text-lg font-semibold flex items-center justify-center gap-2">
+                ✓ Already Checked In Today
+              </p>
+              <p className="text-green-600 text-sm mt-2">Come back tomorrow to continue your streak!</p>
+            </div>
+          ) : (
+            <Button
+              onClick={handleCheckIn}
+              variant="primary"
+              size="lg"
+              className="min-w-64"
+            >
+              Check In Now (+250 pts)
+            </Button>
+          )}
         </div>
 
         {/* Multiplier Bonus */}
