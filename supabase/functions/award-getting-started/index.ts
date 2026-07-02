@@ -22,13 +22,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Check if task already completed
-    const { data: existing } = await supabase
+    const { data: existingArray } = await supabase
       .from("getting_started_tasks")
       .select("points_awarded")
       .eq("user_id", userId)
-      .eq("task_id", taskId)
-      .single();
+      .eq("task_id", taskId);
 
+    const existing = existingArray?.[0];
     if (existing?.points_awarded) {
       return new Response(
         JSON.stringify({ error: "Task already completed and points awarded", success: false }),
@@ -37,11 +37,12 @@ serve(async (req) => {
     }
 
     // Award points to user
-    const { data: user, error: userError } = await supabase
+    const { data: userArray, error: userError } = await supabase
       .from("users")
       .select("points")
-      .eq("id", userId)
-      .single();
+      .eq("id", userId);
+
+    const user = userArray?.[0];
 
     if (userError || !user) {
       throw userError || new Error("User not found");

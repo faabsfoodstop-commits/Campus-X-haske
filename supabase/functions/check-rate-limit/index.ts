@@ -36,12 +36,13 @@ serve(async (req) => {
     }
 
     // Get user's rate limit record
-    const { data: userLimit } = await supabase
+    const { data: userLimitArray } = await supabase
       .from("rate_limits")
       .select("*")
       .eq("user_id", userId)
-      .eq("feature_name", featureName)
-      .single();
+      .eq("feature_name", featureName);
+
+    const userLimit = userLimitArray?.[0] || null;
 
     const now = new Date();
     const today = now.toISOString().split("T")[0];

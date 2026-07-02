@@ -22,12 +22,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Get feature limits
-    const { data: limits } = await supabase
+    const { data: limitsArray } = await supabase
       .from("feature_limits")
       .select("*")
-      .eq("feature_name", featureName)
-      .single();
+      .eq("feature_name", featureName);
 
+    const limits = limitsArray?.[0];
     if (!limits) {
       return new Response(JSON.stringify({ error: "Feature not configured" }), {
         status: 400,
@@ -41,15 +41,26 @@ serve(async (req) => {
       ? new Date(now.getTime() + limits.cooldown_seconds * 1000).toISOString()
       : null;
 
+    // Get current counts
+    const { data: currentArray } = await supabase
+      .from("rate_limits")
+      .select("count_today, count_this_week")
+      .eq("user_id", userId)
+      .eq("feature_name", featureName);
+
+    const current = currentArray?.[0];
+    const countToday = (current?.count_today || 0) + 1;
+    const countThisWeek = (current?.count_this_week || 0) + 1;
+
     // Upsert rate limit record
-    const { data, error } = await supabase
+    const { data: dataArray, error } = await supabase
       .from("rate_limits")
       .upsert(
         {
           user_id: userId,
           feature_name: featureName,
-          count_today: supabase.rpc("increment_count_today"),
-          count_this_week: supabase.rpc("increment_count_week"),
+          count_today: countToday,
+          count_this_week: countThisWeek,
           last_action_timestamp: now.toISOString(),
           cooldown_until: cooldownUntil,
           reset_at_date: today,
@@ -57,8 +68,9 @@ serve(async (req) => {
         },
         { onConflict: "user_id,feature_name" }
       )
-      .select()
-      .single();
+      .select();
+
+    const data = dataArray?.[0];
 
     if (error) {
       throw error;
