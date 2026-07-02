@@ -118,17 +118,18 @@ export default function StreakManager() {
         .update({
           current_streak: newStreak,
           points: (userData?.points || 0) + totalPoints,
-          last_check_in_date: today,
         })
         .eq('id', session.user.id);
 
       if (updateError) throw updateError;
 
       // Log streak check-in
+      const today_date = new Date().toISOString().split('T')[0];
       const { error: insertError } = await supabase
         .from('streak_check_ins')
         .insert([{
           user_id: session.user.id,
+          check_in_date: today_date,
           streak: newStreak,
           points_earned: totalPoints,
           streak_bonus: streakBonus,
