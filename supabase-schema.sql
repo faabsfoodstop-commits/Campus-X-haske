@@ -452,6 +452,89 @@ CREATE POLICY "Users can read own missions" ON daily_missions
 CREATE POLICY "Users can insert own missions" ON daily_missions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- RLS Policies for weekly challenges
+CREATE POLICY "Users can read own challenges" ON weekly_challenges
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own challenges" ON weekly_challenges
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for sponsored missions (system/edge function can insert)
+CREATE POLICY "Users can read own sponsored missions" ON sponsored_mission_completions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "System can insert sponsored missions" ON sponsored_mission_completions
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policies for cosmetics
+CREATE POLICY "Users can read own cosmetic purchases" ON cosmetics_purchases
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own cosmetic purchases" ON cosmetics_purchases
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for point sell orders
+CREATE POLICY "Users can read all sell orders" ON point_sell_orders
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert own sell orders" ON point_sell_orders
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own sell orders" ON point_sell_orders
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- RLS Policies for point trades
+CREATE POLICY "Users can read their trades" ON point_trades
+  FOR SELECT USING (auth.uid() = seller_id OR auth.uid() = buyer_id);
+
+CREATE POLICY "System can insert trades" ON point_trades
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policies for redemptions
+CREATE POLICY "Users can read own redemptions" ON redemptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own redemptions" ON redemptions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can update redemptions" ON redemptions
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
+-- RLS Policies for instagram follows
+CREATE POLICY "Users can read own instagram follows" ON instagram_follows
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own instagram follows" ON instagram_follows
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for referrals
+CREATE POLICY "Users can read their referrals" ON referrals
+  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referee_id);
+
+CREATE POLICY "System can insert referrals" ON referrals
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policies for leaderboard stats
+CREATE POLICY "Anyone can read leaderboard" ON leaderboard_stats
+  FOR SELECT USING (true);
+
+CREATE POLICY "System can insert leaderboard stats" ON leaderboard_stats
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "System can update leaderboard stats" ON leaderboard_stats
+  FOR UPDATE USING (true);
+
+-- RLS Policies for campaigns
+CREATE POLICY "Anyone can read campaigns" ON campaigns
+  FOR SELECT USING (true);
+
+CREATE POLICY "System can insert campaigns" ON campaigns
+  FOR INSERT WITH CHECK (true);
+
 -- RLS Policies for user ads
 CREATE POLICY "Users can read all approved ads" ON user_ads
   FOR SELECT USING (status = 'approved' OR auth.uid() = user_id);
@@ -542,6 +625,13 @@ CREATE POLICY "System can insert audit logs" ON admin_audit_log
 -- RLS Policies for feature limits (public read, admin write)
 CREATE POLICY "Anyone can read feature limits" ON feature_limits
   FOR SELECT USING (true);
+
+CREATE POLICY "Admins can insert feature limits" ON feature_limits
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true
+    )
+  );
 
 CREATE POLICY "Admins can update feature limits" ON feature_limits
   FOR UPDATE USING (
