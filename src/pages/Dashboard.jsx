@@ -86,12 +86,22 @@ export default function Dashboard() {
 
       const todayString = new Date().toDateString();
       const todayDate = new Date().toISOString().split('T')[0];
-      const pointsEarned = 10;
 
+      // Calculate points with milestone bonuses
+      let pointsEarned = 250; // Base check-in points
+      const currentStreak = (userData?.current_streak || 0) + 1;
+      if (currentStreak === 7) pointsEarned += 500;
+      if (currentStreak === 14) pointsEarned += 1500;
+      if (currentStreak === 30) pointsEarned += 5000;
+      if (currentStreak === 100) pointsEarned += 25000;
+
+      const newStreak = (userData?.current_streak || 0) + 1;
       const { error } = await supabase
         .from('users')
         .update({
           points: (userData?.points || 0) + pointsEarned,
+          current_streak: newStreak,
+          last_check_in_date: todayDate,
         })
         .eq('id', session.user.id);
 
