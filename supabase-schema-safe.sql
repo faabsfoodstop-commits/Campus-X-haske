@@ -266,7 +266,8 @@ CREATE TABLE IF NOT EXISTS streak_check_ins (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   check_in_date DATE NOT NULL,
   points_earned INTEGER DEFAULT 50,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, check_in_date)
 );
 
 CREATE TABLE IF NOT EXISTS video_ads_watched (
@@ -453,5 +454,14 @@ CREATE POLICY "Users can insert own getting started tasks" ON getting_started_ta
 DROP POLICY IF EXISTS "Users can update own getting started tasks" ON getting_started_tasks;
 CREATE POLICY "Users can update own getting started tasks" ON getting_started_tasks
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- Streak Check-ins Policies
+DROP POLICY IF EXISTS "Users can insert own check-ins" ON streak_check_ins;
+CREATE POLICY "Users can insert own check-ins" ON streak_check_ins
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can read own check-ins" ON streak_check_ins;
+CREATE POLICY "Users can read own check-ins" ON streak_check_ins
+  FOR SELECT USING (auth.uid() = user_id);
 
 -- Add more policies as needed...

@@ -78,7 +78,8 @@ export default function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const today = new Date().toDateString();
+      const todayString = new Date().toDateString();
+      const todayDate = new Date().toISOString().split('T')[0];
       const pointsEarned = 10;
 
       const { error } = await supabase
@@ -95,7 +96,7 @@ export default function Dashboard() {
         .from('streak_check_ins')
         .insert({
           user_id: session.user.id,
-          check_in_date: new Date().toISOString()
+          check_in_date: todayDate
         });
 
       if (checkinError && checkinError.code !== 'PGRST116') {
@@ -103,11 +104,12 @@ export default function Dashboard() {
       }
 
       // Check if user has reached 7 check-ins for the getting started task
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const { data: checkIns } = await supabase
         .from('streak_check_ins')
         .select('id')
         .eq('user_id', session.user.id)
-        .gte('check_in_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+        .gte('check_in_date', sevenDaysAgo);
 
       if (checkIns && checkIns.length >= 7) {
         try {
@@ -117,7 +119,7 @@ export default function Dashboard() {
         }
       }
 
-      localStorage.setItem('lastCheckIn', today);
+      localStorage.setItem('lastCheckIn', todayString);
       setUserData((prev) => ({
         ...prev,
         points: (prev?.points || 0) + pointsEarned,
