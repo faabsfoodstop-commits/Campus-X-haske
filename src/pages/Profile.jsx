@@ -7,6 +7,7 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -99,6 +100,16 @@ export default function Profile() {
 
       if (error) throw error;
 
+      // Award profile completion task if this is first completion
+      if (profileWasIncomplete) {
+        try {
+          await awardGettingStartedTask('profile', 'Complete Your Profile', 1000);
+        } catch (err) {
+          console.error('Error awarding profile task:', err);
+          // Don't fail the profile save if task award fails
+        }
+      }
+
       const updatedData = {
         ...userData,
         full_name: formData.fullName,
@@ -115,7 +126,7 @@ export default function Profile() {
       await showAlert({
         title: 'Success',
         message: profileWasIncomplete
-          ? 'Profile completed! 🎉'
+          ? 'Profile completed! 🎉 You earned 1,000 bonus points!'
           : 'Your profile has been updated successfully!',
         type: 'success'
       });

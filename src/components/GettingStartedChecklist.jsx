@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from './Button';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 import './GettingStartedChecklist.css';
 
 // Icon Components
@@ -54,20 +55,96 @@ export default function GettingStartedChecklist() {
   const navigate = useNavigate();
   const { addToast } = useContext(ToastContext);
   const [checklist, setChecklist] = useState([
-    { id: 'profile', title: 'Complete Your Profile', reward: 500, iconKey: 'profile', completed: false, link: '/profile' },
-    { id: 'checkin', title: 'Check In 7 Days', reward: 70, iconKey: 'checkin', completed: false, progress: 0, target: 7, link: '/dashboard' },
-    { id: 'challenge', title: 'Join a Weekly Challenge', reward: 100, iconKey: 'challenge', completed: false, link: '/weekly-challenges' },
-    { id: 'purchase', title: 'Make Your First Purchase', reward: 150, iconKey: 'purchase', completed: false, link: '/buy-points' },
-    { id: 'refer', title: 'Refer a Friend', reward: 50, iconKey: 'refer', completed: false, link: '/referrals' },
+    { id: 'profile', title: 'Complete Your Profile', reward: 1000, iconKey: 'profile', completed: false, pointsAwarded: false, link: '/profile' },
+    { id: 'checkin', title: 'Check In 7 Days', reward: 70, iconKey: 'checkin', completed: false, pointsAwarded: false, progress: 0, target: 7, link: '/dashboard' },
+    { id: 'challenge', title: 'Join a Weekly Challenge', reward: 100, iconKey: 'challenge', completed: false, pointsAwarded: false, link: '/weekly-challenges' },
+    { id: 'purchase', title: 'Make Your First Purchase', reward: 150, iconKey: 'purchase', completed: false, pointsAwarded: false, link: '/buy-points' },
+    { id: 'refer', title: 'Refer a Friend', reward: 50, iconKey: 'refer', completed: false, pointsAwarded: false, link: '/referrals' },
   ]);
   const [totalReward, setTotalReward] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchUserDataAndCheckTasks();
+  }, []);
 
   useEffect(() => {
     calculateReward();
   }, [checklist]);
 
+  const fetchUserDataAndCheckTasks = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Fetch user data to check task statuses
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('profile_complete, points')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) throw userError;
+
+      // Fetch getting started tasks from database
+      const { data: dbTasks, error: tasksError } = await supabase
+        .from('getting_started_tasks')
+        .select('task_id, completed, points_awarded')
+        .eq('user_id', session.user.id);
+
+      if (tasksError && tasksError.code !== 'PGRST116') throw tasksError;
+
+      // Create a map of completed tasks
+      const completedMap = {};
+      if (dbTasks) {
+        dbTasks.forEach(task => {
+          completedMap[task.task_id] = {
+            completed: task.completed,
+            pointsAwarded: task.points_awarded
+          };
+        });
+      }
+
+      // Update checklist based on actual user data
+      const updatedChecklist = checklist.map(item => {
+        const dbTask = completedMap[item.id] || {};
+        let completed = false;
+        let pointsAwarded = dbTask.pointsAwarded || false;
+
+        // Check if task should be marked complete based on user data
+        if (item.id === 'profile' && userData?.profile_complete) {
+          completed = true;
+        } else if (item.id === 'checkin') {
+          // This requires checking streak_check_ins table
+          completed = dbTask.completed || false;
+        } else if (item.id === 'challenge') {
+          // This requires checking weekly_challenges table
+          completed = dbTask.completed || false;
+        } else if (item.id === 'purchase') {
+          // This requires checking purchases table
+          completed = dbTask.completed || false;
+        } else if (item.id === 'refer') {
+          // This requires checking referrals table
+          completed = dbTask.completed || false;
+        }
+
+        return {
+          ...item,
+          completed,
+          pointsAwarded
+        };
+      });
+
+      setChecklist(updatedChecklist);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching getting started data:', err);
+      setLoading(false);
+    }
+  };
+
   const calculateReward = () => {
-    const completed = checklist.filter(item => item.completed).length;
+    const completed = checklist.filter(item => item.completed && item.pointsAwarded).length;
     const total = checklist.reduce((sum, item) => sum + item.reward, 0);
     setTotalReward(Math.round((completed / checklist.length) * total));
   };
@@ -81,21 +158,47 @@ export default function GettingStartedChecklist() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const newChecklist = checklist.map(item =>
-        item.id === id ? { ...item, completed: true } : item
+      const item = checklist.find(i => i.id === id);
+      if (!item) throw new Error('Task not found');
+
+      // Award points via edge function
+      const result = await awardGettingStartedTask(id, item.title, item.reward);
+
+      if (!result.success) {
+        if (result.error?.includes('already completed')) {
+          addToast('This task has already been completed!', 'info');
+        } else {
+          throw new Error(result.error);
+        }
+        return;
+      }
+
+      // Update local state
+      const newChecklist = checklist.map(task =>
+        task.id === id ? { ...task, completed: true, pointsAwarded: true } : task
       );
       setChecklist(newChecklist);
-
-      const item = checklist.find(i => i.id === id);
-      addToast(`Unlocked ${item.reward} bonus points!`, 'success');
+      addToast(`🎉 Earned ${item.reward} bonus points!`, 'success');
     } catch (err) {
-      console.error('Error updating checklist:', err);
+      console.error('Error awarding task:', err);
+      addToast('Failed to award task. Please try again.', 'error');
     }
   };
 
-  const completedCount = checklist.filter(item => item.completed).length;
+  const completedCount = checklist.filter(item => item.pointsAwarded).length;
   const progressPercent = (completedCount / checklist.length) * 100;
   const allComplete = completedCount === checklist.length;
+
+  if (loading) {
+    return (
+      <div className="getting-started-checklist">
+        <div className="checklist-header">
+          <h3>Getting Started</h3>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="getting-started-checklist">
@@ -126,7 +229,7 @@ export default function GettingStartedChecklist() {
         {checklist.map(item => {
           const IconComponent = ICONS[item.iconKey];
           return (
-            <div key={item.id} className={`checklist-item ${item.completed ? 'completed' : ''} ${allComplete ? 'all-complete' : ''}`}>
+            <div key={item.id} className={`checklist-item ${item.completed ? 'completed' : ''} ${item.pointsAwarded ? 'points-awarded' : ''} ${allComplete ? 'all-complete' : ''}`}>
               <div className="item-icon">
                 <IconComponent />
               </div>
@@ -152,7 +255,17 @@ export default function GettingStartedChecklist() {
                     Start
                   </Button>
                 )}
-                {item.completed && (
+                {item.completed && !item.pointsAwarded && (
+                  <Button
+                    onClick={() => markTaskComplete(item.id)}
+                    variant="primary"
+                    size="sm"
+                    className="item-check-button"
+                  >
+                    Claim
+                  </Button>
+                )}
+                {item.pointsAwarded && (
                   <div className="item-checkmark">
                     <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
                       <polyline points="20 6 9 17 4 12" />

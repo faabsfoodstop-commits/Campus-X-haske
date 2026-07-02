@@ -7,6 +7,7 @@ import ActivityCard from '../components/ActivityCard';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
+import { awardGettingStartedTask } from '../utils/rateLimiter';
 import {
   IconSpinWheel,
   IconMissions,
@@ -88,6 +89,33 @@ export default function Dashboard() {
         .eq('id', session.user.id);
 
       if (error) throw error;
+
+      // Record check-in in database
+      const { error: checkinError } = await supabase
+        .from('streak_check_ins')
+        .insert({
+          user_id: session.user.id,
+          check_in_date: new Date().toISOString()
+        });
+
+      if (checkinError && checkinError.code !== 'PGRST116') {
+        console.warn('Error recording check-in:', checkinError);
+      }
+
+      // Check if user has reached 7 check-ins for the getting started task
+      const { data: checkIns } = await supabase
+        .from('streak_check_ins')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .gte('check_in_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (checkIns && checkIns.length >= 7) {
+        try {
+          await awardGettingStartedTask('checkin', 'Check In 7 Days', 70);
+        } catch (err) {
+          console.error('Error awarding check-in task:', err);
+        }
+      }
 
       localStorage.setItem('lastCheckIn', today);
       setUserData((prev) => ({

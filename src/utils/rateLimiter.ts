@@ -164,3 +164,24 @@ export function formatRemainingUsage(
   const periodText = period === 'hour' ? 'hour' : period === 'week' ? 'week' : 'day'
   return `${remaining} ${periodText === 'hour' ? 'uses' : `uses per ${periodText}`} remaining`
 }
+
+/**
+ * Award points for completing a getting started task
+ */
+export async function awardGettingStartedTask(
+  taskId: string,
+  taskName: string,
+  rewardPoints: number
+): Promise<{ success: boolean; pointsAwarded?: number; newTotalPoints?: number; error?: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('award-getting-started', {
+      body: { taskId, taskName, rewardPoints }
+    })
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('Award getting started task failed:', err)
+    return { success: false, error: err.message }
+  }
+}
