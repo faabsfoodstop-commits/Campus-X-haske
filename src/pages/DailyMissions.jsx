@@ -155,14 +155,18 @@ export default function DailyMissions() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const today = new Date().toDateString();
-      console.log('📅 Checking for missions completed on:', today);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+      console.log('📅 Checking for missions completed on:', todayStart.toDateString());
 
       const { data: missions, error } = await supabase
         .from('daily_missions')
         .select('mission_id')
         .eq('user_id', session.user.id)
-        .eq('completed_date', today);
+        .gte('created_at', todayStart.toISOString())
+        .lt('created_at', tomorrowStart.toISOString());
 
       if (error) throw error;
 
@@ -189,7 +193,10 @@ export default function DailyMissions() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const today = new Date().toDateString();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
       const completed = [];
 
       // Check daily_missions (already completed)
@@ -197,7 +204,8 @@ export default function DailyMissions() {
         .from('daily_missions')
         .select('mission_id')
         .eq('user_id', session.user.id)
-        .eq('completed_date', today);
+        .gte('created_at', todayStart.toISOString())
+        .lt('created_at', tomorrowStart.toISOString());
 
       if (missionsError) throw missionsError;
 
@@ -207,9 +215,10 @@ export default function DailyMissions() {
       // Check video ads watched
       const { data: adsData, error: adsError } = await supabase
         .from('video_ads_watched')
-        .select('*')
+        .select('id')
         .eq('user_id', session.user.id)
-        .eq('watched_date', today);
+        .gte('watched_at', todayStart.toISOString())
+        .lt('watched_at', tomorrowStart.toISOString());
 
       if (adsError) throw adsError;
 
@@ -221,7 +230,8 @@ export default function DailyMissions() {
             mission_id: 'video_ad',
             mission_name: 'Watch an Ad',
             base_reward: 250,
-            completed_date: today
+            completed: true,
+            completed_at: new Date().toISOString()
           });
         }
       }
@@ -234,7 +244,8 @@ export default function DailyMissions() {
             mission_id: 'watch_videos',
             mission_name: 'Watch 3 Videos',
             base_reward: 1000,
-            completed_date: today
+            completed: true,
+            completed_at: new Date().toISOString()
           });
         }
       }
@@ -242,7 +253,7 @@ export default function DailyMissions() {
       // Check Instagram follows
       const { data: igData, error: igError } = await supabase
         .from('instagram_follows')
-        .select('*')
+        .select('id')
         .eq('user_id', session.user.id)
         .eq('verified', true);
 
@@ -256,7 +267,8 @@ export default function DailyMissions() {
             mission_id: 'instagram',
             mission_name: 'Follow a Brand',
             base_reward: 375,
-            completed_date: today
+            completed: true,
+            completed_at: new Date().toISOString()
           });
         }
       }
@@ -366,12 +378,16 @@ export default function DailyMissions() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const today = new Date().toDateString();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
       const { data: missions, error: fetchError } = await supabase
         .from('daily_missions')
         .select('id')
         .eq('user_id', session.user.id)
-        .eq('completed_date', today);
+        .gte('created_at', todayStart.toISOString())
+        .lt('created_at', tomorrowStart.toISOString());
 
       if (fetchError) throw fetchError;
 

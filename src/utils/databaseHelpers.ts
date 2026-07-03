@@ -91,19 +91,14 @@ export async function recordVideoAdActivity(
   userId: string,
   adId: string,
   adTitle: string,
-  pointsEarned: number,
-  duration: number
+  pointsEarned: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const today = new Date().toDateString();
-
     const { error: videoError } = await supabase.from('video_ads_watched').insert({
       user_id: userId,
       ad_id: adId,
-      ad_title: adTitle,
       points_earned: pointsEarned,
-      watched_date: today,
-      duration
+      watched_at: new Date().toISOString()
     });
 
     if (videoError) throw videoError;

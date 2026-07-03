@@ -66,11 +66,8 @@ export interface VideoAdWatched {
   id: string;
   user_id: string;
   ad_id: string;
-  ad_title: string;
   points_earned: number;
-  watched_date: string;
-  duration: number;
-  created_at: string;
+  watched_at: string;
 }
 
 export interface DailyMission {

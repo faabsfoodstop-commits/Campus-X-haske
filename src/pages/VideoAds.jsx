@@ -132,12 +132,17 @@ export default function VideoAds() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const today = new Date().toDateString();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
       const { data: ads, error } = await supabase
         .from('video_ads_watched')
-        .select('*')
+        .select('points_earned')
         .eq('user_id', session.user.id)
-        .eq('watched_date', today);
+        .gte('watched_at', todayStart.toISOString())
+        .lt('watched_at', tomorrowStart.toISOString());
 
       if (error) throw error;
 
@@ -184,7 +189,7 @@ export default function VideoAds() {
       const updated = await updateUserPoints(session.user.id, newPoints);
       if (!updated) throw new Error('Failed to update points');
 
-      const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints, ad.duration);
+      const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
 
       setUserData(prev => ({ ...prev, points: newPoints }));
