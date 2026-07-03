@@ -216,7 +216,7 @@ export async function recordGettingStartedActivity(
         completed: true,
         completed_at: new Date().toISOString(),
         points_awarded: true
-      });
+      }, { onConflict: 'user_id,task_id' });
 
     if (taskError) throw taskError;
 
