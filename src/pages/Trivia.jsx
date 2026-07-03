@@ -185,12 +185,17 @@ export default function Trivia() {
       const correctAnswers = Math.round(score / 100); // score is 100 per correct answer
       const totalReward = score + 500;
 
-      const newPoints = (userData?.points || 0) + totalReward;
-      const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
-
+      // Record activity FIRST — if this fails, abort before touching points
       const recorded = await recordTriviaActivity(session.user.id, score, correctAnswers, totalReward);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record trivia');
+
+      // Fetch fresh points then update
+      const { data: freshUser } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (!freshUser) throw new Error('Failed to fetch user points');
+      const newPoints = freshUser.points + totalReward;
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
       setUserData(prev => ({ ...prev, points: newPoints }));
 

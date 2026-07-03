@@ -1,41 +1,68 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, callEdgeFunction } from '../config/supabase';
+import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { awardGettingStartedTask } from '../utils/rateLimiter';
+
+const EARN_TYPES = new Set([
+  'spin_wheel', 'trivia', 'check_in', 'video_ad',
+  'instagram_follow', 'referral', 'getting_started', 'mission',
+]);
+
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString();
+}
 
 export default function WeeklyChallenges() {
   const navigate = useNavigate();
   const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
+  const [weekStats, setWeekStats] = useState({ points: 0, sold: 0, redeemed: 0, referrals: 0 });
+  const [claimedIds, setClaimedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUserData();
+    fetchData();
   }, []);
 
-  const fetchUserData = async () => {
+  const fetchData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/login');
-        return;
-      }
+      if (!session) { navigate('/login'); return; }
 
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      const userId = session.user.id;
+      const weekStart = getWeekStart();
 
-      if (error) throw error;
-      if (user) {
-        setUserData(user);
-      }
+      const [userResult, txResult, soldResult, redeemedResult, referralsResult, claimedResult] = await Promise.all([
+        supabase.from('users').select('*').eq('id', userId).single(),
+        supabase.from('transactions').select('type, amount').eq('user_id', userId).gte('timestamp', weekStart),
+        supabase.from('point_sell_orders').select('amount').eq('user_id', userId).eq('status', 'completed').gte('created_at', weekStart),
+        supabase.from('redemptions').select('id').eq('user_id', userId).gte('created_at', weekStart),
+        supabase.from('referrals').select('id').eq('referrer_id', userId).gte('created_at', weekStart),
+        supabase.from('weekly_challenges').select('challenge_id').eq('user_id', userId).eq('claimed', true).gte('claimed_at', weekStart),
+      ]);
+
+      if (userResult.data) setUserData(userResult.data);
+
+      const weekPoints = (txResult.data || [])
+        .filter(t => EARN_TYPES.has(t.type))
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      const weekSold = (soldResult.data || []).reduce((sum, o) => sum + (o.amount || 0), 0);
+      const weekRedeemed = (redeemedResult.data || []).length;
+      const weekReferrals = (referralsResult.data || []).length;
+
+      setWeekStats({ points: weekPoints, sold: weekSold, redeemed: weekRedeemed, referrals: weekReferrals });
+      setClaimedIds(new Set((claimedResult.data || []).map(r => r.challenge_id)));
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching user:', err);
+      console.error('Error fetching weekly challenges:', err);
       setLoading(false);
     }
   };
@@ -48,8 +75,7 @@ export default function WeeklyChallenges() {
       icon: '⚡',
       target: 1000,
       bonus: 200,
-      type: 'earning',
-      progress: (userData?.weekPoints || 0),
+      progress: weekStats.points,
       color: 'from-yellow-400 to-yellow-600'
     },
     {
@@ -59,8 +85,7 @@ export default function WeeklyChallenges() {
       icon: '📈',
       target: 500,
       bonus: 150,
-      type: 'trading',
-      progress: (userData?.weekSold || 0),
+      progress: weekStats.sold,
       color: 'from-blue-400 to-blue-600'
     },
     {
@@ -70,8 +95,7 @@ export default function WeeklyChallenges() {
       icon: '🎁',
       target: 5,
       bonus: 100,
-      type: 'redemption',
-      progress: (userData?.weekRedeemed || 0),
+      progress: weekStats.redeemed,
       color: 'from-pink-400 to-pink-600'
     },
     {
@@ -81,8 +105,7 @@ export default function WeeklyChallenges() {
       icon: '👥',
       target: 2,
       bonus: 250,
-      type: 'social',
-      progress: (userData?.weekReferrals || 0),
+      progress: weekStats.referrals,
       color: 'from-purple-400 to-purple-600'
     },
     {
@@ -92,8 +115,7 @@ export default function WeeklyChallenges() {
       icon: '📱',
       target: 5,
       bonus: 50,
-      type: 'engagement',
-      progress: (userData?.weekLogins || 0),
+      progress: userData?.current_streak || 0,
       color: 'from-green-400 to-green-600'
     },
     {
@@ -103,8 +125,7 @@ export default function WeeklyChallenges() {
       icon: '🔥',
       target: 7,
       bonus: 300,
-      type: 'streaks',
-      progress: (userData?.currentStreak || 0),
+      progress: userData?.current_streak || 0,
       color: 'from-red-400 to-red-600'
     }
   ];
@@ -114,8 +135,7 @@ export default function WeeklyChallenges() {
       addToast('Challenge not yet complete!', 'warning');
       return;
     }
-
-    if (userData?.[`claimed_${challenge.id}`]) {
+    if (claimedIds.has(challenge.id)) {
       addToast('You already claimed this reward!', 'warning');
       return;
     }
@@ -124,41 +144,55 @@ export default function WeeklyChallenges() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const result = await callEdgeFunction('claim-weekly-challenge', {
-        userId: session.user.id,
-        challengeId: challenge.id,
-        bonus: challenge.bonus
+      const userId = session.user.id;
+      const weekStart = getWeekStart();
+
+      // Double-check against DB before writing
+      const { data: existing } = await supabase
+        .from('weekly_challenges')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('challenge_id', challenge.id)
+        .eq('claimed', true)
+        .gte('claimed_at', weekStart)
+        .maybeSingle();
+
+      if (existing) {
+        addToast('Already claimed this reward!', 'warning');
+        setClaimedIds(prev => new Set([...prev, challenge.id]));
+        return;
+      }
+
+      // Insert claim record FIRST — if this fails, points are not touched
+      const { error: claimError } = await supabase.from('weekly_challenges').insert({
+        user_id: userId,
+        challenge_id: challenge.id,
+        claimed: true,
+        claimed_at: new Date().toISOString(),
+      });
+      if (claimError) throw claimError;
+
+      // Fetch fresh points then update
+      const { data: freshUser } = await supabase
+        .from('users').select('points').eq('id', userId).single();
+      if (!freshUser) throw new Error('Could not fetch user points');
+
+      const newPoints = freshUser.points + challenge.bonus;
+      const { error: updateError } = await supabase
+        .from('users').update({ points: newPoints }).eq('id', userId);
+      if (updateError) throw updateError;
+
+      await supabase.from('transactions').insert({
+        user_id: userId,
+        type: 'weekly_challenge',
+        amount: challenge.bonus,
+        description: `Weekly Challenge: ${challenge.title}`,
+        timestamp: new Date().toISOString(),
       });
 
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to claim reward');
-      }
-
-      const bonusAwarded = result.bonusAwarded;
-
-      // Award getting started task on first challenge claim
-      try {
-        const { data: existingTask } = await supabase
-          .from('getting_started_tasks')
-          .select('points_awarded')
-          .eq('user_id', session.user.id)
-          .eq('task_id', 'challenge')
-          .single();
-
-        if (!existingTask?.points_awarded) {
-          await awardGettingStartedTask('challenge', 'Join a Weekly Challenge', 100);
-        }
-      } catch (err) {
-        console.warn('Error awarding challenge task:', err);
-      }
-
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + bonusAwarded,
-        [`claimed_${challenge.id}`]: true
-      }));
-
-      addToast(`🎉 Claimed ${bonusAwarded} bonus points!`, 'success');
+      setClaimedIds(prev => new Set([...prev, challenge.id]));
+      setUserData(prev => ({ ...prev, points: newPoints }));
+      addToast(`🎉 Claimed ${challenge.bonus} bonus points!`, 'success');
     } catch (err) {
       console.error('Error claiming reward:', err);
       addToast(err.message || 'Error claiming reward', 'error');
@@ -200,7 +234,7 @@ export default function WeeklyChallenges() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {weeklyChallenges.map((challenge) => {
             const isComplete = challenge.progress >= challenge.target;
-            const isClaimed = userData?.[`claimed_${challenge.id}`];
+            const isClaimed = claimedIds.has(challenge.id);
             const percentage = Math.min(100, (challenge.progress / challenge.target) * 100);
 
             return (

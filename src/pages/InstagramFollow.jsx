@@ -136,14 +136,19 @@ export default function InstagramFollow() {
 
       const pointsAwarded = brand.reward;
 
-      const newPoints = (userData?.points || 0) + pointsAwarded;
-      const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
-
+      // Record activity FIRST — if this fails, abort before touching points
       const recorded = await recordInstagramFollowActivity(
         session.user.id, brand.id, brand.name, brand.handle, pointsAwarded
       );
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record follow');
+
+      // Fetch fresh points then update
+      const { data: freshUser } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (!freshUser) throw new Error('Failed to fetch user points');
+      const newPoints = freshUser.points + pointsAwarded;
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
       setUserData(prev => ({ ...prev, points: newPoints }));
 
