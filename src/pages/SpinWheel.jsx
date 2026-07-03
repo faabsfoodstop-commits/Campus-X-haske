@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { ToastContext } from '../context/ToastContext';
 import { checkRateLimit, recordRateLimitAction } from '../utils/rateLimiter';
+import { recordSpinActivity, fetchSpinHistory as fetchSpinHistoryFromDB } from '../utils/databaseHelpers';
 import {
   IconSpinWheel,
   IconStar,
@@ -95,19 +96,8 @@ export default function SpinWheel() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data: history, error } = await supabase
-        .from('spin_history')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        console.error('Spin history fetch error:', error);
-        throw error;
-      }
-      console.log('Spin history fetched:', history);
-      setSpinHistory(history || []);
+      const history = await fetchSpinHistoryFromDB(session.user.id, 10);
+      setSpinHistory(history);
     } catch (err) {
       console.error('Error fetching spin history:', err);
       setSpinHistory([]);
@@ -192,34 +182,19 @@ export default function SpinWheel() {
 
       if (updateError) throw updateError;
 
-      // Record the spin in history
-      const { error: spinError } = await supabase.from('spin_history').insert({
-        user_id: session.user.id,
-        result: result.label,
-        points_earned: earnedPoints,
-        multiplier: result.multiplier ? String(result.multiplier) : '1',
-        cost: useFreeSpins ? 0 : 50
-      });
-      if (spinError) {
-        console.error('Spin history insert error:', spinError);
-        throw spinError;
-      }
-
-      // Record transaction for activity log
-      const { error: txnError } = await supabase.from('transactions').insert({
-        user_id: session.user.id,
-        type: 'spin_wheel',
-        amount: earnedPoints,
-        description: `${result.label}${useFreeSpins ? ' (free)' : ' (purchased)'}`,
-        timestamp: new Date().toISOString()
-      });
-      if (txnError) {
-        console.error('Transaction insert error:', txnError);
+      // Record spin activity (both spin_history and transaction in one call)
+      const spinRecordResult = await recordSpinActivity(
+        session.user.id,
+        result.label,
+        earnedPoints,
+        useFreeSpins
+      );
+      if (!spinRecordResult.success) {
+        throw new Error(spinRecordResult.error || 'Failed to record spin');
       }
 
       // Record rate limit action (increments counter)
-      const recordResult = await recordRateLimitAction(session.user.id, featureName);
-      console.log('Rate limit action recorded:', recordResult);
+      await recordRateLimitAction(session.user.id, featureName);
 
       // Update local state
       setUserData(prev => ({
