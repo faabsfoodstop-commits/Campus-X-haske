@@ -196,8 +196,9 @@ export default function SpinWheel() {
       const { error: spinError } = await supabase.from('spin_history').insert({
         user_id: session.user.id,
         result: result.label,
-        earned_points: earnedPoints,
-        spin_type: useFreeSpins ? 'free' : 'purchased'
+        points_earned: earnedPoints,
+        multiplier: result.multiplier ? String(result.multiplier) : '1',
+        cost: useFreeSpins ? 0 : 50
       });
       if (spinError) {
         console.error('Spin history insert error:', spinError);
@@ -479,9 +480,9 @@ export default function SpinWheel() {
                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                   <div>
                     <p className="font-semibold">{spin.result}</p>
-                    <p className="text-sm text-gray-600">{new Date(spin.timestamp).toLocaleTimeString()}</p>
+                    <p className="text-sm text-gray-600">{new Date(spin.created_at).toLocaleTimeString()}</p>
                   </div>
-                  <p className="text-lg font-bold text-primary">+{spin.earned_points}</p>
+                  <p className="text-lg font-bold text-primary">+{spin.points_earned}</p>
                 </div>
               ))
             ) : (
