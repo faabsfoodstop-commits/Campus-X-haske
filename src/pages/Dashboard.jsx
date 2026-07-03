@@ -8,8 +8,7 @@ import ActivityCard from '../components/ActivityCard';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
-import { awardGettingStartedTask } from '../utils/rateLimiter';
-import { recordCheckInActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordCheckInActivity, updateUserPoints, recordGettingStartedActivity } from '../utils/databaseHelpers';
 import {
   IconSpinWheel,
   IconMissions,
@@ -157,7 +156,6 @@ export default function Dashboard() {
           .from('streak_check_ins').select('check_in_date').eq('user_id', session.user.id);
         const uniqueDates = new Set((allCheckIns || []).map(ci => ci.check_in_date));
         if (uniqueDates.size >= 7) {
-          const { recordGettingStartedActivity } = await import('../utils/databaseHelpers');
           const taskResult = await recordGettingStartedActivity(session.user.id, 'checkin', 'Check In 7 Days', 70);
           if (taskResult.success) addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
         }
