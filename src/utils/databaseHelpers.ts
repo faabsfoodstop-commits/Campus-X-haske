@@ -195,28 +195,42 @@ export async function recordGettingStartedActivity(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Check if already completed to prevent double-award
-    const { data: existing } = await supabase
+    const { data: existing, error: checkError } = await supabase
       .from('getting_started_tasks')
-      .select('points_awarded')
+      .select('id, points_awarded')
       .eq('user_id', userId)
       .eq('task_id', taskId)
       .maybeSingle();
+
+    if (checkError) throw checkError;
 
     if (existing?.points_awarded) {
       return { success: false, error: 'Task already completed' };
     }
 
-    const { error: taskError } = await supabase
-      .from('getting_started_tasks')
-      .upsert({
-        user_id: userId,
-        task_id: taskId,
-        task_name: taskName,
-        reward_points: pointsEarned,
-        completed: true,
-        completed_at: new Date().toISOString(),
-        points_awarded: true
-      }, { onConflict: 'user_id,task_id' });
+    // Use explicit INSERT or UPDATE — avoids upsert conflict issues
+    let taskError;
+    if (existing?.id) {
+      const { error } = await supabase
+        .from('getting_started_tasks')
+        .update({ completed: true, completed_at: new Date().toISOString(), points_awarded: true })
+        .eq('id', existing.id)
+        .eq('user_id', userId);
+      taskError = error;
+    } else {
+      const { error } = await supabase
+        .from('getting_started_tasks')
+        .insert({
+          user_id: userId,
+          task_id: taskId,
+          task_name: taskName,
+          reward_points: pointsEarned,
+          completed: true,
+          completed_at: new Date().toISOString(),
+          points_awarded: true
+        });
+      taskError = error;
+    }
 
     if (taskError) throw taskError;
 

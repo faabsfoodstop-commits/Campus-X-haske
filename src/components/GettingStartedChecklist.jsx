@@ -185,14 +185,18 @@ export default function GettingStartedChecklist() {
         if (result.error?.includes('already completed')) {
           addToast('This task has already been completed!', 'info');
         } else {
-          throw new Error(result.error);
+          throw new Error(result.error || 'Failed to record task');
         }
         return;
       }
 
-      // Award points
-      const { data: freshUser } = await supabase.from('users').select('points').eq('id', session.user.id).single();
-      await updateUserPoints(session.user.id, (freshUser?.points || 0) + item.reward);
+      // Fetch fresh points from DB (never use stale local state)
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch current points');
+
+      const updated = await updateUserPoints(session.user.id, freshUser.points + item.reward);
+      if (!updated) throw new Error('Failed to update points');
 
       // Update local state
       const newChecklist = checklist.map(task =>
