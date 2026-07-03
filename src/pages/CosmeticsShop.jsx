@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, callEdgeFunction } from '../config/supabase';
+import { supabase } from '../config/supabase';
+import { recordCosmeticPurchaseActivity } from '../utils/databaseHelpers';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -69,35 +70,32 @@ export default function CosmeticsShop() {
       return;
     }
 
-    if ((userData?.points || 0) < cosmetic.price) {
-      addToast(`You need ${cosmetic.price - (userData?.points || 0)} more points`, 'error');
-      return;
-    }
-
     if (purchasedItems.includes(cosmetic.id)) {
       addToast('You already own this item!', 'warning');
       return;
     }
 
     try {
-      const result = await callEdgeFunction('buy-cosmetic-item', {
-        userId: session.user.id,
-        cosmeticId: cosmetic.id,
-        cosmeticName: cosmetic.name,
-        price: cosmetic.price
-      });
+      const result = await recordCosmeticPurchaseActivity(
+        session.user.id,
+        cosmetic.id,
+        cosmetic.name,
+        cosmetic.price
+      );
 
       if (!result.success) {
-        throw new Error(result.message || 'Purchase failed');
+        if (result.error === 'Insufficient points') {
+          addToast(`Not enough points. You need ${cosmetic.price} pts.`, 'error');
+        } else if (result.error === 'Already owned') {
+          addToast('You already own this item!', 'warning');
+        } else {
+          addToast('Purchase failed. Try again.', 'error');
+        }
+        return;
       }
 
-      const newPoints = result.newPoints;
-
-      setUserData(prev => ({
-        ...prev,
-        points: newPoints,
-      }));
-      setPurchasedItems([...purchasedItems, cosmetic.id]);
+      setUserData(prev => ({ ...prev, points: result.newPoints }));
+      setPurchasedItems(prev => [...prev, cosmetic.id]);
       addToast(`${cosmetic.name} purchased! ✨`, 'success');
     } catch (err) {
       console.error('Purchase error:', err);

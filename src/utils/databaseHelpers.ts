@@ -324,6 +324,63 @@ export async function updateUserPoints(userId: string, newPoints: number): Promi
   }
 }
 
+export async function recordCosmeticPurchaseActivity(
+  userId: string,
+  cosmeticId: string,
+  cosmeticName: string,
+  price: number
+): Promise<{ success: boolean; newPoints?: number; error?: string }> {
+  try {
+    const { data: freshUser, error: fetchError } = await supabase
+      .from('users')
+      .select('points, cosmetics_purchased')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+    if ((freshUser.cosmetics_purchased || []).includes(cosmeticId)) {
+      return { success: false, error: 'Already owned' };
+    }
+
+    if (freshUser.points < price) {
+      return { success: false, error: 'Insufficient points' };
+    }
+
+    const newPoints = freshUser.points - price;
+    const updatedCosmetics = [...(freshUser.cosmetics_purchased || []), cosmeticId];
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ points: newPoints, cosmetics_purchased: updatedCosmetics })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    await supabase.from('cosmetics_purchases').insert({
+      user_id: userId,
+      cosmetic_id: cosmeticId,
+      cosmetic_name: cosmeticName,
+      price
+    });
+
+    const { error: txError } = await supabase.from('transactions').insert({
+      user_id: userId,
+      type: 'cosmetic_purchase',
+      amount: -price,
+      description: `Purchased: ${cosmeticName}`,
+      timestamp: new Date().toISOString()
+    });
+
+    if (txError) throw txError;
+
+    return { success: true, newPoints };
+  } catch (err: any) {
+    console.error('[recordCosmeticPurchaseActivity] Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function updateUserWallet(userId: string, newWallet: number): Promise<boolean> {
   try {
     const { error } = await supabase
