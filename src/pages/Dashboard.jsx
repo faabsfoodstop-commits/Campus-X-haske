@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { recordCheckInActivity, updateUserPoints, recordGettingStartedActivity } from '../utils/databaseHelpers';
+import { COSMETICS_LOOKUP } from '../constants/cosmetics';
 import {
   IconSpinWheel,
   IconMissions,
@@ -232,7 +233,17 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-gradient-to-r from-primary to-secondary text-white rounded-lg p-8 mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome, {user?.displayName || 'User'}!</h2>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-3xl font-bold">Welcome, {user?.displayName || 'User'}!</h2>
+            {userData?.active_badge && (
+              <span className="text-3xl">{COSMETICS_LOOKUP[userData.active_badge]?.icon}</span>
+            )}
+          </div>
+          {userData?.active_title && (
+            <p className="text-yellow-300 font-semibold text-sm mb-1">
+              {COSMETICS_LOOKUP[userData.active_title]?.name}
+            </p>
+          )}
           <p className="text-blue-100">{userData?.university || 'Campus'}</p>
         </div>
 

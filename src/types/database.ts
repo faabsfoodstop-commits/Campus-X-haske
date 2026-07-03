@@ -15,6 +15,9 @@ export interface User {
   points: number;
   wallet: number;
   cosmetics_purchased?: string[];
+  active_frame?: string | null;
+  active_badge?: string | null;
+  active_title?: string | null;
   profile_complete: boolean;
   premium_tier?: string;
   premium_until?: string;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { recordCosmeticPurchaseActivity } from '../utils/databaseHelpers';
 import { ToastContext } from '../context/ToastContext';
+import { COSMETICS_LOOKUP } from '../constants/cosmetics';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconDiamond, IconStar, IconTrophy, IconRocket, IconParty } from '../components/Icons';
@@ -14,6 +15,7 @@ export default function CosmeticsShop() {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('frames');
   const [purchasedItems, setPurchasedItems] = useState([]);
+  const [activeCosmetics, setActiveCosmetics] = useState({ frame: null, badge: null, title: null });
 
   const cosmetics = {
     frames: [
@@ -55,6 +57,11 @@ export default function CosmeticsShop() {
       if (user) {
         setUserData(user);
         setPurchasedItems(user.cosmetics_purchased || []);
+        setActiveCosmetics({
+          frame: user.active_frame || null,
+          badge: user.active_badge || null,
+          title: user.active_title || null,
+        });
       }
       setLoading(false);
     } catch (err) {
@@ -103,6 +110,31 @@ export default function CosmeticsShop() {
     }
   };
 
+  const handleEquip = async (cosmetic, currentlyEquipped) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const category = cosmetic.id.split('_')[0]; // 'frame' | 'badge' | 'title'
+    const dbColumn = `active_${category}`;
+    const newValue = currentlyEquipped ? null : cosmetic.id;
+
+    const { error } = await supabase
+      .from('users')
+      .update({ [dbColumn]: newValue })
+      .eq('id', session.user.id);
+
+    if (error) {
+      addToast('Failed to update equipped item', 'error');
+      return;
+    }
+
+    setActiveCosmetics(prev => ({ ...prev, [category]: newValue }));
+    addToast(
+      currentlyEquipped ? `${cosmetic.name} unequipped` : `${cosmetic.name} equipped! ✨`,
+      'success'
+    );
+  };
+
   if (loading) {
     return <LoadingSpinner size="lg" />;
   }
@@ -144,6 +176,28 @@ export default function CosmeticsShop() {
           <p className="text-purple-100">Show off your style with exclusive cosmetics. Cost ₦0 in real money!</p>
         </div>
 
+        {/* Active Loadout */}
+        {(activeCosmetics.frame || activeCosmetics.badge || activeCosmetics.title) && (
+          <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-center">
+            <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">Active Loadout</p>
+            {activeCosmetics.frame && (
+              <span className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 px-3 py-1 rounded-full text-sm font-semibold text-gray-700">
+                {COSMETICS_LOOKUP[activeCosmetics.frame]?.icon} {COSMETICS_LOOKUP[activeCosmetics.frame]?.name}
+              </span>
+            )}
+            {activeCosmetics.badge && (
+              <span className="flex items-center gap-1 bg-purple-50 border border-purple-200 px-3 py-1 rounded-full text-sm font-semibold text-gray-700">
+                {COSMETICS_LOOKUP[activeCosmetics.badge]?.icon} {COSMETICS_LOOKUP[activeCosmetics.badge]?.name}
+              </span>
+            )}
+            {activeCosmetics.title && (
+              <span className="flex items-center gap-1 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-sm font-semibold text-gray-700">
+                🏷️ {COSMETICS_LOOKUP[activeCosmetics.title]?.name}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-4 mb-8 border-b">
           {['frames', 'badges', 'titles'].map(tab => (
@@ -163,38 +217,58 @@ export default function CosmeticsShop() {
 
         {/* Items Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {displayItems.map(cosmetic => (
-            <div
-              key={cosmetic.id}
-              className={`rounded-lg shadow overflow-hidden transition transform hover:scale-105 ${
-                purchasedItems.includes(cosmetic.id)
-                  ? 'ring-2 ring-green-500'
-                  : ''
-              }`}
-            >
-              <div className={`bg-gradient-to-br ${cosmetic.color} p-6 text-white text-center`}>
-                <div className="text-5xl mb-2">{cosmetic.icon}</div>
-                <h3 className="text-xl font-bold mb-2">{cosmetic.name}</h3>
-                <p className="text-sm opacity-90 mb-4">{cosmetic.description}</p>
+          {displayItems.map(cosmetic => {
+            const category = cosmetic.id.split('_')[0];
+            const owned = purchasedItems.includes(cosmetic.id);
+            const equipped = activeCosmetics[category] === cosmetic.id;
+            return (
+              <div
+                key={cosmetic.id}
+                className={`rounded-lg shadow overflow-hidden transition transform hover:scale-105 ${
+                  equipped ? 'ring-4 ring-white ring-offset-2 ring-offset-gray-200' : owned ? 'ring-2 ring-green-500' : ''
+                }`}
+              >
+                <div className={`bg-gradient-to-br ${cosmetic.color} p-6 text-white text-center`}>
+                  <div className="text-5xl mb-2">{cosmetic.icon}</div>
+                  <h3 className="text-xl font-bold mb-2">{cosmetic.name}</h3>
+                  <p className="text-sm opacity-90 mb-4">{cosmetic.description}</p>
 
-                {purchasedItems.includes(cosmetic.id) ? (
-                  <div className="bg-green-500 text-white px-4 py-2 rounded font-semibold text-sm">
-                    ✓ Owned
-                  </div>
-                ) : (
-                  <Button
-                    onClick={() => handlePurchase(cosmetic)}
-                    variant="outline"
-                    size="sm"
-                    fullWidth
-                    className="bg-white text-gray-800 hover:bg-gray-100 font-bold"
-                  >
-                    {cosmetic.price} pts
-                  </Button>
-                )}
+                  {owned ? (
+                    <div className="space-y-2">
+                      <div className="bg-white bg-opacity-20 text-white px-3 py-1 rounded text-xs font-semibold text-center">
+                        ✓ Owned
+                      </div>
+                      {equipped ? (
+                        <button
+                          onClick={() => handleEquip(cosmetic, true)}
+                          className="w-full bg-green-500 text-white px-4 py-2 rounded font-bold text-sm hover:bg-green-600 transition"
+                        >
+                          ✓ Equipped — Unequip
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleEquip(cosmetic, false)}
+                          className="w-full bg-white text-gray-800 px-4 py-2 rounded font-bold text-sm hover:bg-gray-100 transition"
+                        >
+                          Equip
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handlePurchase(cosmetic)}
+                      variant="outline"
+                      size="sm"
+                      fullWidth
+                      className="bg-white text-gray-800 hover:bg-gray-100 font-bold"
+                    >
+                      {cosmetic.price} pts
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Info Section */}

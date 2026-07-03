@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
 import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
+import { COSMETICS_LOOKUP } from '../constants/cosmetics';
 
 export default function Leaderboard() {
   const navigate = useNavigate();
@@ -273,7 +274,13 @@ export default function Leaderboard() {
                 >
                   <div className="text-6xl mb-2">{getMedalIcon(position)}</div>
                   <p className="text-4xl font-bold mb-2">#{position}</p>
-                  <p className="text-lg font-semibold mb-1">{user.displayName || 'Anonymous'}</p>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <p className="text-lg font-semibold">{user.displayName || 'Anonymous'}</p>
+                    {user.active_badge && <span className="text-xl">{COSMETICS_LOOKUP[user.active_badge]?.icon}</span>}
+                  </div>
+                  {user.active_title && (
+                    <p className="text-xs text-yellow-200 font-semibold mb-1">{COSMETICS_LOOKUP[user.active_title]?.name}</p>
+                  )}
                   <p className="text-sm opacity-90 mb-4">{user.university || 'User'}</p>
                   <div className="bg-white bg-opacity-20 rounded p-2">
                     <p className="text-2xl font-bold">{getPointsForTimeframe(user).toLocaleString()} pts</p>
@@ -331,9 +338,22 @@ export default function Leaderboard() {
                         {getMedalIcon(user.rank) && <span className="ml-1">{getMedalIcon(user.rank)}</span>}
                       </p>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
-                      <div className="flex gap-2 items-center mt-1">
+                    {/* Avatar with frame ring */}
+                    <div
+                      className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                      style={user.active_frame ? { boxShadow: `0 0 0 3px ${COSMETICS_LOOKUP[user.active_frame]?.frameColor}` } : {}}
+                    >
+                      {(user.displayName || user.full_name || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
+                        {user.active_badge && <span className="text-base">{COSMETICS_LOOKUP[user.active_badge]?.icon}</span>}
+                      </div>
+                      {user.active_title && (
+                        <p className="text-xs text-purple-600 font-semibold">{COSMETICS_LOOKUP[user.active_title]?.name}</p>
+                      )}
+                      <div className="flex gap-2 items-center mt-1 flex-wrap">
                         <span className="text-xs bg-blue-100 text-primary px-2 py-1 rounded">
                           📍 {NIGERIAN_UNIVERSITIES.find(u => u.code === user.university)?.name || user.university || 'No university'}
                         </span>
