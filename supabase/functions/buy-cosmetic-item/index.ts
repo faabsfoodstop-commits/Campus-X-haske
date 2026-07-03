@@ -12,9 +12,12 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
     const { userId, cosmeticId, cosmeticName, price } = await req.json();
@@ -81,6 +84,7 @@ serve(async (req) => {
       type: "cosmetic_purchase",
       description: `Purchased: ${cosmeticName}`,
       amount: -price,
+      timestamp: new Date().toISOString(),
     });
 
     // Record purchase
