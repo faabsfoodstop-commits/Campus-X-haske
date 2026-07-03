@@ -51,7 +51,7 @@ export default function DailyMissions() {
       description: 'Check in before 9 AM',
       reward: 250,
       difficulty: 'easy',
-      link: '/dashboard'
+      link: '/streak-manager'
     },
     {
       id: 'video_ad',
@@ -159,7 +159,7 @@ export default function DailyMissions() {
       todayStart.setHours(0, 0, 0, 0);
       const tomorrowStart = new Date(todayStart);
       tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-      console.log('📅 Checking for missions completed on:', todayStart.toDateString());
+      const todayDate = todayStart.toISOString().split('T')[0];
 
       const { data: missions, error } = await supabase
         .from('daily_missions')
@@ -171,7 +171,19 @@ export default function DailyMissions() {
       if (error) throw error;
 
       const completed = missions.map(m => m.mission_id);
-      console.log('Found completed missions:', completed);
+
+      // Also check streak_check_ins directly (in case daily_missions row isn't inserted yet)
+      if (!completed.includes('checkin')) {
+        const { data: checkInData } = await supabase
+          .from('streak_check_ins')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('check_in_date', todayDate);
+        if (checkInData?.length > 0) {
+          completed.push('checkin');
+        }
+      }
+
       setCompletedToday(completed);
 
       // Calculate combo bonus
@@ -267,6 +279,28 @@ export default function DailyMissions() {
             mission_id: 'instagram',
             mission_name: 'Follow a Brand',
             base_reward: 375,
+            completed: true,
+            completed_at: new Date().toISOString()
+          });
+        }
+      }
+
+      // Check streak check-ins for today
+      const todayDate = todayStart.toISOString().split('T')[0];
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('streak_check_ins')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('check_in_date', todayDate);
+
+      if (!checkInError && checkInData?.length > 0 && !completed.includes('checkin')) {
+        completed.push('checkin');
+        if (!existingCompleted.includes('checkin')) {
+          await supabase.from('daily_missions').insert({
+            user_id: session.user.id,
+            mission_id: 'checkin',
+            mission_name: 'Morning Check-In',
+            base_reward: 250,
             completed: true,
             completed_at: new Date().toISOString()
           });
