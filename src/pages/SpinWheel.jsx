@@ -6,7 +6,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { ToastContext } from '../context/ToastContext';
-import { checkRateLimit, recordRateLimitAction } from '../utils/rateLimiter';
 import { recordSpinActivity, fetchSpinHistory as fetchSpinHistoryFromDB } from '../utils/databaseHelpers';
 import {
   IconSpinWheel,
@@ -69,25 +68,34 @@ export default function SpinWheel() {
     }
   };
 
+  const FREE_SPIN_LIMIT = 3;
+  const PURCHASED_SPIN_LIMIT = 10;
+
   const checkDailySpins = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Check rate limits for both free and purchased spins
-      const freeResult = await checkRateLimit(session.user.id, 'spin_wheel_free');
-      const purchasedResult = await checkRateLimit(session.user.id, 'spin_wheel_purchase');
+      // Count today's spins directly from spin_history (no edge function dependency)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-      // Calculate remaining spins (3 daily for free, 10 daily for purchased)
-      const freeRemaining = Math.max(0, (freeResult.dailyLimit || 3) - (freeResult.currentDailyCount || 0));
-      const purchasedRemaining = Math.max(0, (purchasedResult.dailyLimit || 10) - (purchasedResult.currentDailyCount || 0));
+      const { data: todaySpins, error } = await supabase
+        .from('spin_history')
+        .select('cost')
+        .eq('user_id', session.user.id)
+        .gte('created_at', todayStart.toISOString());
 
-      setFreeSpin(freeRemaining);
-      setPurchasedSpin(purchasedRemaining);
+      if (error) throw error;
+
+      const freeUsed = (todaySpins || []).filter(s => s.cost === 0).length;
+      const purchasedUsed = (todaySpins || []).filter(s => s.cost > 0).length;
+
+      setFreeSpin(Math.max(0, FREE_SPIN_LIMIT - freeUsed));
+      setPurchasedSpin(Math.max(0, PURCHASED_SPIN_LIMIT - purchasedUsed));
     } catch (err) {
       console.error('Error checking spins:', err);
-      setFreeSpin(3);
-      setPurchasedSpin(10);
+      // Don't reset to defaults on error - keep current state
     }
   };
 
@@ -124,19 +132,11 @@ export default function SpinWheel() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Check rate limit before spinning
-      const featureName = useFreeSpins ? 'spin_wheel_free' : 'spin_wheel_purchase';
-      const rateCheckResult = await checkRateLimit(session.user.id, featureName);
-
-      if (!rateCheckResult.allowed) {
-        if (rateCheckResult.reason?.includes('cooldown')) {
-          addToast(`Wait ${rateCheckResult.secondsRemaining || 30} seconds before your next spin`, 'warning');
-        } else if (rateCheckResult.reason?.includes('Daily limit')) {
-          const limit = useFreeSpins ? 3 : 10;
-          addToast(`You've reached your daily ${useFreeSpins ? 'free' : 'purchased'} spin limit (${limit}/day)`, 'warning');
-        } else {
-          addToast(rateCheckResult.reason || 'You cannot spin right now', 'warning');
-        }
+      // Check spin count directly (no edge function needed)
+      const remaining = useFreeSpins ? freeSpin : purchasedSpin;
+      if (remaining <= 0) {
+        const limit = useFreeSpins ? FREE_SPIN_LIMIT : PURCHASED_SPIN_LIMIT;
+        addToast(`Daily ${useFreeSpins ? 'free' : 'purchased'} spin limit reached (${limit}/day). Resets at midnight.`, 'warning');
         return;
       }
 
@@ -193,19 +193,30 @@ export default function SpinWheel() {
         throw new Error(spinRecordResult.error || 'Failed to record spin');
       }
 
-      // Record rate limit action (increments counter)
-      await recordRateLimitAction(session.user.id, featureName);
+      // Optimistically update UI immediately
+      if (useFreeSpins) {
+        setFreeSpin(prev => Math.max(0, prev - 1));
+      } else {
+        setPurchasedSpin(prev => Math.max(0, prev - 1));
+      }
 
-      // Update local state
-      setUserData(prev => ({
-        ...prev,
-        points: newPoints,
-        wallet: newWallet
-      }));
+      // Optimistically prepend new spin to history
+      const newSpin = {
+        id: `temp-${Date.now()}`,
+        user_id: session.user.id,
+        result: result.label,
+        points_earned: earnedPoints,
+        multiplier: result.multiplier ? String(result.multiplier) : '1',
+        cost: useFreeSpins ? 0 : 50,
+        created_at: new Date().toISOString()
+      };
+      setSpinHistory(prev => [newSpin, ...prev].slice(0, 10));
 
-      // Refresh spin counts
-      await checkDailySpins();
-      await fetchSpinHistory();
+      // Update local user state
+      setUserData(prev => ({ ...prev, points: newPoints, wallet: newWallet }));
+
+      // Sync from DB in background (replaces temp entry with real one)
+      fetchSpinHistory();
 
       if (earnedPoints > 0) {
         addToast(`🎉 You won ${earnedPoints} points!`, 'success');
