@@ -101,7 +101,6 @@ export default function Dashboard() {
         .update({
           points: (userData?.points || 0) + pointsEarned,
           current_streak: newStreak,
-          last_check_in_date: todayDate,
         })
         .eq('id', session.user.id);
 
