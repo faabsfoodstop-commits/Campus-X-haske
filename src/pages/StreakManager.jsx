@@ -130,10 +130,7 @@ export default function StreakManager() {
         .insert([{
           user_id: session.user.id,
           check_in_date: today_date,
-          streak: newStreak,
           points_earned: totalPoints,
-          streak_bonus: streakBonus,
-          timestamp: new Date().toISOString(),
         }]);
 
       if (insertError) throw insertError;

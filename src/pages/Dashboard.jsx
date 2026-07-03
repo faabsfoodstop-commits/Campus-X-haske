@@ -111,7 +111,8 @@ export default function Dashboard() {
         .from('streak_check_ins')
         .insert({
           user_id: session.user.id,
-          check_in_date: todayDate
+          check_in_date: todayDate,
+          points_earned: pointsEarned
         });
 
       if (checkinError && checkinError.code !== 'PGRST116') {
