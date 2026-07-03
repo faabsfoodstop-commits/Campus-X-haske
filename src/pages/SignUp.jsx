@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -18,6 +18,8 @@ export default function SignUp() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const refCode = searchParams.get('ref');
   const { modal, closeModal } = useConfirm();
 
   const handleChange = (e) => {
@@ -44,9 +46,47 @@ export default function SignUp() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Failed to create user');
 
-      // User record is automatically created by database trigger
-      // Wait a moment for trigger to execute
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const newUserId = authData.user.id;
+      const myReferralCode = newUserId.substring(0, 8).toUpperCase();
+
+      // Create user row (trigger may not exist; upsert is safe either way)
+      await supabase.from('users').upsert({
+        id: newUserId,
+        email: formData.email,
+        full_name: formData.fullName,
+        university: formData.university,
+        referral_code: myReferralCode,
+        points: 0,
+        wallet: 0,
+        current_streak: 0,
+        weekly_points: 0,
+        monthly_points: 0,
+        profile_complete: false,
+      }, { onConflict: 'id' });
+
+      // If signed up via referral link, create the referral record
+      if (refCode) {
+        try {
+          const { data: referrer } = await supabase
+            .from('users')
+            .select('id')
+            .eq('referral_code', refCode.toUpperCase())
+            .maybeSingle();
+
+          if (referrer && referrer.id !== newUserId) {
+            await supabase.from('referrals').insert({
+              referrer_id: referrer.id,
+              referee_id: newUserId,
+              referee_name: formData.fullName,
+              referee_email: formData.email,
+              reward: 500,
+              points_awarded: false,
+            });
+          }
+        } catch (refErr) {
+          console.warn('Referral creation failed (non-critical):', refErr);
+        }
+      }
 
       navigate('/dashboard');
     } catch (err) {
