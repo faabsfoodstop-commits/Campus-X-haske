@@ -176,7 +176,18 @@ export default function SpinWheel() {
 
       setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
 
-      // Update points and wallet using fresh DB values
+      // Record spin activity FIRST — if this fails, abort without touching points
+      const spinRecordResult = await recordSpinActivity(
+        session.user.id,
+        result.label,
+        earnedPoints,
+        useFreeSpins
+      );
+      if (!spinRecordResult.success) {
+        throw new Error(spinRecordResult.error || 'Failed to record spin');
+      }
+
+      // Now safe to update points and wallet — activity is committed
       const newPoints = freshUser.points + earnedPoints;
       const newWallet = useFreeSpins ? freshUser.wallet : ((freshUser.wallet || 0) - 50);
 
@@ -189,17 +200,6 @@ export default function SpinWheel() {
         .eq('id', session.user.id);
 
       if (updateError) throw updateError;
-
-      // Record spin activity (both spin_history and transaction in one call)
-      const spinRecordResult = await recordSpinActivity(
-        session.user.id,
-        result.label,
-        earnedPoints,
-        useFreeSpins
-      );
-      if (!spinRecordResult.success) {
-        throw new Error(spinRecordResult.error || 'Failed to record spin');
-      }
 
       // Optimistically update UI immediately
       if (useFreeSpins) {
@@ -269,11 +269,11 @@ export default function SpinWheel() {
       if (error) throw error;
 
       setUserData(prev => ({ ...prev, wallet: newWallet }));
-      setFreeSpin(prev => prev + quantity);
+      setPurchasedSpin(prev => prev + quantity);
       setShowBuySpins(false);
       showAlert({
         title: 'Success!',
-        message: `You've purchased ${quantity} spin${quantity > 1 ? 's' : ''}! Now you have ${freeSpin + quantity} free spins available.`,
+        message: `You've purchased ${quantity} spin${quantity > 1 ? 's' : ''}! Now you have ${purchasedSpin + quantity} paid spins available.`,
         type: 'success'
       });
     } catch (err) {

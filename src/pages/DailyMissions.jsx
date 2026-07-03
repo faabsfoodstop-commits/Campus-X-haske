@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, callEdgeFunction } from '../config/supabase';
+import { supabase } from '../config/supabase';
+import { updateUserPoints } from '../utils/databaseHelpers';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
@@ -51,7 +52,7 @@ export default function DailyMissions() {
       description: 'Check in before 9 AM',
       reward: 250,
       difficulty: 'easy',
-      link: '/streak-manager'
+      link: '/streak'
     },
     {
       id: 'video_ad',
@@ -234,6 +235,22 @@ export default function DailyMissions() {
 
       if (adsError) throw adsError;
 
+      // Helper: award mission bonus points for newly auto-detected completions
+      const awardMissionBonus = async (missionId, missionName, reward) => {
+        const { data: freshUser } = await supabase
+          .from('users').select('points').eq('id', session.user.id).single();
+        if (!freshUser) return;
+        const newPoints = freshUser.points + reward;
+        await supabase.from('users').update({ points: newPoints }).eq('id', session.user.id);
+        await supabase.from('transactions').insert({
+          user_id: session.user.id,
+          type: 'mission',
+          amount: reward,
+          description: `Daily Mission: ${missionName}`,
+          timestamp: new Date().toISOString()
+        });
+      };
+
       if (adsData.length > 0 && !completed.includes('video_ad')) {
         completed.push('video_ad');
         if (!existingCompleted.includes('video_ad')) {
@@ -245,6 +262,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
+          await awardMissionBonus('video_ad', 'Watch an Ad', 250);
         }
       }
 
@@ -259,6 +277,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
+          await awardMissionBonus('watch_videos', 'Watch 3 Videos', 1000);
         }
       }
 
@@ -282,6 +301,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
+          await awardMissionBonus('instagram', 'Follow a Brand', 375);
         }
       }
 
@@ -304,6 +324,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
+          await awardMissionBonus('checkin', 'Morning Check-In', 250);
         }
       }
 
@@ -337,37 +358,45 @@ export default function DailyMissions() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const result = await callEdgeFunction('award-mission-reward', {
-        userId: session.user.id,
-        missionId: mission.id,
-        missionName: mission.name,
-        baseReward: mission.reward
+      // Insert mission completion record as duplicate guard
+      const { error: insertError } = await supabase.from('daily_missions').insert({
+        user_id: session.user.id,
+        mission_id: mission.id,
+        mission_name: mission.name,
+        base_reward: mission.reward,
+        completed: true,
+        completed_at: new Date().toISOString()
       });
 
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to award mission');
-      }
+      if (insertError) throw insertError;
 
-      const finalPoints = result.pointsAwarded;
+      // Fetch fresh points then award mission reward
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
 
-      // Update UI
-      setCompletedToday([...completedToday, mission.id]);
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + finalPoints
-      }));
+      const newPoints = freshUser.points + mission.reward;
+      await updateUserPoints(session.user.id, newPoints);
+
+      await supabase.from('transactions').insert({
+        user_id: session.user.id,
+        type: 'mission',
+        amount: mission.reward,
+        description: `Daily Mission: ${mission.name}`,
+        timestamp: new Date().toISOString()
+      });
+
+      setCompletedToday(prev => [...prev, mission.id]);
+      setUserData(prev => ({ ...prev, points: newPoints }));
 
       setNotification({
         type: 'success',
         title: 'Mission Completed! 🎉',
-        message: `${mission.name}\n+${mission.reward} pts${result.multiplier > 1 ? ` x${result.multiplier} (premium)` : ''}\nTotal: +${finalPoints} pts`,
-        reward: finalPoints
+        message: `${mission.name}\n+${mission.reward} pts`,
+        reward: mission.reward
       });
 
-      // Refresh combo bonus calculation
       await checkDailyMissionsSimple();
-
-      // Hide notification after 3 seconds
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error('Error completing mission:', err);

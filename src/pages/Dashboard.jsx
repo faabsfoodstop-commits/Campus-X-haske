@@ -526,50 +526,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Marketplace</h3>
-            <p className="text-gray-600 mb-4">
-              Browse and list items for sale on the campus marketplace.
-            </p>
-            <Button
-              onClick={() => navigate('/marketplace')}
-              variant="ghost"
-              size="md"
-            >
-              Open Marketplace →
-            </Button>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Post Ads</h3>
-            <p className="text-gray-600 mb-4">
-              Sell items or offer services to your university community.
-            </p>
-            <Button
-              onClick={() => navigate('/my-ads')}
-              variant="ghost"
-              size="md"
-            >
-              My Ads →
-            </Button>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">P2P Transfers</h3>
-            <p className="text-gray-600 mb-4">
-              Send money to other students quickly and securely.
-            </p>
-            <Button
-              onClick={() => navigate('/wallet')}
-              variant="ghost"
-              size="md"
-            >
-              Send Money →
-            </Button>
-          </div>
-        </div>
       </div>
       <Modal {...modal} onClose={closeModal} />
     </div>

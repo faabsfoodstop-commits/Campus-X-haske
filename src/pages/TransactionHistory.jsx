@@ -107,7 +107,7 @@ export default function TransactionHistory() {
 
         {/* Filter */}
         <div className="flex gap-2 mb-8 border-b border-gray-200">
-          {['all', 'point_purchase', 'reward_redemption', 'point_sale'].map(f => (
+          {['all', 'spin_wheel', 'trivia', 'check_in', 'video_ad', 'instagram_follow', 'referral', 'getting_started', 'cosmetic_purchase'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}

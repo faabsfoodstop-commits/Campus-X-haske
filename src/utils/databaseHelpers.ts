@@ -140,7 +140,7 @@ export async function recordInstagramFollowActivity(
 
     const { error: txError } = await supabase.from('transactions').insert({
       user_id: userId,
-      type: 'referral',
+      type: 'instagram_follow',
       amount: pointsEarned,
       description: `Followed ${brandName} on Instagram`,
       timestamp: new Date().toISOString()
@@ -335,7 +335,7 @@ export async function recordCosmeticPurchaseActivity(
       .from('users')
       .select('points, cosmetics_purchased')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
 

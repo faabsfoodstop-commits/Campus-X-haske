@@ -174,7 +174,7 @@ export default function Leaderboard() {
               <div>
                 <p className="text-blue-100 mb-2">Your Rank</p>
                 <h2 className="text-5xl font-bold mb-2">#<span className="text-yellow-300">{userRank}</span></h2>
-                <p className="text-blue-100">{currentUser?.displayName || 'User'}</p>
+                <p className="text-blue-100">{currentUser?.fullName || currentUser?.full_name || 'User'}</p>
                 <p className="text-sm text-blue-100 mt-1">
                   📍 {NIGERIAN_UNIVERSITIES.find(u => u.code === currentUser?.university)?.name || currentUser?.university || 'No university set'}
                 </p>
@@ -275,7 +275,7 @@ export default function Leaderboard() {
                   <div className="text-6xl mb-2">{getMedalIcon(position)}</div>
                   <p className="text-4xl font-bold mb-2">#{position}</p>
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <p className="text-lg font-semibold">{user.displayName || 'Anonymous'}</p>
+                    <p className="text-lg font-semibold">{user.full_name || 'Anonymous'}</p>
                     {user.active_badge && <span className="text-xl">{COSMETICS_LOOKUP[user.active_badge]?.icon}</span>}
                   </div>
                   {user.active_title && (
@@ -343,11 +343,11 @@ export default function Leaderboard() {
                       className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
                       style={user.active_frame ? { boxShadow: `0 0 0 3px ${COSMETICS_LOOKUP[user.active_frame]?.frameColor}` } : {}}
                     >
-                      {(user.displayName || user.full_name || '?')[0].toUpperCase()}
+                      {(user.full_name || '?')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-gray-800">{user.displayName || 'Anonymous'}</p>
+                        <p className="font-bold text-gray-800">{user.full_name || 'Anonymous'}</p>
                         {user.active_badge && <span className="text-base">{COSMETICS_LOOKUP[user.active_badge]?.icon}</span>}
                       </div>
                       {user.active_title && (

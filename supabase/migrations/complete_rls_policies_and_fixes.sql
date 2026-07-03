@@ -118,9 +118,9 @@ DROP POLICY IF EXISTS "Users can read own referrals" ON referrals;
 CREATE POLICY "Users can read own referrals" ON referrals
   FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referee_id);
 
-DROP POLICY IF EXISTS "Users can insert referrals" ON referrals;
-CREATE POLICY "Users can insert referrals" ON referrals
-  FOR INSERT WITH CHECK (auth.uid() = referrer_id);
+-- INSERT policy intentionally omitted here:
+-- fix_referrals_system.sql sets the correct policy (auth.uid() = referee_id)
+-- because the referee (new user) inserts the row at signup, not the referrer.
 
 -- User Ads
 DROP POLICY IF EXISTS "Users can read own ads" ON user_ads;

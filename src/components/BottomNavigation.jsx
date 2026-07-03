@@ -14,7 +14,7 @@ export default function BottomNavigation() {
 
   const tabs = [
     { path: '/dashboard', icon: IconHome, label: 'Home', id: 'home' },
-    { path: '/marketplace', icon: IconCoin, label: 'Earn', id: 'earn' },
+    { path: '/daily-missions', icon: IconCoin, label: 'Earn', id: 'earn' },
     { path: '/point-market', icon: IconTrendingUp, label: 'Trade', id: 'trade' },
     { path: '/profile', icon: IconProfile, label: 'Me', id: 'me' },
     { path: '/menu', icon: IconMenu, label: 'More', id: 'more' },

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, callEdgeFunction } from '../config/supabase';
+import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -354,7 +354,7 @@ export default function Profile() {
               {/* Full Name */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
-                <p className="text-gray-600">{userData?.fullName || user?.displayName}</p>
+                <p className="text-gray-600">{userData?.fullName || userData?.full_name || 'Not set'}</p>
               </div>
 
               {/* Email */}

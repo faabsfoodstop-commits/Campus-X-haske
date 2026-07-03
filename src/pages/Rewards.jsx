@@ -80,34 +80,42 @@ export default function Rewards() {
       return;
     }
 
-    const currentPoints = userData?.points || 0;
-
-    if (currentPoints < MIN_REDEMPTION) {
-      setNotification({
-        type: 'error',
-        message: `Minimum ${MIN_REDEMPTION} points required to redeem. You have ${currentPoints} points. Need ${MIN_REDEMPTION - currentPoints} more!`
-      });
-      return;
-    }
-
-    if (currentPoints < reward.points) {
-      setNotification({
-        type: 'error',
-        message: `Not enough points. You need ${reward.points} but have ${currentPoints}`
-      });
-      return;
-    }
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      setNotification({
-        type: 'info',
-        message: 'Processing your redemption request...'
-      });
+      // Fetch fresh points — never use stale local state for financial operations
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to verify balance');
 
+      const currentPoints = freshUser.points || 0;
+
+      if (currentPoints < MIN_REDEMPTION) {
+        setNotification({
+          type: 'error',
+          message: `Minimum ${MIN_REDEMPTION} points required. You have ${currentPoints} points.`
+        });
+        return;
+      }
+
+      if (currentPoints < reward.points) {
+        setNotification({
+          type: 'error',
+          message: `Not enough points. You need ${reward.points} but have ${currentPoints}.`
+        });
+        return;
+      }
+
+      setNotification({ type: 'info', message: 'Processing your redemption request...' });
+
+      // Deduct points FIRST — if this fails, no redemption is recorded
       const newPoints = currentPoints - reward.points;
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: newPoints })
+        .eq('id', session.user.id);
+      if (updateError) throw updateError;
 
       const { error: insertError } = await supabase
         .from('redemptions')
@@ -121,13 +129,6 @@ export default function Rewards() {
         });
 
       if (insertError) throw insertError;
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ points: newPoints })
-        .eq('id', session.user.id);
-
-      if (updateError) throw updateError;
 
       await fetchUserData();
 
@@ -361,14 +362,14 @@ export default function Rewards() {
                   borderLeftColor: redemption.status === 'completed' ? '#10b981' : redemption.status === 'pending' ? '#f59e0b' : '#ef4444'
                 }}>
                   <div className="flex-1">
-                    <p className="font-semibold text-gray-800">{redemption.rewardName}</p>
-                    <p className="text-sm text-gray-600">Phone: {redemption.phoneNumber}</p>
+                    <p className="font-semibold text-gray-800">{redemption.reward_name}</p>
+                    <p className="text-sm text-gray-600">Phone: {redemption.phone_number}</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(redemption.timestamp.toDate?.() || redemption.timestamp).toLocaleDateString()} {new Date(redemption.timestamp.toDate?.() || redemption.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      {redemption.created_at ? new Date(redemption.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-primary">-{redemption.pointsRedeemed} pts</p>
+                    <p className="font-bold text-primary">-{redemption.points_used} pts</p>
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                       redemption.status === 'completed' ? 'bg-green-100 text-green-800' :
                       redemption.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

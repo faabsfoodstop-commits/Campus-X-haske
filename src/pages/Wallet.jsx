@@ -48,7 +48,7 @@ export default function Wallet() {
         .from('transactions')
         .select('*')
         .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
+        .order('timestamp', { ascending: false });
 
       if (transError) throw transError;
       setTransactions(transactionsList || []);
@@ -152,22 +152,18 @@ export default function Wallet() {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
+  const earnTypes = new Set(['spin_wheel', 'trivia', 'check_in', 'video_ad', 'instagram_follow', 'referral', 'getting_started', 'mission']);
+  const spendTypes = new Set(['cosmetic_purchase', 'withdrawal', 'point_purchase']);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
   const totalEarnedThisMonth = transactions
-    .filter(t => {
-      const txDate = new Date(t.timestamp?.toDate?.() || t.timestamp);
-      const thisMonth = new Date();
-      thisMonth.setDate(1);
-      return txDate >= thisMonth && t.type === 'credit';
-    })
+    .filter(t => new Date(t.timestamp) >= monthStart && earnTypes.has(t.type))
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const totalSpentThisMonth = transactions
-    .filter(t => {
-      const txDate = new Date(t.timestamp?.toDate?.() || t.timestamp);
-      const thisMonth = new Date();
-      thisMonth.setDate(1);
-      return txDate >= thisMonth && t.type === 'debit';
-    })
+    .filter(t => new Date(t.timestamp) >= monthStart && spendTypes.has(t.type))
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending');
@@ -409,7 +405,7 @@ export default function Wallet() {
                   <div>
                     <p className="font-semibold text-gray-800 capitalize">{withdrawal.method.replace('_', ' ')}</p>
                     <p className="text-sm text-gray-600">
-                      {new Date(withdrawal.createdAt?.toDate?.() || withdrawal.createdAt).toLocaleDateString()}
+                      {withdrawal.created_at ? new Date(withdrawal.created_at).toLocaleDateString() : '—'}
                     </p>
                     <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
                       withdrawal.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -438,8 +434,14 @@ export default function Wallet() {
               className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">All Transactions</option>
-              <option value="credit">Credits</option>
-              <option value="debit">Debits</option>
+              <option value="spin_wheel">Spin Wheel</option>
+              <option value="trivia">Trivia</option>
+              <option value="check_in">Check-In</option>
+              <option value="video_ad">Video Ads</option>
+              <option value="instagram_follow">Instagram Follow</option>
+              <option value="referral">Referral</option>
+              <option value="getting_started">Getting Started</option>
+              <option value="cosmetic_purchase">Cosmetic Purchase</option>
             </select>
           </div>
 
@@ -451,15 +453,15 @@ export default function Wallet() {
                 <div key={transaction.id} className="flex justify-between items-center border-b pb-3 last:border-b-0">
                   <div>
                     <p className="font-semibold text-gray-800 capitalize">
-                      {transaction.type === 'credit' ? '💰 ' : '💸 '}
-                      {transaction.description || transaction.type}
+                      {earnTypes.has(transaction.type) ? '💰 ' : '💸 '}
+                      {transaction.description || transaction.type?.replace(/_/g, ' ')}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(transaction.timestamp?.toDate?.() || transaction.timestamp).toLocaleString()}
+                      {transaction.timestamp ? new Date(transaction.timestamp).toLocaleString() : '—'}
                     </p>
                   </div>
-                  <p className={`font-bold ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                    {transaction.type === 'credit' ? '+' : '-'}₦{transaction.amount?.toLocaleString() || 0}
+                  <p className={`font-bold ${earnTypes.has(transaction.type) ? 'text-green-600' : 'text-red-600'}`}>
+                    {earnTypes.has(transaction.type) ? '+' : '-'}{transaction.amount?.toLocaleString() || 0} pts
                   </p>
                 </div>
               ))}

@@ -229,7 +229,7 @@ function App() {
             element={<PrivateRoute user={user}><ActivityLog /></PrivateRoute>}
           />
           </Routes>
-          <BottomNavigation />
+          {user && <BottomNavigation />}
         </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>
