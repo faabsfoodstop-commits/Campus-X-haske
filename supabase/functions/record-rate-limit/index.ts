@@ -21,9 +21,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing userId or featureName" }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+      token || Deno.env.get("SUPABASE_ANON_KEY") || ""
     );
 
     // Get feature limits
