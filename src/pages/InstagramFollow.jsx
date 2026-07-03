@@ -155,6 +155,14 @@ export default function InstagramFollow() {
 
       if (updateError) throw updateError;
 
+      await supabase.from('transactions').insert({
+        user_id: session.user.id,
+        type: 'referral',
+        amount: pointsAwarded,
+        description: `Followed ${brand.name} on Instagram`,
+        timestamp: new Date().toISOString()
+      });
+
       setUserData(prev => ({
         ...prev,
         points: newPoints

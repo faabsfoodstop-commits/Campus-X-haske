@@ -12,9 +12,12 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
     const { userId, challengeId, bonus } = await req.json();
@@ -81,8 +84,7 @@ serve(async (req) => {
       type: "weekly_challenge",
       description: `Claimed weekly challenge: ${challengeId}`,
       amount: bonusAwarded,
-      base_bonus: bonus,
-      multiplier: multiplier,
+      timestamp: new Date().toISOString(),
     });
 
     // Record claim

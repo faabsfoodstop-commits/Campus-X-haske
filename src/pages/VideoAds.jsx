@@ -207,6 +207,14 @@ export default function VideoAds() {
 
       if (insertError) throw insertError;
 
+      await supabase.from('transactions').insert({
+        user_id: session.user.id,
+        type: 'video_ad',
+        amount: finalPoints,
+        description: `Watched ad: ${ad.title}`,
+        timestamp: new Date().toISOString()
+      });
+
       setAdResult({
         success: true,
         reward: finalPoints,
