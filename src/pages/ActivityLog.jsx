@@ -16,15 +16,25 @@ export default function ActivityLog() {
   const activityColors = {
     spin: '#fbbf24',
     trivia: '#60a5fa',
-    'check-in': '#34d399',
-    'getting-started': '#f87171',
+    check_in: '#34d399',
+    getting_started: '#f87171',
+    mission: '#a78bfa',
+    challenge: '#ec4899',
+    video_ad: '#14b8a6',
+    referral: '#f59e0b',
+    default: '#6b7280',
   };
 
   const activityIcons = {
     spin: '🎡',
     trivia: '🧠',
-    'check-in': '✅',
-    'getting-started': '🚀',
+    check_in: '✅',
+    getting_started: '🚀',
+    mission: '📋',
+    challenge: '🏆',
+    video_ad: '📺',
+    referral: '👥',
+    default: '💰',
   };
 
   useEffect(() => {
@@ -48,92 +58,37 @@ export default function ActivityLog() {
         setUser(session.user);
       }
 
-      // Fetch all activity sources in parallel
-      const [spinData, triviaData, checkinData, tasksData] = await Promise.all([
-        supabase
-          .from('spin_history')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('trivia_results')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('streak_check_ins')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('getting_started_tasks')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('points_awarded', true)
-          .order('completed_at', { ascending: false }),
-      ]);
+      // Fetch ALL transactions (unified activity log)
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('timestamp', { ascending: false });
 
-      // Combine all activities
-      const allActivities = [];
+      // Transform transactions to activity items
+      const allActivities = (transactions || []).map(tx => {
+        const typeMap = {
+          spin_wheel: { type: 'spin', icon: '🎡', label: 'Spin Wheel' },
+          trivia: { type: 'trivia', icon: '🧠', label: 'Trivia Game' },
+          check_in: { type: 'check_in', icon: '✅', label: 'Daily Check-In' },
+          getting_started: { type: 'getting_started', icon: '🚀', label: 'Getting Started' },
+          mission: { type: 'mission', icon: '📋', label: 'Daily Mission' },
+          weekly_challenge: { type: 'challenge', icon: '🏆', label: 'Weekly Challenge' },
+          video_ad: { type: 'video_ad', icon: '📺', label: 'Video Ad' },
+          referral: { type: 'referral', icon: '👥', label: 'Referral' },
+        };
 
-      // Add spin activities
-      if (spinData.data) {
-        spinData.data.forEach(spin => {
-          allActivities.push({
-            id: `spin-${spin.id}`,
-            type: 'spin',
-            title: `Spin Wheel - ${spin.result}`,
-            points: spin.earned_points || 0,
-            timestamp: spin.created_at,
-            details: `Won: ${spin.result}`,
-          });
-        });
-      }
+        const info = typeMap[tx.type] || { type: 'default', icon: '💰', label: 'Activity' };
 
-      // Add trivia activities
-      if (triviaData.data) {
-        triviaData.data.forEach(trivia => {
-          allActivities.push({
-            id: `trivia-${trivia.id}`,
-            type: 'trivia',
-            title: `Trivia Game`,
-            points: trivia.points_earned || 0,
-            timestamp: trivia.created_at,
-            details: `Score: ${trivia.score} | ${trivia.correct_answers}/10 correct`,
-          });
-        });
-      }
-
-      // Add check-in activities
-      if (checkinData.data) {
-        checkinData.data.forEach(checkin => {
-          allActivities.push({
-            id: `checkin-${checkin.id}`,
-            type: 'check-in',
-            title: `Daily Check-In`,
-            points: checkin.points_earned || 10,
-            timestamp: checkin.created_at,
-            details: `Checked in on ${checkin.check_in_date}`,
-          });
-        });
-      }
-
-      // Add getting started task activities
-      if (tasksData.data) {
-        tasksData.data.forEach(task => {
-          allActivities.push({
-            id: `task-${task.id}`,
-            type: 'getting-started',
-            title: task.task_name,
-            points: task.reward_points || 0,
-            timestamp: task.completed_at,
-            details: `Onboarding bonus`,
-          });
-        });
-      }
-
-      // Sort by timestamp, newest first
-      allActivities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return {
+          id: tx.id,
+          type: info.type,
+          title: `${info.label}${tx.description ? ': ' + tx.description : ''}`,
+          points: tx.amount || 0,
+          timestamp: tx.timestamp,
+          details: tx.description || '',
+        };
+      });
 
       setActivities(allActivities);
       setLoading(false);
@@ -220,7 +175,7 @@ export default function ActivityLog() {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Check-Ins</div>
             <div className="text-2xl font-bold text-green-600">
-              {activities.filter(a => a.type === 'check-in').length}
+              {activities.filter(a => a.type === 'check_in').length}
             </div>
           </div>
         </div>
@@ -249,15 +204,15 @@ export default function ActivityLog() {
             🧠 Trivia
           </Button>
           <Button
-            onClick={() => setFilterType('check-in')}
-            variant={filterType === 'check-in' ? 'primary' : 'secondary'}
+            onClick={() => setFilterType('check_in')}
+            variant={filterType === 'check_in' ? 'primary' : 'secondary'}
             size="sm"
           >
             ✅ Check-Ins
           </Button>
           <Button
-            onClick={() => setFilterType('getting-started')}
-            variant={filterType === 'getting-started' ? 'primary' : 'secondary'}
+            onClick={() => setFilterType('getting_started')}
+            variant={filterType === 'getting_started' ? 'primary' : 'secondary'}
             size="sm"
           >
             🚀 Onboarding
