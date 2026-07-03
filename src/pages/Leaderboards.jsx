@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { IconArrowLeft, IconTrophy, IconFire, IconRocket } from '../components/Icons';
+import { IconArrowLeft, IconTrophy } from '../components/Icons';
 import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 import { COSMETICS_LOOKUP } from '../constants/cosmetics';
 
@@ -11,112 +10,81 @@ export default function Leaderboard() {
   const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState('week'); // week, month, all-time
+  const [timeframe, setTimeframe] = useState('week');
   const [userRank, setUserRank] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [leaderboardType, setLeaderboardType] = useState('global'); // global or university
+  const [leaderboardType, setLeaderboardType] = useState('global');
   const [selectedUniversity, setSelectedUniversity] = useState('');
 
   useEffect(() => {
     setLoading(true);
-    if (leaderboardType === 'global') {
-      setSelectedUniversity('');
-    }
-    fetchLeaderboard();
-    fetchUserRank();
+    if (leaderboardType === 'global') setSelectedUniversity('');
+    fetchAll();
   }, [timeframe, leaderboardType, selectedUniversity]);
 
-  const fetchLeaderboard = async () => {
+  const fetchAll = async () => {
     try {
-      let orderByField;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { navigate('/login'); return; }
 
-      if (timeframe === 'week') {
-        orderByField = 'weekly_points';
-      } else if (timeframe === 'month') {
-        orderByField = 'monthly_points';
-      } else {
-        orderByField = 'points';
-      }
+      const userId = session.user.id;
+      const orderByField = timeframe === 'week' ? 'weekly_points'
+                         : timeframe === 'month' ? 'monthly_points'
+                         : 'points';
 
-      let query = supabase
+      // Build leaderboard query — select only needed columns
+      let lbQuery = supabase
         .from('users')
-        .select('*')
+        .select('id, full_name, points, weekly_points, monthly_points, university, department, active_badge, active_title, active_frame')
         .order(orderByField, { ascending: false })
-        .limit(100);
+        .limit(50);
 
       if (leaderboardType === 'university' && selectedUniversity) {
-        query = query.eq('university', selectedUniversity);
+        lbQuery = lbQuery.eq('university', selectedUniversity);
       }
 
-      const { data: users, error } = await query;
+      // Run leaderboard + current user fetch in parallel
+      const [lbResult, userResult] = await Promise.all([
+        lbQuery,
+        supabase.from('users').select('*').eq('id', userId).single(),
+      ]);
 
-      if (error) throw error;
+      if (lbResult.error) throw lbResult.error;
+      if (userResult.error) throw userResult.error;
 
-      const mappedUsers = users.map((user, idx) => ({
+      const mappedUsers = (lbResult.data || []).map((user, idx) => ({
         ...user,
         uid: user.id,
         rank: idx + 1,
       }));
-
       setLeaderboard(mappedUsers);
+
+      const rawUser = userResult.data;
+      setCurrentUser({
+        ...rawUser,
+        fullName: rawUser.full_name,
+        weeklyPoints: rawUser.weekly_points || 0,
+        monthlyPoints: rawUser.monthly_points || 0,
+      });
+
+      // Rank via server-side COUNT — no full table scan
+      const userScore = rawUser[orderByField] || 0;
+      let rankQuery = supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .gt(orderByField, userScore);
+
+      if (leaderboardType === 'university' && selectedUniversity) {
+        rankQuery = rankQuery.eq('university', selectedUniversity);
+      }
+
+      const { count } = await rankQuery;
+      setUserRank((count ?? 0) + 1);
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
       setLoading(false);
-    }
-  };
-
-  const fetchUserRank = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (userError) throw userError;
-      if (user) {
-        const normalizedUser = {
-          ...user,
-          fullName: user.full_name,
-          weeklyPoints: user.weekly_points || 0,
-          monthlyPoints: user.monthly_points || 0
-        };
-        setCurrentUser(normalizedUser);
-      }
-
-      let orderByField;
-
-      if (timeframe === 'week') {
-        orderByField = 'weekly_points';
-      } else if (timeframe === 'month') {
-        orderByField = 'monthly_points';
-      } else {
-        orderByField = 'points';
-      }
-
-      let query = supabase
-        .from('users')
-        .select('id')
-        .order(orderByField, { ascending: false });
-
-      if (leaderboardType === 'university' && selectedUniversity) {
-        query = query.eq('university', selectedUniversity);
-      }
-
-      const { data: users, error } = await query;
-
-      if (error) throw error;
-
-      const userIndex = users.findIndex(u => u.id === session.user.id);
-      if (userIndex !== -1) {
-        setUserRank(userIndex + 1);
-      }
-    } catch (err) {
-      console.error('Error fetching user rank:', err);
     }
   };
 
@@ -133,9 +101,10 @@ export default function Leaderboard() {
     }
   };
 
+  // Accepts both normalized (camelCase) and raw DB (snake_case) user objects
   const getPointsForTimeframe = (user) => {
-    if (timeframe === 'week') return user.weeklyPoints || 0;
-    if (timeframe === 'month') return user.monthlyPoints || 0;
+    if (timeframe === 'week') return user.weekly_points ?? user.weeklyPoints ?? 0;
+    if (timeframe === 'month') return user.monthly_points ?? user.monthlyPoints ?? 0;
     return user.points || 0;
   };
 
@@ -255,7 +224,7 @@ export default function Leaderboard() {
         </div>
 
         {/* Top 3 Spotlight */}
-        {leaderboard.length >= 3 && (
+        {leaderboard.length >= 1 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {[1, 2, 3].map((position) => {
               const user = leaderboard[position - 1];
