@@ -45,18 +45,13 @@ export default function StreakManager() {
         if (checkIns && checkIns.length > 0) {
           const today = new Date().toISOString().split('T')[0];
           const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
           const sortedDates = checkIns.map(ci => ci.check_in_date).sort().reverse();
-
-          // Check if today or yesterday has a check-in
           if (sortedDates[0] === today || sortedDates[0] === yesterday) {
-            // Count consecutive days backwards
             let currentDate = new Date(sortedDates[0]);
             for (let i = 0; i < sortedDates.length; i++) {
               const checkInDate = new Date(sortedDates[i]);
               const expectedDate = new Date(currentDate);
               expectedDate.setDate(expectedDate.getDate() - i);
-
               if (checkInDate.toISOString().split('T')[0] === expectedDate.toISOString().split('T')[0]) {
                 streak++;
               } else {
@@ -66,20 +61,24 @@ export default function StreakManager() {
           }
         }
 
-        const updatedUserData = { ...userData, current_streak: streak };
-        setUserData(updatedUserData);
+        setUserData({ ...userData, current_streak: streak });
 
-        // Check streak status
-        const today = new Date().toDateString();
-        const lastCheckIn = localStorage.getItem('lastCheckIn');
+        // Use DB as authoritative source for today's check-in status
+        const todayDate = new Date().toISOString().split('T')[0];
+        const todayString = new Date().toDateString();
         const yesterday = new Date(Date.now() - 86400000).toDateString();
 
-        if (lastCheckIn === today) {
+        const todayCheckIn = checkIns?.find(ci => ci.check_in_date === todayDate);
+        if (todayCheckIn) {
+          localStorage.setItem('lastCheckIn', todayString);
           setStreakStatus('active');
-        } else if (lastCheckIn === yesterday) {
-          setStreakStatus('warning');
         } else {
-          setStreakStatus('broken');
+          const lastCheckIn = localStorage.getItem('lastCheckIn');
+          if (lastCheckIn === yesterday) {
+            setStreakStatus('warning');
+          } else {
+            setStreakStatus('broken');
+          }
         }
       }
       setLoading(false);
@@ -93,45 +92,52 @@ export default function StreakManager() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const today = new Date().toDateString();
-    const lastCheckIn = localStorage.getItem('lastCheckIn');
-
-    if (lastCheckIn === today) {
-      addToast('You already checked in today!', 'warning');
-      return;
-    }
+    const todayDate = new Date().toISOString().split('T')[0];
+    const todayString = new Date().toDateString();
 
     try {
-      let newStreak = (userData?.current_streak || 0) + 1;
-      let streakBonus = 0;
+      // DB is the authoritative duplicate guard
+      const { data: existingCheckIn } = await supabase
+        .from('streak_check_ins')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('check_in_date', todayDate)
+        .maybeSingle();
 
-      // Milestone bonuses
-      if (newStreak === 7) streakBonus = 500; // 1 week
-      if (newStreak === 14) streakBonus = 1500; // 2 weeks
-      if (newStreak === 30) streakBonus = 5000; // 1 month
-      if (newStreak === 100) streakBonus = 25000; // 100 days
+      if (existingCheckIn) {
+        localStorage.setItem('lastCheckIn', todayString);
+        setStreakStatus('active');
+        addToast('You already checked in today!', 'warning');
+        return;
+      }
+
+      // Fetch fresh user data — never use stale local state
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points, current_streak').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+      const newStreak = (freshUser.current_streak || 0) + 1;
+      let streakBonus = 0;
+      if (newStreak === 7) streakBonus = 500;
+      if (newStreak === 14) streakBonus = 1500;
+      if (newStreak === 30) streakBonus = 5000;
+      if (newStreak === 100) streakBonus = 25000;
 
       const totalPoints = 250 + streakBonus;
+      const newPoints = freshUser.points + totalPoints;
 
-      // Update streak and points
-      const newPoints = (userData?.points || 0) + totalPoints;
       const { error: updateError } = await supabase
         .from('users')
         .update({ current_streak: newStreak, points: newPoints })
         .eq('id', session.user.id);
       if (updateError) throw updateError;
 
-      // Record check-in activity (streak_check_ins + transaction)
+      // Record check-in — must succeed before declaring victory
       const recorded = await recordCheckInActivity(session.user.id, totalPoints);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record check-in');
 
-      localStorage.setItem('lastCheckIn', today);
-      setUserData(prev => ({
-        ...prev,
-        current_streak: newStreak,
-        points: (prev?.points || 0) + totalPoints,
-      }));
-
+      localStorage.setItem('lastCheckIn', todayString);
+      setUserData(prev => ({ ...prev, current_streak: newStreak, points: newPoints }));
       setStreakStatus('active');
 
       if (streakBonus > 0) {

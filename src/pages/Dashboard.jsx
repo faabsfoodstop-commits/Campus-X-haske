@@ -58,7 +58,7 @@ export default function Dashboard() {
           };
           setUserData(normalizedUser);
           setUser(session.user);
-          checkTodayCheckIn();
+          checkTodayCheckIn(session.user.id);
         }
       } catch (err) {
         console.error('Error fetching user:', err);
@@ -74,10 +74,27 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const checkTodayCheckIn = () => {
-    const today = new Date().toDateString();
-    const lastCheckIn = localStorage.getItem('lastCheckIn');
-    setCheckedInToday(lastCheckIn === today);
+  const checkTodayCheckIn = async (userId) => {
+    const todayString = new Date().toDateString();
+    // Fast-path: localStorage already confirms today
+    if (localStorage.getItem('lastCheckIn') === todayString) {
+      setCheckedInToday(true);
+      return;
+    }
+    // Authoritative check against DB
+    const todayDate = new Date().toISOString().split('T')[0];
+    const { data: existing } = await supabase
+      .from('streak_check_ins')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('check_in_date', todayDate)
+      .maybeSingle();
+    if (existing) {
+      localStorage.setItem('lastCheckIn', todayString);
+      setCheckedInToday(true);
+    } else {
+      setCheckedInToday(false);
+    }
   };
 
   const handleCheckIn = async () => {
@@ -85,53 +102,63 @@ export default function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const todayString = new Date().toDateString();
       const todayDate = new Date().toISOString().split('T')[0];
+      const todayString = new Date().toDateString();
 
-      // Calculate points with milestone bonuses
-      let pointsEarned = 250; // Base check-in points
-      const currentStreak = (userData?.current_streak || 0) + 1;
-      if (currentStreak === 7) pointsEarned += 500;
-      if (currentStreak === 14) pointsEarned += 1500;
-      if (currentStreak === 30) pointsEarned += 5000;
-      if (currentStreak === 100) pointsEarned += 25000;
+      // DB is the authoritative duplicate guard (not localStorage)
+      const { data: existingCheckIn } = await supabase
+        .from('streak_check_ins')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('check_in_date', todayDate)
+        .maybeSingle();
 
-      const newStreak = (userData?.current_streak || 0) + 1;
-      const newPoints = (userData?.points || 0) + pointsEarned;
+      if (existingCheckIn) {
+        localStorage.setItem('lastCheckIn', todayString);
+        setCheckedInToday(true);
+        addToast('You already checked in today!', 'warning');
+        return;
+      }
+
+      // Fetch fresh user data — never use stale local state for calculations
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points, current_streak').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+      const newStreak = (freshUser.current_streak || 0) + 1;
+      let pointsEarned = 250;
+      if (newStreak === 7) pointsEarned += 500;
+      if (newStreak === 14) pointsEarned += 1500;
+      if (newStreak === 30) pointsEarned += 5000;
+      if (newStreak === 100) pointsEarned += 25000;
+
+      const newPoints = freshUser.points + pointsEarned;
       const { error } = await supabase
         .from('users')
         .update({ points: newPoints, current_streak: newStreak })
         .eq('id', session.user.id);
       if (error) throw error;
 
-      // Record check-in activity (streak_check_ins + transaction atomically)
+      // Record check-in (streak_check_ins + transaction) — must succeed
       const recorded = await recordCheckInActivity(session.user.id, pointsEarned);
-      if (!recorded.success) console.warn('Check-in record failed:', recorded.error);
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record check-in');
 
-      // Check if user has reached 7 check-ins for the getting started task
+      // Award 7-day getting started task if reached
       try {
-        const { data: allCheckIns, error: checkInsError } = await supabase
-          .from('streak_check_ins')
-          .select('check_in_date')
-          .eq('user_id', session.user.id)
-          .order('check_in_date', { ascending: false });
-
-        if (!checkInsError && allCheckIns && allCheckIns.length >= 7) {
-          // Get unique dates
-          const uniqueDates = new Set(allCheckIns.map(ci => ci.check_in_date));
-          if (uniqueDates.size >= 7) {
-            const result = await awardGettingStartedTask('checkin', 'Check In 7 Days', 70);
-            if (result.success) {
-              addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
-            }
-          }
+        const { data: allCheckIns } = await supabase
+          .from('streak_check_ins').select('check_in_date').eq('user_id', session.user.id);
+        const uniqueDates = new Set((allCheckIns || []).map(ci => ci.check_in_date));
+        if (uniqueDates.size >= 7) {
+          const { recordGettingStartedActivity } = await import('../utils/databaseHelpers');
+          const taskResult = await recordGettingStartedActivity(session.user.id, 'checkin', 'Check In 7 Days', 70);
+          if (taskResult.success) addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
         }
       } catch (err) {
-        console.error('Error checking 7-day task:', err);
+        console.error('Error awarding 7-day task:', err);
       }
 
       localStorage.setItem('lastCheckIn', todayString);
-      setUserData((prev) => ({ ...prev, points: newPoints, current_streak: newStreak }));
+      setUserData(prev => ({ ...prev, points: newPoints, current_streak: newStreak }));
       setCheckedInToday(true);
 
       await showAlert({
