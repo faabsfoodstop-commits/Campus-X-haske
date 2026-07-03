@@ -12,11 +12,14 @@ export default function VideoAds() {
   const [watchingAd, setWatchingAd] = useState(false);
   const [adResult, setAdResult] = useState(null);
   const [todayStats, setTodayStats] = useState({ watched: 0, earned: 0 });
+  const [watchedAdIds, setWatchedAdIds] = useState([]);
   const [activeAdModal, setActiveAdModal] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [videoPlayed, setVideoPlayed] = useState(false);
   const [videoError, setVideoError] = useState(null);
   const navigate = useNavigate();
+
+  const MAX_ADS_PER_DAY = videoAds.length;
 
   const videoAds = [
     {
@@ -71,6 +74,9 @@ export default function VideoAds() {
 
   useEffect(() => {
     fetchUserData();
+    // Poll every 5 seconds to keep points and stats live
+    const interval = setInterval(refreshStats, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -127,6 +133,17 @@ export default function VideoAds() {
     }
   };
 
+  const refreshStats = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data: user } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (user) setUserData(prev => ({ ...prev, points: user.points }));
+      await checkDailyAdStats();
+    } catch (_) {}
+  };
+
   const checkDailyAdStats = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -139,7 +156,7 @@ export default function VideoAds() {
 
       const { data: ads, error } = await supabase
         .from('video_ads_watched')
-        .select('points_earned')
+        .select('points_earned, ad_id')
         .eq('user_id', session.user.id)
         .gte('watched_at', todayStart.toISOString())
         .lt('watched_at', tomorrowStart.toISOString());
@@ -148,9 +165,11 @@ export default function VideoAds() {
 
       const watched = ads.length;
       const earned = ads.reduce((sum, ad) => sum + (ad.points_earned || 0), 0);
+      const ids = ads.map(a => a.ad_id).filter(Boolean);
 
       setAdsWatched(watched);
       setTodayStats({ watched, earned });
+      setWatchedAdIds(ids);
     } catch (err) {
       console.error('Error checking ad stats:', err);
     }
@@ -164,7 +183,6 @@ export default function VideoAds() {
   const completeVideoWatch = async (ad) => {
     if (watchingAd) return;
 
-    // Anti-cheat: Verify video was actually played
     if (!videoPlayed) {
       setVideoError('⚠️ Please play the video to completion before claiming reward');
       setTimeout(() => setVideoError(null), 3000);
@@ -183,40 +201,62 @@ export default function VideoAds() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const finalPoints = ad.reward;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-      const newPoints = (userData?.points || 0) + finalPoints;
+      // DB-authoritative duplicate check for this specific ad today
+      const { data: existingWatch } = await supabase
+        .from('video_ads_watched')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('ad_id', ad.id)
+        .gte('watched_at', todayStart.toISOString())
+        .maybeSingle();
+
+      if (existingWatch) {
+        setActiveAdModal(null);
+        setWatchedAdIds(prev => prev.includes(ad.id) ? prev : [...prev, ad.id]);
+        setAdResult({ success: false, error: 'You already watched this ad today!' });
+        setTimeout(() => setAdResult(null), 2000);
+        return;
+      }
+
+      // Daily limit check
+      if (todayStats.watched >= MAX_ADS_PER_DAY) {
+        setActiveAdModal(null);
+        setAdResult({ success: false, error: 'Daily limit reached. Come back tomorrow!' });
+        setTimeout(() => setAdResult(null), 2000);
+        return;
+      }
+
+      // Fetch fresh points — never use stale local state for DB writes
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users').select('points').eq('id', session.user.id).single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+      const finalPoints = ad.reward;
+      const newPoints = freshUser.points + finalPoints;
+
       const updated = await updateUserPoints(session.user.id, newPoints);
       if (!updated) throw new Error('Failed to update points');
 
       const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
 
+      // Optimistic updates — no need to re-fetch
       setUserData(prev => ({ ...prev, points: newPoints }));
+      setWatchedAdIds(prev => [...prev, ad.id]);
+      setTodayStats(prev => ({ watched: prev.watched + 1, earned: prev.earned + finalPoints }));
 
-      setAdResult({
-        success: true,
-        reward: finalPoints,
-        title: ad.title,
-        message: `You earned ${finalPoints} points!`
-      });
-
-      await checkDailyAdStats();
-
-      // Close modal after result
       setActiveAdModal(null);
-
-      // Auto-hide result after 2 seconds
+      setAdResult({ success: true, reward: finalPoints, title: ad.title });
       setTimeout(() => setAdResult(null), 2000);
     } catch (err) {
       console.error('Error recording ad:', err);
-      setAdResult({
-        success: false,
-        error: `Failed: ${err.message}`
-      });
+      setAdResult({ success: false, error: `Failed: ${err.message}` });
+    } finally {
+      setWatchingAd(false);
     }
-
-    setWatchingAd(false);
   };
 
   if (loading) {
@@ -288,11 +328,20 @@ export default function VideoAds() {
 
         {/* Video Ads Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {videoAds.map((ad, idx) => (
-            <div key={ad.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
+          {videoAds.map((ad) => {
+            const alreadyWatched = watchedAdIds.includes(ad.id);
+            const limitReached = todayStats.watched >= MAX_ADS_PER_DAY;
+            const isDisabled = alreadyWatched || limitReached || watchingAd;
+            return (
+            <div key={ad.id} className={`rounded-lg shadow-lg overflow-hidden transition ${alreadyWatched ? 'bg-green-50 border-2 border-green-400' : 'bg-white hover:shadow-xl'}`}>
               {/* Thumbnail Placeholder */}
-              <div className="bg-gradient-to-br from-gray-300 to-gray-400 h-40 flex items-center justify-center">
+              <div className={`h-40 flex items-center justify-center relative ${alreadyWatched ? 'bg-gradient-to-br from-green-200 to-green-300' : 'bg-gradient-to-br from-gray-300 to-gray-400'}`}>
                 <div className="text-5xl">📹</div>
+                {alreadyWatched && (
+                  <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                    ✓ Watched
+                  </div>
+                )}
               </div>
 
               {/* Ad Info */}
@@ -310,30 +359,35 @@ export default function VideoAds() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Reward</span>
-                    <span className="font-bold text-primary">+{ad.reward} pts</span>
+                    <span className={`font-bold ${alreadyWatched ? 'text-green-600' : 'text-primary'}`}>+{ad.reward} pts</span>
                   </div>
                 </div>
 
-                {/* Progress Bar (simulated) */}
+                {/* Progress Bar */}
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                  <div className="bg-primary h-2 rounded-full" style={{ width: watchingAd ? '0%' : '100%' }}></div>
+                  <div className={`h-2 rounded-full ${alreadyWatched ? 'bg-green-500' : 'bg-primary'}`} style={{ width: alreadyWatched ? '100%' : '100%' }}></div>
                 </div>
 
                 {/* Watch Button */}
                 <button
-                  onClick={() => watchAd(ad)}
-                  disabled={watchingAd}
+                  onClick={() => !isDisabled && watchAd(ad)}
+                  disabled={isDisabled}
                   className={`w-full font-bold py-3 rounded-lg transition text-white ${
-                    watchingAd
+                    alreadyWatched
+                      ? 'bg-green-500 cursor-not-allowed'
+                      : limitReached
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : watchingAd
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
                   }`}
                 >
-                  {watchingAd ? '⏳ PLAYING...' : 'Watch Now'}
+                  {alreadyWatched ? '✓ Watched Today' : limitReached ? '🚫 Limit Reached' : watchingAd ? '⏳ PLAYING...' : 'Watch Now'}
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Daily Limit Info */}
