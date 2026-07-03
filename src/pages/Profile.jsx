@@ -7,7 +7,7 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
-import { awardGettingStartedTask } from '../utils/rateLimiter';
+import { recordGettingStartedActivity, updateUserPoints } from '../utils/databaseHelpers';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -32,9 +32,10 @@ export default function Profile() {
           .from('users')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        setUser(session.user);
         if (user) {
           const normalizedUser = {
             ...user,
@@ -43,8 +44,11 @@ export default function Profile() {
           };
           setUserData(normalizedUser);
           setFormData(normalizedUser);
+        } else {
+          // New user — no DB row yet; open edit mode immediately
+          setFormData({ email: session.user.email });
+          setEditing(true);
         }
-        setUser(session.user);
       } catch (err) {
         console.error('Error fetching user:', err);
       } finally {
@@ -87,26 +91,63 @@ export default function Profile() {
 
       const profileWasIncomplete = !isProfileComplete;
 
-      const { error } = await supabase
+      // Check if the user row exists — new signups have no row in users table
+      const { data: existingRow } = await supabase
         .from('users')
-        .update({
-          full_name: formData.fullName,
-          university: formData.university,
-          department: formData.department,
-          course: formData.course,
-          profile_complete: true
-        })
-        .eq('id', session.user.id);
+        .select('id, points, wallet')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingRow) {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            full_name: formData.fullName,
+            university: formData.university,
+            department: formData.department,
+            course: formData.course,
+            profile_complete: true
+          })
+          .eq('id', session.user.id);
+        if (error) throw error;
+      } else {
+        // First save for this user — INSERT the row
+        const { error } = await supabase
+          .from('users')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            full_name: formData.fullName,
+            university: formData.university,
+            department: formData.department,
+            course: formData.course,
+            profile_complete: true,
+            points: 0,
+            wallet: 0,
+            current_streak: 0,
+            weekly_points: 0,
+            monthly_points: 0,
+          });
+        if (error) throw error;
+      }
 
-      // Award profile completion task if this is first completion
+      // Award profile completion bonus on first-time completion
+      let bonusAwarded = false;
       if (profileWasIncomplete) {
         try {
-          await awardGettingStartedTask('profile', 'Complete Your Profile', 1000);
+          const taskResult = await recordGettingStartedActivity(
+            session.user.id, 'profile', 'Complete Your Profile', 1000
+          );
+          if (taskResult.success) {
+            const { data: freshUser } = await supabase
+              .from('users').select('points').eq('id', session.user.id).single();
+            if (freshUser) {
+              await updateUserPoints(session.user.id, freshUser.points + 1000);
+            }
+            bonusAwarded = true;
+          }
         } catch (err) {
           console.error('Error awarding profile task:', err);
-          // Don't fail the profile save if task award fails
         }
       }
 
@@ -117,6 +158,7 @@ export default function Profile() {
         department: formData.department,
         course: formData.course,
         profile_complete: true,
+        points: bonusAwarded ? (userData?.points || 0) + 1000 : (userData?.points || 0),
       };
       setUserData(updatedData);
       setFormData(updatedData);
@@ -125,7 +167,7 @@ export default function Profile() {
 
       await showAlert({
         title: 'Success',
-        message: profileWasIncomplete
+        message: bonusAwarded
           ? 'Profile completed! 🎉 You earned 1,000 bonus points!'
           : 'Your profile has been updated successfully!',
         type: 'success'
