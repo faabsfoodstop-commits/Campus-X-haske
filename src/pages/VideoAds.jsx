@@ -19,8 +19,6 @@ export default function VideoAds() {
   const [videoError, setVideoError] = useState(null);
   const navigate = useNavigate();
 
-  const MAX_ADS_PER_DAY = videoAds.length;
-
   const videoAds = [
     {
       id: 'ad_1',
@@ -71,6 +69,8 @@ export default function VideoAds() {
       youtubeId: '_uQrJ0TkSAc'
     }
   ];
+
+  const MAX_ADS_PER_DAY = videoAds.length;
 
   useEffect(() => {
     fetchUserData();
