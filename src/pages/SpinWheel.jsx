@@ -140,8 +140,16 @@ export default function SpinWheel() {
         return;
       }
 
-      if (!useFreeSpins && (userData?.wallet || 0) < 50) {
-        addToast('You need 50 tokens to buy a spin. Complete tasks to earn more tokens.', 'warning');
+      // Fetch fresh user data — never use stale local state for DB writes
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users')
+        .select('points, wallet')
+        .eq('id', session.user.id)
+        .single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+      if (!useFreeSpins && (freshUser.wallet || 0) < 50) {
+        addToast('You need 50 tokens to use a paid spin. Complete tasks to earn more tokens.', 'warning');
         return;
       }
 
@@ -168,9 +176,9 @@ export default function SpinWheel() {
 
       setSpinResult({ ...result, earnedPoints, multiplierActive: !!result.multiplier });
 
-      // Update points in database
-      const newPoints = (userData?.points || 0) + earnedPoints;
-      const newWallet = useFreeSpins ? userData?.wallet : ((userData?.wallet || 0) - 50);
+      // Update points and wallet using fresh DB values
+      const newPoints = freshUser.points + earnedPoints;
+      const newWallet = useFreeSpins ? freshUser.wallet : ((freshUser.wallet || 0) - 50);
 
       const { error: updateError } = await supabase
         .from('users')
@@ -231,20 +239,28 @@ export default function SpinWheel() {
 
   const buySpins = async (quantity = 1) => {
     const cost = 50 * quantity;
-    if ((userData?.wallet || 0) < cost) {
-      showAlert({
-        title: 'Insufficient Balance',
-        message: `You need ${cost} tokens but only have ${userData?.wallet || 0}. Complete more tasks to earn tokens.`,
-        type: 'warning'
-      });
-      return;
-    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const newWallet = (userData?.wallet || 0) - cost;
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users')
+        .select('wallet')
+        .eq('id', session.user.id)
+        .single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch wallet balance');
+
+      if ((freshUser.wallet || 0) < cost) {
+        showAlert({
+          title: 'Insufficient Balance',
+          message: `You need ${cost} tokens but only have ${freshUser.wallet || 0}. Complete more tasks to earn tokens.`,
+          type: 'warning'
+        });
+        return;
+      }
+
+      const newWallet = (freshUser.wallet || 0) - cost;
       const { error } = await supabase
         .from('users')
         .update({ wallet: newWallet })
@@ -252,12 +268,8 @@ export default function SpinWheel() {
 
       if (error) throw error;
 
-      setUserData(prev => ({
-        ...prev,
-        wallet: newWallet
-      }));
-
-      setFreeSpin(freeSpin + quantity);
+      setUserData(prev => ({ ...prev, wallet: newWallet }));
+      setFreeSpin(prev => prev + quantity);
       setShowBuySpins(false);
       showAlert({
         title: 'Success!',
@@ -266,6 +278,7 @@ export default function SpinWheel() {
       });
     } catch (err) {
       console.error('Error buying spins:', err);
+      addToast('Failed to buy spins. Please try again.', 'error');
     }
   };
 
@@ -397,7 +410,7 @@ export default function SpinWheel() {
 
               <Button
                 onClick={() => handleSpin(false)}
-                disabled={purchasedSpin <= 0 || isSpinning || (userData?.wallet || 0) < 50}
+                disabled={purchasedSpin <= 0 || isSpinning}
                 loading={isSpinning}
                 variant="primary"
                 size="lg"
