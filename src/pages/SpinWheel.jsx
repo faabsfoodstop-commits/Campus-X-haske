@@ -192,7 +192,15 @@ export default function SpinWheel() {
         user_id: session.user.id,
         result: result.label,
         earned_points: earnedPoints,
-        spin_type: useFreeSpins ? 'free' : 'purchased',
+        spin_type: useFreeSpins ? 'free' : 'purchased'
+      });
+
+      // Record transaction for activity log
+      await supabase.from('transactions').insert({
+        user_id: session.user.id,
+        type: 'spin_wheel',
+        amount: earnedPoints,
+        description: `${result.label}${useFreeSpins ? ' (free)' : ' (purchased)'}`,
         timestamp: new Date().toISOString()
       });
 
