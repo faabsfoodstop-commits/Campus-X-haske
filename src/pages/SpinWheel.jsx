@@ -102,10 +102,15 @@ export default function SpinWheel() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Spin history fetch error:', error);
+        throw error;
+      }
+      console.log('Spin history fetched:', history);
       setSpinHistory(history || []);
     } catch (err) {
       console.error('Error fetching spin history:', err);
+      setSpinHistory([]);
     }
   };
 
@@ -188,24 +193,32 @@ export default function SpinWheel() {
       if (updateError) throw updateError;
 
       // Record the spin in history
-      await supabase.from('spin_history').insert({
+      const { error: spinError } = await supabase.from('spin_history').insert({
         user_id: session.user.id,
         result: result.label,
         earned_points: earnedPoints,
         spin_type: useFreeSpins ? 'free' : 'purchased'
       });
+      if (spinError) {
+        console.error('Spin history insert error:', spinError);
+        throw spinError;
+      }
 
       // Record transaction for activity log
-      await supabase.from('transactions').insert({
+      const { error: txnError } = await supabase.from('transactions').insert({
         user_id: session.user.id,
         type: 'spin_wheel',
         amount: earnedPoints,
         description: `${result.label}${useFreeSpins ? ' (free)' : ' (purchased)'}`,
         timestamp: new Date().toISOString()
       });
+      if (txnError) {
+        console.error('Transaction insert error:', txnError);
+      }
 
       // Record rate limit action (increments counter)
-      await recordRateLimitAction(session.user.id, featureName);
+      const recordResult = await recordRateLimitAction(session.user.id, featureName);
+      console.log('Rate limit action recorded:', recordResult);
 
       // Update local state
       setUserData(prev => ({
