@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { recordTriviaActivity, updateUserPoints } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   IconTrivia,
@@ -184,33 +185,14 @@ export default function Trivia() {
       const correctAnswers = Math.round(score / 100); // score is 100 per correct answer
       const totalReward = score + 500;
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ points: (userData?.points || 0) + totalReward })
-        .eq('id', session.user.id);
+      const newPoints = (userData?.points || 0) + totalReward;
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
-      if (updateError) throw updateError;
+      const recorded = await recordTriviaActivity(session.user.id, score, correctAnswers, totalReward);
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record trivia');
 
-      await supabase.from('trivia_results').insert({
-        user_id: session.user.id,
-        score,
-        correct_answers: correctAnswers,
-        total_questions: 10,
-        points_earned: totalReward
-      });
-
-      await supabase.from('transactions').insert({
-        user_id: session.user.id,
-        type: 'trivia',
-        amount: totalReward,
-        description: `Trivia Game: ${correctAnswers}/10 correct`,
-        timestamp: new Date().toISOString()
-      });
-
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + totalReward
-      }));
+      setUserData(prev => ({ ...prev, points: newPoints }));
 
       await fetchTriviaStats();
     } catch (err) {

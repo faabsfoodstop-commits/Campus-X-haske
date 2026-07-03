@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { recordVideoAdActivity, updateUserPoints } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function VideoAds() {
@@ -179,41 +180,14 @@ export default function VideoAds() {
 
       const finalPoints = ad.reward;
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          points: (userData?.points || 0) + finalPoints
-        })
-        .eq('id', session.user.id);
+      const newPoints = (userData?.points || 0) + finalPoints;
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
-      if (updateError) throw updateError;
+      const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints, ad.duration);
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
 
-      setUserData(prev => ({
-        ...prev,
-        points: (prev?.points || 0) + finalPoints
-      }));
-
-      // Record ad watched for analytics
-      const { error: insertError } = await supabase
-        .from('video_ads_watched')
-        .insert({
-          user_id: session.user.id,
-          ad_id: ad.id,
-          ad_title: ad.title,
-          points_earned: finalPoints,
-          watched_date: new Date().toDateString(),
-          duration: ad.duration
-        });
-
-      if (insertError) throw insertError;
-
-      await supabase.from('transactions').insert({
-        user_id: session.user.id,
-        type: 'video_ad',
-        amount: finalPoints,
-        description: `Watched ad: ${ad.title}`,
-        timestamp: new Date().toISOString()
-      });
+      setUserData(prev => ({ ...prev, points: newPoints }));
 
       setAdResult({
         success: true,

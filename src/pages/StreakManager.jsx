@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { recordCheckInActivity, updateUserPoints } from '../utils/databaseHelpers';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft, IconFire, IconStar, IconRocket } from '../components/Icons';
@@ -112,28 +113,17 @@ export default function StreakManager() {
 
       const totalPoints = 250 + streakBonus;
 
-      // Update user streak
+      // Update streak and points
+      const newPoints = (userData?.points || 0) + totalPoints;
       const { error: updateError } = await supabase
         .from('users')
-        .update({
-          current_streak: newStreak,
-          points: (userData?.points || 0) + totalPoints,
-        })
+        .update({ current_streak: newStreak, points: newPoints })
         .eq('id', session.user.id);
-
       if (updateError) throw updateError;
 
-      // Log streak check-in
-      const today_date = new Date().toISOString().split('T')[0];
-      const { error: insertError } = await supabase
-        .from('streak_check_ins')
-        .insert([{
-          user_id: session.user.id,
-          check_in_date: today_date,
-          points_earned: totalPoints,
-        }]);
-
-      if (insertError) throw insertError;
+      // Record check-in activity (streak_check_ins + transaction)
+      const recorded = await recordCheckInActivity(session.user.id, totalPoints);
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record check-in');
 
       localStorage.setItem('lastCheckIn', today);
       setUserData(prev => ({

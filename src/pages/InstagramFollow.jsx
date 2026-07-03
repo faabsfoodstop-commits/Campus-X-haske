@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { recordInstagramFollowActivity, updateUserPoints } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function InstagramFollow() {
@@ -135,38 +136,16 @@ export default function InstagramFollow() {
 
       const pointsAwarded = brand.reward;
 
-      const { error: insertError } = await supabase
-        .from('instagram_follows')
-        .insert({
-          user_id: session.user.id,
-          brand_id: brand.id,
-          brand_name: brand.name,
-          brand_handle: brand.handle,
-          verified: true
-        });
-
-      if (insertError) throw insertError;
-
       const newPoints = (userData?.points || 0) + pointsAwarded;
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ points: newPoints })
-        .eq('id', session.user.id);
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
-      if (updateError) throw updateError;
+      const recorded = await recordInstagramFollowActivity(
+        session.user.id, brand.id, brand.name, brand.handle, pointsAwarded
+      );
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record follow');
 
-      await supabase.from('transactions').insert({
-        user_id: session.user.id,
-        type: 'referral',
-        amount: pointsAwarded,
-        description: `Followed ${brand.name} on Instagram`,
-        timestamp: new Date().toISOString()
-      });
-
-      setUserData(prev => ({
-        ...prev,
-        points: newPoints
-      }));
+      setUserData(prev => ({ ...prev, points: newPoints }));
 
       setFollowedBrands([...followedBrands, brand.id]);
 

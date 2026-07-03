@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { awardGettingStartedTask } from '../utils/rateLimiter';
+import { recordCheckInActivity, updateUserPoints } from '../utils/databaseHelpers';
 import {
   IconSpinWheel,
   IconMissions,
@@ -96,28 +97,16 @@ export default function Dashboard() {
       if (currentStreak === 100) pointsEarned += 25000;
 
       const newStreak = (userData?.current_streak || 0) + 1;
+      const newPoints = (userData?.points || 0) + pointsEarned;
       const { error } = await supabase
         .from('users')
-        .update({
-          points: (userData?.points || 0) + pointsEarned,
-          current_streak: newStreak,
-        })
+        .update({ points: newPoints, current_streak: newStreak })
         .eq('id', session.user.id);
-
       if (error) throw error;
 
-      // Record check-in in database
-      const { error: checkinError } = await supabase
-        .from('streak_check_ins')
-        .insert({
-          user_id: session.user.id,
-          check_in_date: todayDate,
-          points_earned: pointsEarned
-        });
-
-      if (checkinError && checkinError.code !== 'PGRST116') {
-        console.warn('Error recording check-in:', checkinError);
-      }
+      // Record check-in activity (streak_check_ins + transaction atomically)
+      const recorded = await recordCheckInActivity(session.user.id, pointsEarned);
+      if (!recorded.success) console.warn('Check-in record failed:', recorded.error);
 
       // Check if user has reached 7 check-ins for the getting started task
       try {
@@ -142,10 +131,7 @@ export default function Dashboard() {
       }
 
       localStorage.setItem('lastCheckIn', todayString);
-      setUserData((prev) => ({
-        ...prev,
-        points: (prev?.points || 0) + pointsEarned,
-      }));
+      setUserData((prev) => ({ ...prev, points: newPoints, current_streak: newStreak }));
       setCheckedInToday(true);
 
       await showAlert({
