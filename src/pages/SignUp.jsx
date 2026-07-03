@@ -5,13 +5,11 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
-import { NIGERIAN_UNIVERSITIES } from '../constants/universities';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    university: NIGERIAN_UNIVERSITIES[0]?.code || '',
     password: '',
     confirmPassword: '',
   });
@@ -31,6 +29,11 @@ export default function SignUp() {
     e.preventDefault();
     setError('');
 
+    if (!formData.fullName.trim()) {
+      setError('Please enter your full name');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -49,12 +52,11 @@ export default function SignUp() {
       const newUserId = authData.user.id;
       const myReferralCode = newUserId.substring(0, 8).toUpperCase();
 
-      // Create user row (trigger may not exist; upsert is safe either way)
+      // Save name + email immediately so profile page can pre-populate them
       await supabase.from('users').upsert({
         id: newUserId,
         email: formData.email,
         full_name: formData.fullName,
-        university: formData.university,
         referral_code: myReferralCode,
         points: 0,
         wallet: 0,
@@ -99,7 +101,8 @@ export default function SignUp() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold text-center text-primary mb-6">HASKE</h2>
+        <h2 className="text-3xl font-bold text-center text-primary mb-2">HASKE</h2>
+        <p className="text-center text-gray-500 text-sm mb-6">Campus rewards platform</p>
 
         <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Account</h3>
 
@@ -129,23 +132,6 @@ export default function SignUp() {
             required
             placeholder="your@email.com"
           />
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">University</label>
-            <select
-              name="university"
-              value={formData.university}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-            >
-              <option value="">Select a university</option>
-              {NIGERIAN_UNIVERSITIES.map((uni) => (
-                <option key={uni.code} value={uni.code}>
-                  {uni.name} ({uni.code})
-                </option>
-              ))}
-            </select>
-          </div>
 
           <Input
             label="Password"
@@ -181,7 +167,11 @@ export default function SignUp() {
           </Button>
         </form>
 
-        <p className="text-center text-gray-600 mt-4">
+        <p className="text-center text-gray-500 text-xs mt-4">
+          You'll add your university & department after signing up to earn 1,000 bonus points!
+        </p>
+
+        <p className="text-center text-gray-600 mt-3">
           Already have an account?{' '}
           <Link to="/login" className="text-primary hover:text-blue-600 font-semibold">
             Login
