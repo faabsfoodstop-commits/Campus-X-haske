@@ -199,6 +199,14 @@ export default function Trivia() {
         points_earned: totalReward
       });
 
+      await supabase.from('transactions').insert({
+        user_id: session.user.id,
+        type: 'trivia',
+        amount: totalReward,
+        description: `Trivia Game: ${correctAnswers}/10 correct`,
+        timestamp: new Date().toISOString()
+      });
+
       setUserData(prev => ({
         ...prev,
         points: (prev?.points || 0) + totalReward

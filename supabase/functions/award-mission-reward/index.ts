@@ -12,9 +12,12 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
     const { userId, missionId, missionName, baseReward } = await req.json();
@@ -62,11 +65,10 @@ serve(async (req) => {
     // Log transaction
     await supabaseClient.from("transactions").insert({
       user_id: userId,
-      type: "mission_reward",
+      type: "mission",
       description: `Completed mission: ${missionName}`,
       amount: pointsAwarded,
-      base_bonus: baseReward,
-      multiplier: multiplier,
+      timestamp: new Date().toISOString(),
     });
 
     // Record mission completion
