@@ -105,15 +105,15 @@ export default function Dashboard() {
       const todayDate = new Date().toISOString().split('T')[0];
       const todayString = new Date().toDateString();
 
-      // DB is the authoritative duplicate guard (not localStorage)
-      const { data: existingCheckIn } = await supabase
+      // Use limit(1) — maybeSingle() returns null when multiple rows exist (swallows the error)
+      const { data: existing } = await supabase
         .from('streak_check_ins')
         .select('id')
         .eq('user_id', session.user.id)
         .eq('check_in_date', todayDate)
-        .maybeSingle();
+        .limit(1);
 
-      if (existingCheckIn) {
+      if (existing && existing.length > 0) {
         localStorage.setItem('lastCheckIn', todayString);
         setCheckedInToday(true);
         addToast('You already checked in today!', 'warning');
@@ -132,16 +132,24 @@ export default function Dashboard() {
       if (newStreak === 30) pointsEarned += 5000;
       if (newStreak === 100) pointsEarned += 25000;
 
+      // INSERT check-in row FIRST — this is the atomic duplicate guard.
+      // Points are only updated if this insert succeeds. If it fails due to
+      // a unique constraint violation (already checked in), we stop here.
+      const recorded = await recordCheckInActivity(session.user.id, pointsEarned);
+      if (!recorded.success) {
+        localStorage.setItem('lastCheckIn', todayString);
+        setCheckedInToday(true);
+        addToast('You already checked in today!', 'warning');
+        return;
+      }
+
+      // Safe to update points now — check-in row is committed
       const newPoints = freshUser.points + pointsEarned;
       const { error } = await supabase
         .from('users')
         .update({ points: newPoints, current_streak: newStreak })
         .eq('id', session.user.id);
       if (error) throw error;
-
-      // Record check-in (streak_check_ins + transaction) — must succeed
-      const recorded = await recordCheckInActivity(session.user.id, pointsEarned);
-      if (!recorded.success) throw new Error(recorded.error || 'Failed to record check-in');
 
       // Award 7-day getting started task if reached
       try {
