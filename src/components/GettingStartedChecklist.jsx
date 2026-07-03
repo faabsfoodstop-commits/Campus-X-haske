@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from './Button';
-import { awardGettingStartedTask } from '../utils/rateLimiter';
+import { recordGettingStartedActivity, updateUserPoints } from '../utils/databaseHelpers';
 import './GettingStartedChecklist.css';
 
 // Icon Components
@@ -89,7 +89,7 @@ export default function GettingStartedChecklist() {
       // Fetch getting started tasks from database
       const { data: dbTasks, error: tasksError } = await supabase
         .from('getting_started_tasks')
-        .select('task_id, completed, points_awarded')
+        .select('task_id, points_awarded')
         .eq('user_id', session.user.id);
 
       if (tasksError && tasksError.code !== 'PGRST116') throw tasksError;
@@ -99,8 +99,8 @@ export default function GettingStartedChecklist() {
       if (dbTasks) {
         dbTasks.forEach(task => {
           completedMap[task.task_id] = {
-            completed: task.completed,
-            pointsAwarded: task.points_awarded
+            completed: !!task.points_awarded,
+            pointsAwarded: !!task.points_awarded
           };
         });
       }
@@ -178,8 +178,8 @@ export default function GettingStartedChecklist() {
       const item = checklist.find(i => i.id === id);
       if (!item) throw new Error('Task not found');
 
-      // Award points via edge function
-      const result = await awardGettingStartedTask(id, item.title, item.reward);
+      // Record task completion first (guards against double-award)
+      const result = await recordGettingStartedActivity(session.user.id, id, item.title, item.reward);
 
       if (!result.success) {
         if (result.error?.includes('already completed')) {
@@ -189,6 +189,10 @@ export default function GettingStartedChecklist() {
         }
         return;
       }
+
+      // Award points
+      const { data: freshUser } = await supabase.from('users').select('points').eq('id', session.user.id).single();
+      await updateUserPoints(session.user.id, (freshUser?.points || 0) + item.reward);
 
       // Update local state
       const newChecklist = checklist.map(task =>

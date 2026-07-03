@@ -187,6 +187,56 @@ export async function recordCheckInActivity(
   }
 }
 
+export async function recordGettingStartedActivity(
+  userId: string,
+  taskId: string,
+  taskName: string,
+  pointsEarned: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Check if already completed to prevent double-award
+    const { data: existing } = await supabase
+      .from('getting_started_tasks')
+      .select('points_awarded')
+      .eq('user_id', userId)
+      .eq('task_id', taskId)
+      .maybeSingle();
+
+    if (existing?.points_awarded) {
+      return { success: false, error: 'Task already completed' };
+    }
+
+    const { error: taskError } = await supabase
+      .from('getting_started_tasks')
+      .upsert({
+        user_id: userId,
+        task_id: taskId,
+        task_name: taskName,
+        reward_points: pointsEarned,
+        completed: true,
+        completed_at: new Date().toISOString(),
+        points_awarded: true
+      });
+
+    if (taskError) throw taskError;
+
+    const { error: txError } = await supabase.from('transactions').insert({
+      user_id: userId,
+      type: 'getting_started',
+      amount: pointsEarned,
+      description: `Getting Started: ${taskName}`,
+      timestamp: new Date().toISOString()
+    });
+
+    if (txError) throw txError;
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[recordGettingStartedActivity] Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ============================================================================
 // DATA FETCHING (with type safety)
 // ============================================================================
