@@ -13,3 +13,27 @@ body {
 * {
   box-sizing: border-box;
 }
+
+@keyframes toast-in {
+  from {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.toast-slide-in {
+  animation: toast-in 0.32s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+}
+
+.toast-shrink-bar {
+  animation: toast-shrink linear both;
+}
