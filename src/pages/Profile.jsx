@@ -44,7 +44,9 @@ export default function Profile() {
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      console.log('Updating profile for user:', user.id);
+
+      const { data, error } = await supabase
         .from('users')
         .update({
           full_name: fullName,
@@ -55,11 +57,20 @@ export default function Profile() {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      console.log('Update response:', { data, error });
+
+      if (error) {
+        console.error('Profile update error:', error);
+        throw error;
+      }
 
       addToast('Profile saved successfully!', 'success');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      setTimeout(() => {
+        console.log('Redirecting to dashboard');
+        navigate('/dashboard');
+      }, 1500);
     } catch (error) {
+      console.error('Catch error:', error);
       addToast(error.message || 'Failed to save profile', 'error');
     } finally {
       setLoading(false);
