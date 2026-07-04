@@ -110,13 +110,13 @@ export default function Profile() {
 
       const currentPoints = freshUser?.points ?? 0;
 
-      // One upsert: profile fields + points update — atomic, no separate UPDATE step
-      const { error: upsertError } = await supabase
+      // Upsert and SELECT in one call — if RLS blocks the write, data[] returns empty
+      const { data: upsertedRows, error: upsertError } = await supabase
         .from('users')
         .upsert({
           id: session.user.id,
           email: session.user.email,
-          full_name: formData.fullName,
+          full_name: formData.fullName.trim(),
           university: formData.university,
           department: formData.department,
           course: formData.course,
@@ -125,19 +125,14 @@ export default function Profile() {
           wallet: freshUser?.wallet ?? 0,
           current_streak: freshUser?.current_streak ?? 0,
           referral_code: freshUser?.referral_code || session.user.id.substring(0, 8).toUpperCase(),
-        }, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
+        }, { onConflict: 'id' })
+        .select('id, full_name, university, department, course, points');
 
-      // Verify the write actually landed — RLS can silently no-op an update
-      const { data: savedRow, error: verifyError } = await supabase
-        .from('users')
-        .select('full_name, university, department, course, points')
-        .eq('id', session.user.id)
-        .single();
-      if (verifyError) throw verifyError;
-      if (savedRow?.full_name !== formData.fullName || savedRow?.university !== formData.university) {
-        throw new Error('Profile save did not persist. Please try again or contact support.');
+      if (upsertError) throw upsertError;
+      if (!upsertedRows?.length) {
+        throw new Error('Save blocked by database permissions. Please contact support.');
       }
+      const savedRow = upsertedRows[0];
 
       // Record the bonus task + transaction now that the points are committed
       let bonusAwarded = false;
@@ -174,13 +169,13 @@ export default function Profile() {
 
       const updatedData = {
         ...userData,
-        full_name: formData.fullName,
-        fullName: formData.fullName,
-        university: formData.university,
-        department: formData.department,
-        course: formData.course,
+        full_name: savedRow.full_name,
+        fullName: savedRow.full_name,
+        university: savedRow.university,
+        department: savedRow.department,
+        course: savedRow.course,
         profile_complete: true,
-        points: savedRow?.points ?? currentPoints + bonusPoints,
+        points: savedRow.points,
       };
       setUserData(updatedData);
       setFormData(updatedData);
