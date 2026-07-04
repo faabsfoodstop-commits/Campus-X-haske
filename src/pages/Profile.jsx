@@ -6,7 +6,6 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import { ToastContext } from '../context/ToastContext';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
-import { insertTransaction } from '../utils/databaseHelpers';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -86,24 +85,6 @@ export default function Profile() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const profileWasIncomplete = !isProfileComplete;
-
-      // Determine if bonus should be awarded (check before touching any rows)
-      let bonusPoints = 0;
-      if (profileWasIncomplete) {
-        const { data: existingTask } = await supabase
-          .from('getting_started_tasks')
-          .select('id, points_awarded')
-          .eq('user_id', session.user.id)
-          .eq('task_id', 'profile')
-          .maybeSingle();
-        if (!existingTask?.points_awarded) {
-          bonusPoints = 1000;
-        }
-      }
-
-      // Step 1: Upsert ONLY profile identity fields — keeps points/wallet out of this write
-      // so that column-level RLS restrictions on points don't block the profile save.
       const referralCode = session.user.id.substring(0, 8).toUpperCase();
       const { data: upsertedRows, error: upsertError } = await supabase
         .from('users')
@@ -125,48 +106,8 @@ export default function Profile() {
       }
       const savedRow = upsertedRows[0];
 
-      // Step 2: Award bonus points in a separate UPDATE — isolated so a points-column
-      // RLS restriction doesn't fail the profile save above.
-      let bonusAwarded = false;
-      if (bonusPoints > 0) {
-        try {
-          const { data: freshUser } = await supabase
-            .from('users').select('points').eq('id', session.user.id).maybeSingle();
-          const currentPoints = freshUser?.points ?? 0;
-          const newPoints = currentPoints + bonusPoints;
-
-          const { data: pointsRows } = await supabase
-            .from('users')
-            .update({ points: newPoints })
-            .eq('id', session.user.id)
-            .select('id');
-
-          if (pointsRows?.length) {
-            const { error: taskInsertError } = await supabase
-              .from('getting_started_tasks')
-              .insert({
-                user_id: session.user.id,
-                task_id: 'profile',
-                task_name: 'Complete Your Profile',
-                reward_points: 1000,
-                completed: true,
-                completed_at: new Date().toISOString(),
-                points_awarded: true,
-              });
-
-            if (!taskInsertError) {
-              await insertTransaction(session.user.id, 'getting_started', 1000, 'Getting Started: Complete Your Profile');
-              bonusAwarded = true;
-            }
-          }
-        } catch (err) {
-          console.error('Error recording profile bonus (non-fatal):', err);
-        }
-      }
-
       sessionStorage.removeItem('pendingFullName');
 
-      // Fetch final points to reflect in UI (may have bonus applied)
       const { data: finalUser } = await supabase
         .from('users').select('points').eq('id', session.user.id).maybeSingle();
 
@@ -184,12 +125,7 @@ export default function Profile() {
       setFormData(updatedData);
       setEditing(false);
       setIsSaving(false);
-      addToast(
-        bonusAwarded
-          ? 'Profile completed! You earned 1,000 bonus points!'
-          : 'Profile updated successfully!',
-        'success'
-      );
+      addToast('Profile saved! Your Getting Started bonus will be awarded automatically.', 'success');
     } catch (err) {
       console.error('Error updating profile:', err);
       setIsSaving(false);
