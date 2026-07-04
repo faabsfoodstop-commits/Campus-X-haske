@@ -16,6 +16,7 @@ export function useConfirm() {
       } = typeof options === 'string' ? { message: options } : options;
 
       setModal({
+        isOpen: true,
         title,
         message,
         type,
@@ -54,6 +55,7 @@ export function useConfirm() {
       } = typeof options === 'string' ? { message: options } : options;
 
       setModal({
+        isOpen: true,
         title,
         message,
         type,
@@ -73,7 +75,9 @@ export function useConfirm() {
   }, []);
 
   const closeModal = useCallback(() => {
-    setModal(null);
+    setModal(prev => prev ? { ...prev, isOpen: false } : null);
+    // allow exit animation then clear
+    setTimeout(() => setModal(null), 150);
   }, []);
 
   return {

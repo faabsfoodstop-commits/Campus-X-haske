@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import Modal from '../components/Modal';
-import { useConfirm } from '../hooks/useConfirm';
+import { ToastContext } from '../context/ToastContext';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
 
 export default function Profile() {
@@ -16,7 +15,7 @@ export default function Profile() {
   const [formData, setFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
-  const { alert: showAlert, modal, closeModal } = useConfirm();
+  const { addToast } = useContext(ToastContext);
 
   const isProfileComplete = userData?.university && userData?.department && userData?.course;
   const availableDepartments = formData.university ? (DEPARTMENTS_BY_UNIVERSITY[formData.university] || []) : [];
@@ -77,11 +76,7 @@ export default function Profile() {
 
   const handleSave = async () => {
     if (!formData.fullName?.trim() || !formData.university || !formData.department || !formData.course) {
-      await showAlert({
-        title: 'Incomplete Profile',
-        message: 'Please fill in all required fields: Full Name, University, Department, and Course.',
-        type: 'error'
-      });
+      addToast('Please fill in all required fields: Full Name, University, Department, and Course.', 'error');
       return;
     }
 
@@ -193,22 +188,16 @@ export default function Profile() {
       setFormData(updatedData);
       setEditing(false);
       setIsSaving(false);
-
-      await showAlert({
-        title: 'Success',
-        message: bonusAwarded
-          ? 'Profile completed! 🎉 You earned 1,000 bonus points!'
-          : 'Your profile has been updated successfully!',
-        type: 'success'
-      });
+      addToast(
+        bonusAwarded
+          ? 'Profile completed! You earned 1,000 bonus points!'
+          : 'Profile updated successfully!',
+        'success'
+      );
     } catch (err) {
       console.error('Error updating profile:', err);
       setIsSaving(false);
-      await showAlert({
-        title: 'Error',
-        message: err.message || 'Failed to update profile. Please try again.',
-        type: 'error'
-      });
+      addToast(err.message || 'Failed to update profile. Please try again.', 'error');
     }
   };
 
@@ -428,7 +417,6 @@ export default function Profile() {
           )}
         </div>
       </div>
-      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }
