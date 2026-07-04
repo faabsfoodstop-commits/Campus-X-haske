@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [checkedInToday, setCheckedInToday] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { addToast } = useContext(ToastContext);
@@ -95,6 +96,8 @@ export default function Dashboard() {
   };
 
   const handleCheckIn = async () => {
+    if (checkingIn || checkedInToday) return;
+    setCheckingIn(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -187,6 +190,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error checking in:', err);
       addToast(err.message || 'Failed to check in. Please try again.', 'error');
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -363,11 +368,12 @@ export default function Dashboard() {
 
           <Button
             onClick={handleCheckIn}
-            disabled={checkedInToday}
+            disabled={checkedInToday || checkingIn}
+            loading={checkingIn}
             variant={checkedInToday ? 'secondary' : 'primary'}
             size="lg"
           >
-            {checkedInToday ? '✓ Checked In Today' : 'Check In Now'}
+            {checkedInToday ? '✓ Checked In Today' : checkingIn ? 'Checking In...' : 'Check In Now'}
           </Button>
         </div>
 

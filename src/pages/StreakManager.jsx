@@ -12,6 +12,7 @@ export default function StreakManager() {
   const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [checkingIn, setCheckingIn] = useState(false);
   const [streakStatus, setStreakStatus] = useState('active'); // active, broken, warning
 
   useEffect(() => {
@@ -89,8 +90,10 @@ export default function StreakManager() {
   };
 
   const handleCheckIn = async () => {
+    if (checkingIn) return;
+    setCheckingIn(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) { setCheckingIn(false); return; }
 
     const todayDate = new Date().toISOString().split('T')[0];
     const todayString = new Date().toDateString();
@@ -167,6 +170,8 @@ export default function StreakManager() {
     } catch (err) {
       console.error('Check-in error:', err);
       addToast('Check-in failed. Try again.', 'error');
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -242,8 +247,10 @@ export default function StreakManager() {
               variant="primary"
               size="lg"
               className="min-w-64"
+              loading={checkingIn}
+              disabled={checkingIn}
             >
-              Check In Now (+250 pts)
+              {checkingIn ? 'Checking In...' : 'Check In Now (+250 pts)'}
             </Button>
           )}
         </div>
