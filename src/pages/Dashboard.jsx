@@ -1,16 +1,38 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../config/supabase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, profile, loading } = useAuth();
+  const [gettingStartedProgress, setGettingStartedProgress] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/login');
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchGettingStartedProgress();
+    }
+  }, [user]);
+
+  const fetchGettingStartedProgress = async () => {
+    try {
+      const { data } = await supabase
+        .from('getting_started_tasks')
+        .select('task_id')
+        .eq('user_id', user.id);
+
+      const progress = data ? (data.length / 4) * 100 : 0;
+      setGettingStartedProgress(Math.round(progress));
+    } catch (error) {
+      console.error('Failed to fetch progress:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -43,6 +65,25 @@ export default function Dashboard() {
             <p className="text-gray-600 text-sm mb-1">Current Streak</p>
             <p className="text-4xl font-bold text-orange-600">{profile?.current_streak || 0} 🔥</p>
           </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-amber-900">Getting Started</h2>
+            <span className="text-sm font-semibold text-amber-700">{gettingStartedProgress}%</span>
+          </div>
+          <div className="w-full bg-amber-200 rounded-full h-2 mb-3">
+            <div
+              className="bg-gradient-to-r from-amber-500 to-orange-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${gettingStartedProgress}%` }}
+            />
+          </div>
+          <button
+            onClick={() => navigate('/getting-started')}
+            className="text-sm font-semibold text-amber-700 hover:text-amber-900 transition"
+          >
+            View Tasks →
+          </button>
         </div>
 
         <div className="bg-white rounded-xl shadow p-6 mb-6">

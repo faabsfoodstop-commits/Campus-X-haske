@@ -76,6 +76,16 @@ CREATE TABLE IF NOT EXISTS activity_log (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create getting started tasks table
+CREATE TABLE IF NOT EXISTS getting_started_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id VARCHAR(50) NOT NULL,
+  points_awarded BIGINT DEFAULT 0,
+  completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, task_id)
+);
+
 -- Create indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_referral_code ON users(referral_code);
@@ -84,6 +94,7 @@ CREATE INDEX idx_transactions_created_at ON transactions(created_at);
 CREATE INDEX idx_streak_check_ins_user_id ON streak_check_ins(user_id);
 CREATE INDEX idx_daily_missions_user_id ON daily_missions(user_id);
 CREATE INDEX idx_activity_log_user_id ON activity_log(user_id);
+CREATE INDEX idx_getting_started_tasks_user_id ON getting_started_tasks(user_id);
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -91,6 +102,7 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE streak_check_ins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE getting_started_tasks ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
 CREATE POLICY "Users can view own profile" ON users
@@ -122,6 +134,13 @@ CREATE POLICY "Users can insert own missions" ON daily_missions
 -- RLS Policies for activity_log
 CREATE POLICY "Users can view own activity" ON activity_log
   FOR SELECT USING (auth.uid() = user_id);
+
+-- RLS Policies for getting_started_tasks
+CREATE POLICY "Users can view own tasks" ON getting_started_tasks
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own tasks" ON getting_started_tasks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Missions seed data
 INSERT INTO missions (title, description, points_reward, difficulty, type, icon) VALUES

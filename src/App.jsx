@@ -12,6 +12,7 @@ import DailyCheckIn from './pages/DailyCheckIn';
 import ActivityLog from './pages/ActivityLog';
 import TransactionHistory from './pages/TransactionHistory';
 import Wallet from './pages/Wallet';
+import GettingStarted from './pages/GettingStarted';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/activity-log" element={<PrivateRoute><ActivityLog /></PrivateRoute>} />
             <Route path="/transactions" element={<PrivateRoute><TransactionHistory /></PrivateRoute>} />
             <Route path="/wallet" element={<PrivateRoute><Wallet /></PrivateRoute>} />
+            <Route path="/getting-started" element={<PrivateRoute><GettingStarted /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>
