@@ -106,6 +106,7 @@ export default function VideoAds() {
   }, [activeAdModal]);
 
   const handleVideoIframeLoad = () => {
+    // iframe onLoad fires on mount, not on play — use as "loaded" indicator only
     setVideoPlayed(true);
   };
 
@@ -301,7 +302,7 @@ export default function VideoAds() {
         </div>
 
         {/* Today's Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-gray-600 text-sm mb-2">Ads Watched Today</p>
             <p className="text-4xl font-bold text-primary">{todayStats.watched}</p>
@@ -321,7 +322,7 @@ export default function VideoAds() {
           <p className="text-blue-800 font-semibold">💡 How it works:</p>
           <ul className="text-blue-700 mt-2 space-y-1">
             <li>✓ Watch a short video ad (30-60 seconds)</li>
-            <li>✓ Earn 50-100 points per ad</li>
+            <li>✓ Earn 250-500 points per ad</li>
             <li>✓ Watch up to 6 ads per day</li>
             <li>✓ Ads reset daily at midnight</li>
           </ul>
@@ -367,7 +368,7 @@ export default function VideoAds() {
 
                 {/* Progress Bar */}
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                  <div className={`h-2 rounded-full ${alreadyWatched ? 'bg-green-500' : 'bg-primary'}`} style={{ width: alreadyWatched ? '100%' : '100%' }}></div>
+                  <div className={`h-2 rounded-full transition-all ${alreadyWatched ? 'bg-green-500' : 'bg-primary'}`} style={{ width: alreadyWatched ? '100%' : '0%' }}></div>
                 </div>
 
                 {/* Watch Button */}

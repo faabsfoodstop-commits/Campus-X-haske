@@ -16,15 +16,19 @@ export default function Toast({ message, type = 'info', onClose, autoClose = 400
   }[type];
 
   return (
-    <div className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-bounce-in`}>
-      <span>
+    <div
+      role="alert"
+      aria-live="polite"
+      className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-bounce-in`}
+    >
+      <span aria-hidden="true">
         {type === 'success' && '✓'}
         {type === 'error' && '✕'}
         {type === 'info' && 'ℹ'}
         {type === 'warning' && '⚠'}
       </span>
       <span className="flex-1">{message}</span>
-      <button onClick={onClose} className="text-white/80 hover:text-white">×</button>
+      <button onClick={onClose} aria-label="Dismiss notification" className="text-white/80 hover:text-white">×</button>
     </div>
   );
 }

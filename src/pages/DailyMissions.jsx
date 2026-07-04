@@ -528,7 +528,7 @@ export default function DailyMissions() {
             <h1 className="text-4xl font-bold">Daily Missions</h1>
           </div>
           <p className="text-blue-100 mb-4">Complete missions to earn points. Chain them for combo bonuses!</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-blue-100">Completed Today</p>
               <p className="text-3xl font-bold">{completedToday.length}/8</p>

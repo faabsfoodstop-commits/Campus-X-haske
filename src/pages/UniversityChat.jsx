@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
+import { ToastContext } from '../context/ToastContext';
 
 export default function UniversityChat() {
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,7 @@ export default function UniversityChat() {
       await fetchMessages();
     } catch (err) {
       console.error('Error sending message:', err);
+      addToast('Failed to send message. Please try again.', 'error');
     } finally {
       setSending(false);
     }
@@ -159,7 +162,7 @@ export default function UniversityChat() {
               type="text"
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage();

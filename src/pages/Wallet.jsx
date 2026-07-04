@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import { IconArrowLeft } from '../components/Icons';
 
@@ -149,7 +150,7 @@ export default function Wallet() {
     : transactions.filter(t => t.type === filter);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingSpinner size="lg" />;
   }
 
   const earnTypes = new Set(['spin_wheel', 'trivia', 'check_in', 'video_ad', 'instagram_follow', 'referral', 'getting_started', 'mission']);

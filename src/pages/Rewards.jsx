@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ToastContext } from '../context/ToastContext';
 
 export default function Rewards() {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [redemptions, setRedemptions] = useState([]);
-  const [notification, setNotification] = useState(null);
   const [selectedPhone, setSelectedPhone] = useState('');
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
 
   const MIN_REDEMPTION = 1000; // Minimum 1000 points to redeem
 
@@ -100,23 +101,11 @@ export default function Rewards() {
       }
 
       if (currentPoints < reward.points) {
-        setNotification({
-          type: 'error',
-          message: `Not enough points. You need ${reward.points} but have ${currentPoints}.`
-        });
+        addToast(`Not enough points. You need ${reward.points} but have ${currentPoints}.`, 'error');
         return;
       }
 
-      setNotification({ type: 'info', message: 'Processing your redemption request...' });
-
-      // Deduct points FIRST — if this fails, no redemption is recorded
-      const newPoints = currentPoints - reward.points;
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ points: newPoints })
-        .eq('id', session.user.id);
-      if (updateError) throw updateError;
-
+      // Insert redemption record FIRST — if this fails, points are never deducted
       const { error: insertError } = await supabase
         .from('redemptions')
         .insert({
@@ -130,24 +119,28 @@ export default function Rewards() {
 
       if (insertError) throw insertError;
 
+      // Fetch fresh points AFTER inserting redemption record
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users')
+        .select('points')
+        .eq('id', session.user.id)
+        .single();
+      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: freshUser.points - reward.points })
+        .eq('id', session.user.id);
+      if (updateError) throw updateError;
+
       await fetchUserData();
-
-      setNotification({
-        type: 'success',
-        message: `✓ Redemption submitted! ${reward.name} will be sent to ${selectedPhone} within 24 hours.`
-      });
-
       setSelectedPhone('');
       await fetchRedemptions();
-
-      setTimeout(() => setNotification(null), 5000);
+      addToast(`Redemption submitted! ${reward.name} will be sent to ${selectedPhone} within 24 hours.`, 'success');
     } catch (err) {
       console.error('Error redeeming reward:', err);
       await fetchUserData();
-      setNotification({
-        type: 'error',
-        message: `Error: ${err.message}`
-      });
+      addToast(`Error: ${err.message}`, 'error');
     }
   };
 
@@ -208,15 +201,6 @@ export default function Rewards() {
             </div>
           </div>
         </div>
-
-        {/* Notification */}
-        {notification && (
-          <div className={`mb-8 p-4 rounded-lg text-white text-center ${
-            notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          }`}>
-            {notification.message}
-          </div>
-        )}
 
         {/* Minimum Redemption Requirement */}
         {!canRedeem && (

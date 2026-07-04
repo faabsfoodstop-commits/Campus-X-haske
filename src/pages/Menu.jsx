@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { supabase } from '../config/supabase';
 import { IconArrowLeft } from '../components/Icons';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ToastContext } from '../context/ToastContext';
 
 export default function Menu() {
   const navigate = useNavigate();
+  const { addToast } = useContext(ToastContext);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,7 +66,6 @@ export default function Menu() {
         { label: 'Rewards', path: '/rewards', icon: '🎁' },
         { label: 'Referrals', path: '/referrals', icon: '👥' },
         { label: 'Achievements', path: '/achievements', icon: '🏆' },
-        { label: 'Badges', path: '/badges', icon: '🎖️' },
         { label: 'Streak Manager', path: '/streak', icon: '🔥' },
       ]
     },
@@ -164,7 +165,15 @@ export default function Menu() {
             💳 Wallet
           </button>
           <button
-            onClick={async () => { await supabase.auth.signOut(); navigate('/'); }}
+            onClick={async () => {
+              try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+                navigate('/');
+              } catch (err) {
+                addToast('Sign out failed. Please try again.', 'error');
+              }
+            }}
             className="w-full bg-red-50 hover:bg-red-100 text-red-600 rounded-lg p-4 shadow hover:shadow-lg transition text-left font-semibold"
           >
             🚪 Sign Out

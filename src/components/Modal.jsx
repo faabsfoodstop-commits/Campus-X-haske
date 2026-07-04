@@ -31,17 +31,23 @@ export default function Modal({
   };
 
   const handleBackdropClick = (e) => {
-    if (e.target.className === 'modal-backdrop') {
+    if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className={`modal-container ${type}`}>
+    <div className="modal-backdrop" onClick={handleBackdropClick} aria-hidden="true">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        className={`modal-container ${type}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
-          <span className="modal-icon">{icons[type]}</span>
-          <h2 className="modal-title">{title}</h2>
+          <span className="modal-icon" aria-hidden="true">{icons[type]}</span>
+          <h2 id="modal-title" className="modal-title">{title}</h2>
           <button
             className="modal-close"
             onClick={onClose}

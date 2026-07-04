@@ -167,9 +167,9 @@ export default function InstagramFollow() {
         message: err.message || 'Verification failed'
       });
       setTimeout(() => setVerificationResult(null), 3000);
+    } finally {
+      setVerifying(false);
     }
-
-    setVerifying(false);
   };
 
   if (loading) {
@@ -218,7 +218,7 @@ export default function InstagramFollow() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-gray-600 text-sm mb-2">Brands Followed</p>
             <p className="text-4xl font-bold text-primary">{followedBrands.length}/{brands.length}</p>
