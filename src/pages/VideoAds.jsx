@@ -229,16 +229,18 @@ export default function VideoAds() {
         return;
       }
 
-      // Fetch fresh points — never use stale local state for DB writes
+      const finalPoints = ad.reward;
+
+      // Record activity FIRST — atomic duplicate guard
+      const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints);
+      if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
+
+      // Fetch fresh points AFTER recording — never use stale local state for DB writes
       const { data: freshUser, error: fetchError } = await supabase
         .from('users').select('points').eq('id', session.user.id).single();
       if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
 
-      const finalPoints = ad.reward;
       const newPoints = freshUser.points + finalPoints;
-
-      const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints);
-      if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
 
       const updated = await updateUserPoints(session.user.id, newPoints);
       if (!updated) throw new Error('Failed to update points');
