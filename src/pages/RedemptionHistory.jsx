@@ -6,6 +6,7 @@ export default function RedemptionHistory() {
   const { user } = useAuth();
   const [redemptions, setRedemptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function RedemptionHistory() {
 
   const fetchRedemptions = async () => {
     try {
+      setError(null);
       let query = supabase
         .from('redemptions')
         .select('*')
@@ -26,10 +28,12 @@ export default function RedemptionHistory() {
         query = query.eq('status', filter);
       }
 
-      const { data } = await query;
+      const { data, error: fetchError } = await query;
+      if (fetchError) throw fetchError;
       setRedemptions(data || []);
     } catch (error) {
       console.error('Failed to fetch redemptions:', error);
+      setError(error.message || 'Failed to load redemptions');
     } finally {
       setLoading(false);
     }
@@ -71,6 +75,21 @@ export default function RedemptionHistory() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600">Loading redemptions...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-3xl font-bold mb-2 text-gray-800">Redemption History</h1>
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+            <p className="text-red-700">
+              <span className="font-bold">Error:</span> {error}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

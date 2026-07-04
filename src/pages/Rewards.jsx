@@ -232,7 +232,7 @@ export default function Rewards() {
                         : 'bg-purple-600 text-white hover:bg-purple-700'
                     }`}
                   >
-                    Redeem
+                    {loading ? 'Processing...' : (profile?.points || 0) < reward.cost ? 'Insufficient Points' : 'Redeem'}
                   </button>
                 </div>
               </div>
