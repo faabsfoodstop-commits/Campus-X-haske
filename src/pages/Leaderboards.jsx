@@ -29,14 +29,12 @@ export default function Leaderboard() {
       if (!session) { navigate('/login'); return; }
 
       const userId = session.user.id;
-      const orderByField = timeframe === 'week' ? 'weekly_points'
-                         : timeframe === 'month' ? 'monthly_points'
-                         : 'points';
+      const orderByField = 'points';
 
       // Build leaderboard query — select only needed columns
       let lbQuery = supabase
         .from('users')
-        .select('id, full_name, points, weekly_points, monthly_points, university, department, active_badge, active_title, active_frame')
+        .select('id, full_name, points, university, department, active_badge, active_title, active_frame')
         .order(orderByField, { ascending: false })
         .limit(50);
 
@@ -64,8 +62,6 @@ export default function Leaderboard() {
       setCurrentUser({
         ...rawUser,
         fullName: rawUser.full_name,
-        weeklyPoints: rawUser.weekly_points || 0,
-        monthlyPoints: rawUser.monthly_points || 0,
       });
 
       // Rank via server-side COUNT — no full table scan
@@ -102,12 +98,7 @@ export default function Leaderboard() {
     }
   };
 
-  // Accepts both normalized (camelCase) and raw DB (snake_case) user objects
-  const getPointsForTimeframe = (user) => {
-    if (timeframe === 'week') return user.weekly_points ?? user.weeklyPoints ?? 0;
-    if (timeframe === 'month') return user.monthly_points ?? user.monthlyPoints ?? 0;
-    return user.points || 0;
-  };
+  const getPointsForTimeframe = (user) => user.points || 0;
 
   if (loading) {
     return <LoadingSpinner size="lg" />;

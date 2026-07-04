@@ -64,8 +64,6 @@ export default function SignUp() {
         points: 0,
         wallet: 0,
         current_streak: 0,
-        weekly_points: 0,
-        monthly_points: 0,
         profile_complete: false,
       }, { onConflict: 'id' });
       if (upsertError) {
