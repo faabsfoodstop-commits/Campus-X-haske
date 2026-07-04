@@ -176,6 +176,7 @@ export default function Referrals() {
           <div className="flex justify-between h-16 items-center">
             <button onClick={() => navigate('/dashboard')} className="text-2xl font-bold text-primary">HASKE</button>
             <div className="flex gap-4 items-center">
+              <button onClick={() => navigate('/daily-missions')} className="text-sm font-semibold text-primary hover:underline">← Missions</button>
               <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-primary">Dashboard</button>
               <div className="text-lg font-bold text-primary">⭐ {userData?.points || 0} pts</div>
             </div>

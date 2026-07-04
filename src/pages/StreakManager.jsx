@@ -199,6 +199,12 @@ export default function StreakManager() {
                 <h1 className="text-2xl font-bold text-gray-800">Streak Tracker</h1>
               </div>
             </div>
+            <button
+              onClick={() => navigate('/daily-missions')}
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              Daily Missions →
+            </button>
           </div>
         </div>
       </nav>
