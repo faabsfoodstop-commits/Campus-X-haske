@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import { insertTransaction } from '../utils/databaseHelpers';
 import { ToastContext } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
@@ -142,7 +143,7 @@ export default function SponsoredMissions() {
       const pointsAwarded = mission.reward;
 
       // Insert completion record first — acts as duplicate guard
-      const { error: recordError } = await supabase
+      const { data: completionRow, error: recordError } = await supabase
         .from('sponsored_mission_completions')
         .insert({
           user_id: session.user.id,
@@ -150,9 +151,11 @@ export default function SponsoredMissions() {
           brand: mission.brand,
           base_reward: mission.reward,
           completed_at: new Date().toISOString()
-        });
+        })
+        .select('id');
 
       if (recordError) throw recordError;
+      const completionId = completionRow?.[0]?.id;
 
       // Fetch fresh points to avoid stale state race
       const { data: freshUser, error: fetchError } = await supabase
@@ -163,18 +166,25 @@ export default function SponsoredMissions() {
 
       if (fetchError) throw fetchError;
 
-      const { error: updateError } = await supabase
+      const newPoints = (freshUser.points || 0) + pointsAwarded;
+      const { data: updatedRows, error: updateError } = await supabase
         .from('users')
-        .update({ points: (freshUser.points || 0) + pointsAwarded })
-        .eq('id', session.user.id);
+        .update({ points: newPoints })
+        .eq('id', session.user.id)
+        .select('id');
 
-      if (updateError) throw updateError;
+      if (updateError || !updatedRows?.length) {
+        // Rollback completion record
+        if (completionId) {
+          await supabase.from('sponsored_mission_completions').delete().eq('id', completionId);
+        }
+        throw new Error('Points update blocked. Please try again.');
+      }
 
-      setUserData(prev => ({
-        ...prev,
-        points: (freshUser.points || 0) + pointsAwarded,
-      }));
+      await insertTransaction(session.user.id, 'sponsored_mission', pointsAwarded,
+        `Sponsored Mission: ${mission.brand} – ${mission.title}`);
 
+      setUserData(prev => ({ ...prev, points: newPoints }));
       setCompletedMissions([...completedMissions, mission.id]);
       addToast(`Mission claimed! +${pointsAwarded} points 🎉`, 'success');
     } catch (err) {

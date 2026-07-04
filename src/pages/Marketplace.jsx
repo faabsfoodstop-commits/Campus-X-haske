@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import RichMarketplaceCard from '../components/RichMarketplaceCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { insertTransaction } from '../utils/databaseHelpers';
 
 export default function Marketplace() {
   const [user, setUser] = useState(null);
@@ -189,6 +190,9 @@ export default function Marketplace() {
 
       if (updateError) throw updateError;
       if (!updatedRows?.length) throw new Error('Points deduction blocked — check RLS policy for users table');
+
+      // Log the deduction after points are confirmed
+      await insertTransaction(session.user.id, 'marketplace', -pointsNeeded, `Marketplace: ${reward.name}`);
 
       setUserData(prev => ({ ...prev, points: newPoints }));
       setNotification({ type: 'success', message: `✓ Purchase confirmed! ${reward.name} will be delivered within 24 hours.` });

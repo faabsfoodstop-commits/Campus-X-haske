@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ToastContext } from '../context/ToastContext';
+import { insertTransaction } from '../utils/databaseHelpers';
 
 export default function Rewards() {
   const [user, setUser] = useState(null);
@@ -121,6 +122,9 @@ export default function Rewards() {
         .select('id');
       if (updateError) throw updateError;
       if (!updatedRows?.length) throw new Error('Points deduction blocked — check RLS policy for users table');
+
+      // Log the deduction after points are confirmed
+      await insertTransaction(session.user.id, 'redemption', -reward.points, `Reward Redemption: ${reward.name}`);
 
       await fetchUserData();
       setSelectedPhone('');

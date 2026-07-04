@@ -152,7 +152,7 @@ export default function StreakManager() {
       }
 
       // Log transaction after points are confirmed
-      await insertTransaction(session.user.id, 'streak_checkin', totalPoints,
+      await insertTransaction(session.user.id, 'check_in', totalPoints,
         `Daily Check-In – Day ${newStreak}${streakBonus > 0 ? ` (+${streakBonus} milestone bonus)` : ''}`);
 
       localStorage.setItem('lastCheckIn', todayString);

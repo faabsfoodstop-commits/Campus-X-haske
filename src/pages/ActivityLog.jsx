@@ -22,6 +22,10 @@ export default function ActivityLog() {
     challenge: '#ec4899',
     video_ad: '#14b8a6',
     referral: '#f59e0b',
+    instagram: '#e1306c',
+    purchase: '#ef4444',
+    redemption: '#ef4444',
+    sponsored: '#8b5cf6',
     default: '#6b7280',
   };
 
@@ -34,6 +38,10 @@ export default function ActivityLog() {
     challenge: '🏆',
     video_ad: '📺',
     referral: '👥',
+    instagram: '📱',
+    purchase: '🛒',
+    redemption: '💸',
+    sponsored: '🏢',
     default: '💰',
   };
 
@@ -71,11 +79,17 @@ export default function ActivityLog() {
           spin_wheel: { type: 'spin', icon: '🎡', label: 'Spin Wheel' },
           trivia: { type: 'trivia', icon: '🧠', label: 'Trivia Game' },
           check_in: { type: 'check_in', icon: '✅', label: 'Daily Check-In' },
+          streak_checkin: { type: 'check_in', icon: '✅', label: 'Daily Check-In' },
           getting_started: { type: 'getting_started', icon: '🚀', label: 'Getting Started' },
           mission: { type: 'mission', icon: '📋', label: 'Daily Mission' },
           weekly_challenge: { type: 'challenge', icon: '🏆', label: 'Weekly Challenge' },
           video_ad: { type: 'video_ad', icon: '📺', label: 'Video Ad' },
           referral: { type: 'referral', icon: '👥', label: 'Referral' },
+          instagram_follow: { type: 'instagram', icon: '📱', label: 'Instagram Follow' },
+          cosmetic_purchase: { type: 'purchase', icon: '🎨', label: 'Cosmetic Purchase' },
+          marketplace: { type: 'purchase', icon: '🛒', label: 'Marketplace Purchase' },
+          redemption: { type: 'redemption', icon: '💸', label: 'Reward Redemption' },
+          sponsored_mission: { type: 'sponsored', icon: '🏢', label: 'Sponsored Mission' },
         };
 
         const info = typeMap[tx.type] || { type: 'default', icon: '💰', label: 'Activity' };
@@ -102,7 +116,8 @@ export default function ActivityLog() {
     ? activities
     : activities.filter(a => a.type === filterType);
 
-  const totalPoints = filteredActivities.reduce((sum, a) => sum + a.points, 0);
+  const totalEarned = filteredActivities.reduce((sum, a) => a.points > 0 ? sum + a.points : sum, 0);
+  const totalSpent = filteredActivities.reduce((sum, a) => a.points < 0 ? sum + Math.abs(a.points) : sum, 0);
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
@@ -157,66 +172,51 @@ export default function ActivityLog() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Total Activities</div>
             <div className="text-2xl font-bold text-primary">{filteredActivities.length}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Points Earned</div>
-            <div className="text-2xl font-bold text-green-600">+{totalPoints}</div>
+            <div className="text-2xl font-bold text-green-600">+{totalEarned.toLocaleString()}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Spins</div>
-            <div className="text-2xl font-bold text-yellow-600">
-              {activities.filter(a => a.type === 'spin').length}
-            </div>
+            <div className="text-sm text-gray-600">Points Spent</div>
+            <div className="text-2xl font-bold text-red-500">-{totalSpent.toLocaleString()}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Check-Ins</div>
-            <div className="text-2xl font-bold text-green-600">
-              {activities.filter(a => a.type === 'check_in').length}
+            <div className="text-sm text-gray-600">Net Balance</div>
+            <div className={`text-2xl font-bold ${(totalEarned - totalSpent) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+              {(totalEarned - totalSpent) >= 0 ? '+' : ''}{(totalEarned - totalSpent).toLocaleString()}
             </div>
           </div>
         </div>
 
         {/* Filter Buttons */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          <Button
-            onClick={() => setFilterType('all')}
-            variant={filterType === 'all' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => setFilterType('spin')}
-            variant={filterType === 'spin' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            🎡 Spins
-          </Button>
-          <Button
-            onClick={() => setFilterType('trivia')}
-            variant={filterType === 'trivia' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            🧠 Trivia
-          </Button>
-          <Button
-            onClick={() => setFilterType('check_in')}
-            variant={filterType === 'check_in' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            ✅ Check-Ins
-          </Button>
-          <Button
-            onClick={() => setFilterType('getting_started')}
-            variant={filterType === 'getting_started' ? 'primary' : 'secondary'}
-            size="sm"
-          >
-            🚀 Onboarding
-          </Button>
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'spin', label: '🎡 Spins' },
+            { key: 'trivia', label: '🧠 Trivia' },
+            { key: 'check_in', label: '✅ Check-Ins' },
+            { key: 'mission', label: '📋 Missions' },
+            { key: 'challenge', label: '🏆 Challenges' },
+            { key: 'video_ad', label: '📺 Videos' },
+            { key: 'referral', label: '👥 Referrals' },
+            { key: 'sponsored', label: '🏢 Sponsored' },
+            { key: 'purchase', label: '🛒 Purchases' },
+            { key: 'redemption', label: '💸 Redemptions' },
+          ].map(({ key, label }) => (
+            <Button
+              key={key}
+              onClick={() => setFilterType(key)}
+              variant={filterType === key ? 'primary' : 'secondary'}
+              size="sm"
+            >
+              {label}
+            </Button>
+          ))}
         </div>
 
         {/* Activities List */}
@@ -246,7 +246,9 @@ export default function ActivityLog() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-2xl font-bold text-green-600">+{activity.points}</div>
+                    <div className={`text-2xl font-bold ${activity.points < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                      {activity.points < 0 ? `-${Math.abs(activity.points).toLocaleString()}` : `+${activity.points.toLocaleString()}`}
+                    </div>
                     <div className="text-xs text-gray-500">points</div>
                   </div>
                 </div>

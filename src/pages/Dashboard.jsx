@@ -151,7 +151,7 @@ export default function Dashboard() {
       if (!updated?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
       // Log transaction after points are confirmed
-      await insertTransaction(session.user.id, 'streak_checkin', pointsEarned, `Daily Check-In – Day ${newStreak}`);
+      await insertTransaction(session.user.id, 'check_in', pointsEarned, `Daily Check-In – Day ${newStreak}`);
 
       // Award 7-day getting started task if reached
       try {
@@ -170,6 +170,7 @@ export default function Dashboard() {
                 .select('id');
               if (bonusRows?.length) {
                 await insertTransaction(session.user.id, 'getting_started', 70, 'Getting Started: Check In 7 Days');
+
               }
             }
             addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
