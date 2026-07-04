@@ -104,7 +104,7 @@ export default function Profile() {
       // Always fetch fresh user row so we have accurate points/wallet/streak values
       const { data: freshUser } = await supabase
         .from('users')
-        .select('points, wallet, current_streak, weekly_points, monthly_points, referral_code')
+        .select('points, wallet, current_streak, referral_code')
         .eq('id', session.user.id)
         .maybeSingle();
 
@@ -124,8 +124,6 @@ export default function Profile() {
           points: currentPoints + bonusPoints,
           wallet: freshUser?.wallet ?? 0,
           current_streak: freshUser?.current_streak ?? 0,
-          weekly_points: freshUser?.weekly_points ?? 0,
-          monthly_points: freshUser?.monthly_points ?? 0,
           referral_code: freshUser?.referral_code || session.user.id.substring(0, 8).toUpperCase(),
         }, { onConflict: 'id' });
       if (upsertError) throw upsertError;
