@@ -51,9 +51,11 @@ CREATE TABLE IF NOT EXISTS daily_missions (
   mission_id UUID NOT NULL,
   points_earned BIGINT DEFAULT 0,
   completed_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, mission_id, DATE(created_at))
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create unique constraint for daily mission limit
+CREATE UNIQUE INDEX idx_daily_missions_per_day ON daily_missions(user_id, mission_id, DATE(created_at));
 
 -- Create missions table (catalog)
 CREATE TABLE IF NOT EXISTS missions (
