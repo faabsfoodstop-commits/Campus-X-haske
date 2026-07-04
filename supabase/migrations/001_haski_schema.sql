@@ -86,6 +86,17 @@ CREATE TABLE IF NOT EXISTS getting_started_tasks (
   UNIQUE(user_id, task_id)
 );
 
+-- Create video ads watched table
+CREATE TABLE IF NOT EXISTS video_ads_watched (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ad_id VARCHAR(50) NOT NULL,
+  watch_date DATE NOT NULL,
+  watched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  points_earned BIGINT DEFAULT 0,
+  UNIQUE(user_id, ad_id, watch_date)
+);
+
 -- Create indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_referral_code ON users(referral_code);
@@ -95,6 +106,8 @@ CREATE INDEX idx_streak_check_ins_user_id ON streak_check_ins(user_id);
 CREATE INDEX idx_daily_missions_user_id ON daily_missions(user_id);
 CREATE INDEX idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX idx_getting_started_tasks_user_id ON getting_started_tasks(user_id);
+CREATE INDEX idx_video_ads_watched_user_id ON video_ads_watched(user_id);
+CREATE INDEX idx_video_ads_watched_date ON video_ads_watched(watch_date);
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -103,6 +116,7 @@ ALTER TABLE streak_check_ins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE getting_started_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE video_ads_watched ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
 CREATE POLICY "Users can view own profile" ON users
@@ -140,6 +154,13 @@ CREATE POLICY "Users can view own tasks" ON getting_started_tasks
   FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert own tasks" ON getting_started_tasks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for video_ads_watched
+CREATE POLICY "Users can view own watched ads" ON video_ads_watched
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert ad watches" ON video_ads_watched
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Missions seed data

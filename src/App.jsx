@@ -13,6 +13,8 @@ import ActivityLog from './pages/ActivityLog';
 import TransactionHistory from './pages/TransactionHistory';
 import Wallet from './pages/Wallet';
 import GettingStarted from './pages/GettingStarted';
+import DailyMissions from './pages/DailyMissions';
+import VideoAds from './pages/VideoAds';
 
 export default function App() {
   return (
@@ -30,6 +32,8 @@ export default function App() {
             <Route path="/transactions" element={<PrivateRoute><TransactionHistory /></PrivateRoute>} />
             <Route path="/wallet" element={<PrivateRoute><Wallet /></PrivateRoute>} />
             <Route path="/getting-started" element={<PrivateRoute><GettingStarted /></PrivateRoute>} />
+            <Route path="/daily-missions" element={<PrivateRoute><DailyMissions /></PrivateRoute>} />
+            <Route path="/video-ads" element={<PrivateRoute><VideoAds /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>

@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Quick Actions</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Earn Points</h2>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => navigate('/daily-check-in')}
@@ -97,22 +97,42 @@ export default function Dashboard() {
               <p className="font-semibold text-sm">Check-In</p>
             </button>
             <button
-              onClick={() => navigate('/wallet')}
+              onClick={() => navigate('/daily-missions')}
               className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">✅</p>
+              <p className="font-semibold text-sm">Missions</p>
+            </button>
+            <button
+              onClick={() => navigate('/video-ads')}
+              className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">▶️</p>
+              <p className="font-semibold text-sm">Ads</p>
+            </button>
+            <button
+              onClick={() => navigate('/wallet')}
+              className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4 hover:shadow-lg transition"
             >
               <p className="text-2xl mb-1">💰</p>
               <p className="font-semibold text-sm">Wallet</p>
             </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Account</h2>
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => navigate('/transactions')}
-              className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+              className="bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg p-4 transition text-center"
             >
               <p className="text-2xl mb-1">📊</p>
               <p className="font-semibold text-sm">Ledger</p>
             </button>
             <button
               onClick={() => navigate('/activity-log')}
-              className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+              className="bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg p-4 transition text-center"
             >
               <p className="text-2xl mb-1">📝</p>
               <p className="font-semibold text-sm">Activity</p>
@@ -123,17 +143,17 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-800">Coming Soon</h2>
           <div className="space-y-3 opacity-50">
-            <div className="text-left p-4 border-l-4 border-blue-500">
-              <p className="font-semibold text-gray-800">✅ Daily Missions</p>
-              <p className="text-sm text-gray-600">Complete tasks to earn extra points</p>
-            </div>
-            <div className="text-left p-4 border-l-4 border-green-500">
-              <p className="font-semibold text-gray-800">▶️ Watch Ads</p>
-              <p className="text-sm text-gray-600">Earn points by watching short videos</p>
-            </div>
-            <div className="text-left p-4 border-l-4 border-purple-500">
-              <p className="font-semibold text-gray-800">🧑‍🤝‍🧑 Referrals</p>
+            <div className="text-left p-4 border-l-4 border-pink-500">
+              <p className="font-semibold text-gray-800">👥 Referrals</p>
               <p className="text-sm text-gray-600">Invite friends and earn bonuses</p>
+            </div>
+            <div className="text-left p-4 border-l-4 border-yellow-500">
+              <p className="font-semibold text-gray-800">🏆 Leaderboards</p>
+              <p className="text-sm text-gray-600">Compete with other students</p>
+            </div>
+            <div className="text-left p-4 border-l-4 border-indigo-500">
+              <p className="font-semibold text-gray-800">🎁 Rewards</p>
+              <p className="text-sm text-gray-600">Redeem points for real items</p>
             </div>
           </div>
         </div>
