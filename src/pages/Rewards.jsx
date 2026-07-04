@@ -74,10 +74,7 @@ export default function Rewards() {
 
   const redeemReward = async (reward) => {
     if (!selectedPhone.trim()) {
-      setNotification({
-        type: 'error',
-        message: 'Please enter your phone number'
-      });
+      addToast('Please enter your phone number', 'error');
       return;
     }
 
@@ -93,10 +90,7 @@ export default function Rewards() {
       const currentPoints = freshUser.points || 0;
 
       if (currentPoints < MIN_REDEMPTION) {
-        setNotification({
-          type: 'error',
-          message: `Minimum ${MIN_REDEMPTION} points required. You have ${currentPoints} points.`
-        });
+        addToast(`Minimum ${MIN_REDEMPTION} points required. You have ${currentPoints} points.`, 'error');
         return;
       }
 
@@ -119,17 +113,10 @@ export default function Rewards() {
 
       if (insertError) throw insertError;
 
-      // Fetch fresh points AFTER inserting redemption record
-      const { data: freshUser, error: fetchError } = await supabase
-        .from('users')
-        .select('points')
-        .eq('id', session.user.id)
-        .single();
-      if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
-
+      // Deduct using the balance already verified above (fresh, pre-insert fetch)
       const { error: updateError } = await supabase
         .from('users')
-        .update({ points: freshUser.points - reward.points })
+        .update({ points: currentPoints - reward.points })
         .eq('id', session.user.id);
       if (updateError) throw updateError;
 
