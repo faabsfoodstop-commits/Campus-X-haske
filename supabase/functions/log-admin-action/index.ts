@@ -30,7 +30,11 @@ serve(async (req) => {
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
 
-    const supabase = createClient(supabaseUrl, token || Deno.env.get("SUPABASE_ANON_KEY") || "");
+    const supabase = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
     // Verify admin status
     const { data: admin, error: adminError } = await supabase

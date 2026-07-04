@@ -17,7 +17,8 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     const { userId, cosmeticId, cosmeticName, price } = await req.json();
@@ -29,14 +30,14 @@ serve(async (req) => {
       );
     }
 
-    // Get user data
+    // Fetch fresh user data
     const { data: user, error: userError } = await supabaseClient
       .from("users")
-      .select("*")
+      .select("points, cosmetics_purchased")
       .eq("id", userId)
       .single();
 
-    if (userError) {
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "User not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -52,16 +53,36 @@ serve(async (req) => {
     }
 
     // Check if user has enough points
-    if (user.points < price) {
+    if ((user.points || 0) < price) {
       return new Response(
         JSON.stringify({ error: "Insufficient points" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Deduct points
-    const newPoints = user.points - price;
-    const updatedCosmetics = [...(user.cosmetics_purchased || []), cosmeticId];
+    // Record purchase FIRST — atomic duplicate guard
+    const { error: purchaseError } = await supabaseClient.from("cosmetics_purchases").insert({
+      user_id: userId,
+      cosmetic_id: cosmeticId,
+      cosmetic_name: cosmeticName,
+      price: price,
+    });
+    if (purchaseError) {
+      return new Response(
+        JSON.stringify({ error: "Purchase failed or already owned" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch fresh points again AFTER recording purchase
+    const { data: freshUser } = await supabaseClient
+      .from("users")
+      .select("points, cosmetics_purchased")
+      .eq("id", userId)
+      .single();
+
+    const newPoints = (freshUser?.points || 0) - price;
+    const updatedCosmetics = [...(freshUser?.cosmetics_purchased || []), cosmeticId];
 
     const { error: updateError } = await supabaseClient
       .from("users")
@@ -84,15 +105,7 @@ serve(async (req) => {
       type: "cosmetic_purchase",
       description: `Purchased: ${cosmeticName}`,
       amount: -price,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Record purchase
-    await supabaseClient.from("cosmetics_purchases").insert({
-      user_id: userId,
-      cosmetic_id: cosmeticId,
-      cosmetic_name: cosmeticName,
-      price: price,
+      created_at: new Date().toISOString(),
     });
 
     return new Response(

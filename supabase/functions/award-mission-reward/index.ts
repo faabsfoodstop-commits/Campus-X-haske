@@ -17,7 +17,8 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     const { userId, missionId, missionName, baseReward } = await req.json();
@@ -29,14 +30,29 @@ serve(async (req) => {
       );
     }
 
-    // Get user data
+    // Record mission completion FIRST — atomic duplicate guard
+    const { error: missionError } = await supabaseClient.from("daily_missions").insert({
+      user_id: userId,
+      mission_id: missionId,
+      mission_name: missionName,
+      base_reward: baseReward,
+      completed: true,
+    });
+    if (missionError) {
+      return new Response(
+        JSON.stringify({ error: "Failed to record mission or already completed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch fresh user data AFTER recording
     const { data: user, error: userError } = await supabaseClient
       .from("users")
-      .select("*")
+      .select("points, premium_until")
       .eq("id", userId)
       .single();
 
-    if (userError) {
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "User not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -52,7 +68,7 @@ serve(async (req) => {
     // Update user points
     const { error: updateError } = await supabaseClient
       .from("users")
-      .update({ points: user.points + pointsAwarded })
+      .update({ points: (user.points || 0) + pointsAwarded })
       .eq("id", userId);
 
     if (updateError) {
@@ -68,16 +84,7 @@ serve(async (req) => {
       type: "mission",
       description: `Completed mission: ${missionName}`,
       amount: pointsAwarded,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Record mission completion
-    await supabaseClient.from("daily_missions").insert({
-      user_id: userId,
-      mission_id: missionId,
-      mission_name: missionName,
-      base_reward: baseReward,
-      completed: true,
+      created_at: new Date().toISOString(),
     });
 
     return new Response(

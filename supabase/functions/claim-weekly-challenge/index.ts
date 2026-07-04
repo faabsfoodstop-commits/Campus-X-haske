@@ -17,7 +17,8 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      token || Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     const { userId, challengeId, bonus } = await req.json();
@@ -26,20 +27,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Get user data
-    const { data: user, error: userError } = await supabaseClient
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (userError) {
-      return new Response(
-        JSON.stringify({ error: "User not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -58,6 +45,36 @@ serve(async (req) => {
       );
     }
 
+    // Record claim FIRST — atomic duplicate guard
+    const claimedAt = new Date().toISOString();
+    if (existing) {
+      await supabaseClient
+        .from("weekly_challenges")
+        .update({ claimed: true, claimed_at: claimedAt })
+        .eq("id", existing.id);
+    } else {
+      await supabaseClient.from("weekly_challenges").insert({
+        user_id: userId,
+        challenge_id: challengeId,
+        claimed: true,
+        claimed_at: claimedAt,
+      });
+    }
+
+    // Fetch fresh user data AFTER recording
+    const { data: user, error: userError } = await supabaseClient
+      .from("users")
+      .select("points, premium_until")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if user has premium
     const isPremium =
       user.premium_until && new Date(user.premium_until) > new Date();
@@ -65,7 +82,7 @@ serve(async (req) => {
     const bonusAwarded = bonus * multiplier;
 
     // Update points
-    const newPoints = user.points + bonusAwarded;
+    const newPoints = (user.points || 0) + bonusAwarded;
     const { error: updateError } = await supabaseClient
       .from("users")
       .update({ points: newPoints })
@@ -84,23 +101,8 @@ serve(async (req) => {
       type: "weekly_challenge",
       description: `Claimed weekly challenge: ${challengeId}`,
       amount: bonusAwarded,
-      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
-
-    // Record claim
-    if (existing) {
-      await supabaseClient
-        .from("weekly_challenges")
-        .update({ claimed: true, claimed_at: new Date() })
-        .eq("id", existing.id);
-    } else {
-      await supabaseClient.from("weekly_challenges").insert({
-        user_id: userId,
-        challenge_id: challengeId,
-        claimed: true,
-        claimed_at: new Date(),
-      });
-    }
 
     return new Response(
       JSON.stringify({

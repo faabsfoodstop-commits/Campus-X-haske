@@ -25,8 +25,9 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      token || Deno.env.get("SUPABASE_ANON_KEY") || ""
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     // Check if task already completed
@@ -43,27 +44,7 @@ serve(async (req) => {
       );
     }
 
-    // Get user's current points
-    const { data: users } = await supabase
-      .from("users")
-      .select("points")
-      .eq("id", userId);
-
-    if (!users || users.length === 0) {
-      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } });
-    }
-
-    const newPoints = (users[0].points || 0) + rewardPoints;
-
-    // Update user points
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ points: newPoints, updated_at: new Date().toISOString() })
-      .eq("id", userId);
-
-    if (updateError) throw updateError;
-
-    // Record task completion
+    // Record task completion FIRST — atomic duplicate guard
     const { error: taskError } = await supabase
       .from("getting_started_tasks")
       .upsert({
@@ -77,6 +58,27 @@ serve(async (req) => {
       });
 
     if (taskError) throw taskError;
+
+    // Fetch fresh points AFTER recording task
+    const { data: freshUser, error: userError } = await supabase
+      .from("users")
+      .select("points")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !freshUser) {
+      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } });
+    }
+
+    const newPoints = (freshUser.points || 0) + rewardPoints;
+
+    // Update user points
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ points: newPoints, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (updateError) throw updateError;
 
     return new Response(
       JSON.stringify({ success: true, newPoints }),
