@@ -117,6 +117,7 @@ export default function Achievements() {
   const [unlockedAchievements, setUnlockedAchievements] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     if (user && profile) {
@@ -174,7 +175,6 @@ export default function Achievements() {
     points: 'Points',
   };
 
-  const [filter, setFilter] = useState('all');
   const filteredAchievements = filter === 'all'
     ? achievements
     : achievements.filter(a => a.category === filter);
