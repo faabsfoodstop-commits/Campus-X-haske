@@ -96,8 +96,22 @@ export function AuthProvider({ children }) {
     setProfile(null);
   };
 
+  const refreshProfile = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      setProfile(data);
+    } catch (error) {
+      console.error('Failed to refresh profile:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

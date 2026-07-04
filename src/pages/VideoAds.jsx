@@ -47,7 +47,7 @@ const VIDEO_ADS = [
 ];
 
 export default function VideoAds() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [ads, setAds] = useState([]);
@@ -165,6 +165,9 @@ export default function VideoAds() {
       setWatchedToday(prev => new Set([...prev, ad.id]));
       setTotalEarnedToday(prev => prev + ad.points);
       setSelectedAd(null);
+
+      // Refresh profile to sync points balance
+      await refreshProfile();
     } catch (error) {
       addToast(error.message || 'Failed to complete ad', 'error');
       setSelectedAd(null);

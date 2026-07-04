@@ -57,7 +57,7 @@ const MISSIONS = [
 ];
 
 export default function DailyMissions() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [missions, setMissions] = useState([]);
@@ -178,6 +178,9 @@ export default function DailyMissions() {
       setCompletedToday(prev => new Map(prev).set(mission.id, (prev.get(mission.id) || 0) + 1));
       setTotalEarnedToday(prev => prev + pointsAwarded);
       setComboCount(newCombo);
+
+      // Refresh profile to sync points balance
+      await refreshProfile();
     } catch (error) {
       addToast(error.message || 'Mission failed', 'error');
     }

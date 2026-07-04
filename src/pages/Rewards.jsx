@@ -74,7 +74,7 @@ const REWARD_CATALOG = [
 ];
 
 export default function Rewards() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [rewards, setRewards] = useState([]);
@@ -144,7 +144,7 @@ export default function Rewards() {
         }]);
 
       addToast(`✅ Redemption request submitted! Check your email for details.`, 'success');
-      setTimeout(() => window.location.reload(), 2000);
+      await refreshProfile();
     } catch (error) {
       addToast(error.message || 'Redemption failed', 'error');
     } finally {

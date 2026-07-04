@@ -56,7 +56,7 @@ const GETTING_STARTED_TASKS = [
 ];
 
 export default function GettingStarted() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [tasks, setTasks] = useState([]);
@@ -158,6 +158,9 @@ export default function GettingStarted() {
       addToast(`🎉 Task completed! +${task.points} points`, 'success');
       setCompletedTasks(prev => new Set([...prev, task.id]));
       setTotalPointsEarned(prev => prev + task.points);
+
+      // Refresh profile to sync points balance
+      await refreshProfile();
     } catch (error) {
       console.error('Failed to award task:', error);
     }

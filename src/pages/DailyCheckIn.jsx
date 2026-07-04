@@ -4,7 +4,7 @@ import { useToast } from '../hooks/useToast';
 import { supabase } from '../config/supabase';
 
 export default function DailyCheckIn() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
@@ -98,8 +98,8 @@ export default function DailyCheckIn() {
       setHasCheckedInToday(true);
       setTodayPoints(totalPoints);
 
-      // Refresh profile
-      setTimeout(() => window.location.reload(), 1500);
+      // Refresh profile to sync points balance
+      await refreshProfile();
     } catch (error) {
       addToast(error.message || 'Check-in failed', 'error');
     } finally {

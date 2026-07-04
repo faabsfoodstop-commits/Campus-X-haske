@@ -4,7 +4,7 @@ import { useToast } from '../hooks/useToast';
 import { supabase } from '../config/supabase';
 
 export default function Wallet() {
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export default function Wallet() {
 
       addToast(`Converted ${points} points to wallet!`, 'success');
       setConvertAmount('');
-      setTimeout(() => window.location.reload(), 1500);
+      await refreshProfile();
     } catch (error) {
       addToast(error.message || 'Conversion failed', 'error');
     } finally {
