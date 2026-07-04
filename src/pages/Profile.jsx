@@ -1,352 +1,136 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import { supabase } from '../config/supabase';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Button from '../components/Button';
-import Input from '../components/Input';
-import { ToastContext } from '../context/ToastContext';
-import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
+
+const UNIVERSITIES = [
+  'University of Lagos',
+  'University of Ibadan',
+  'Ahmadu Bello University',
+  'Obafemi Awolowo University',
+  'University of Nigeria',
+];
 
 export default function Profile() {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
-  const { addToast } = useContext(ToastContext);
+  const { user, profile } = useAuth();
+  const { addToast } = useToast();
 
-  const isProfileComplete = userData?.university && userData?.department && userData?.course;
-  const availableDepartments = formData.university ? (DEPARTMENTS_BY_UNIVERSITY[formData.university] || []) : [];
+  const [fullName, setFullName] = useState('');
+  const [university, setUniversity] = useState('');
+  const [department, setDepartment] = useState('');
+  const [course, setCourse] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+    if (!user) {
+      navigate('/login');
+    } else if (profile) {
+      setFullName(profile.full_name || '');
+      setUniversity(profile.university || '');
+      setDepartment(profile.department || '');
+      setCourse(profile.course || '');
+    }
+  }, [user, profile, navigate]);
 
-        const { data: user, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
+  const handleSave = async (e) => {
+    e.preventDefault();
 
-        if (error) throw error;
-        setUser(session.user);
-        // Recover name saved at signup in case the initial DB row wasn't written
-        const pendingName = sessionStorage.getItem('pendingFullName') || '';
-        if (user) {
-          const normalizedUser = {
-            ...user,
-            fullName: user.full_name || pendingName,
-            email: user.email || session.user.email
-          };
-          setUserData(normalizedUser);
-          setFormData(normalizedUser);
-        } else {
-          // New user — no DB row yet; open edit mode and pre-fill the name
-          setFormData({ email: session.user.email, fullName: pendingName });
-          setEditing(true);
-        }
-      } catch (err) {
-        console.error('Error fetching user:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value };
-      if (name === 'university') {
-        updated.department = '';
-        updated.course = '';
-      }
-      if (name === 'department') {
-        updated.course = '';
-      }
-      return updated;
-    });
-  };
-
-  const handleSave = async () => {
-    if (!formData.fullName?.trim() || !formData.university || !formData.department || !formData.course) {
-      addToast('Please fill in all required fields: Full Name, University, Department, and Course.', 'error');
+    if (!fullName || !university || !department || !course) {
+      addToast('Please fill all fields', 'error');
       return;
     }
 
-    setIsSaving(true);
+    setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      const referralCode = session.user.id.substring(0, 8).toUpperCase();
-      const { data: upsertedRows, error: upsertError } = await supabase
+      const { error } = await supabase
         .from('users')
-        .upsert({
-          id: session.user.id,
-          email: session.user.email,
-          full_name: formData.fullName.trim(),
-          university: formData.university,
-          department: formData.department,
-          course: formData.course,
+        .update({
+          full_name: fullName,
+          university,
+          department,
+          course,
           profile_complete: true,
-          referral_code: referralCode,
-        }, { onConflict: 'id' })
-        .select('id, full_name, university, department, course');
+        })
+        .eq('id', user.id);
 
-      if (upsertError) throw upsertError;
-      if (!upsertedRows?.length) {
-        throw new Error('Profile save did not persist. Please try again or contact support.');
-      }
-      const savedRow = upsertedRows[0];
+      if (error) throw error;
 
-      sessionStorage.removeItem('pendingFullName');
-
-      const { data: finalUser } = await supabase
-        .from('users').select('points').eq('id', session.user.id).maybeSingle();
-
-      const updatedData = {
-        ...userData,
-        full_name: savedRow.full_name,
-        fullName: savedRow.full_name,
-        university: savedRow.university,
-        department: savedRow.department,
-        course: savedRow.course,
-        profile_complete: true,
-        points: finalUser?.points ?? userData?.points ?? 0,
-      };
-      setUserData(updatedData);
-      setFormData(updatedData);
-      setEditing(false);
-      setIsSaving(false);
-      addToast('Profile saved! Your Getting Started bonus will be awarded automatically.', 'success');
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      setIsSaving(false);
-      addToast(err.message || 'Failed to update profile. Please try again.', 'error');
+      addToast('Profile saved successfully!', 'success');
+      setTimeout(() => navigate('/dashboard'), 1500);
+    } catch (error) {
+      addToast(error.message || 'Failed to save profile', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/');
-    } catch (err) {
-      console.error('Error logging out:', err);
-    }
-  };
-
-  if (loading) {
-    return <LoadingSpinner size="lg" />;
-  }
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-2xl font-bold text-primary">HASKE</h1>
-            <div className="flex gap-4 items-center">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="text-gray-600 hover:text-primary"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => navigate('/wallet')}
-                className="text-gray-600 hover:text-primary"
-              >
-                Wallet
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50 flex justify-center items-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold mb-2 text-gray-800">Complete Your Profile</h1>
+          <p className="text-gray-600 mb-6">Tell us about yourself to get started</p>
 
-      {/* Main Content */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Profile Status */}
-        {isProfileComplete && (
-          <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 mb-6">
-            <p className="text-green-700 font-semibold">✓ Profile Complete</p>
-            <p className="text-sm text-green-600">Your profile is fully set up. You can now access all features!</p>
-          </div>
-        )}
-
-        {!isProfileComplete && !editing && (
-          <div className="bg-blue-50 border-l-4 border-primary rounded-lg p-4 mb-6">
-            <p className="text-primary font-semibold">Complete Your Profile</p>
-            <p className="text-sm text-blue-600">Add university, department, and course details to unlock all features and earn 1,000 bonus points!</p>
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-800">My Profile</h2>
-            {!editing && (
-              <Button
-                onClick={() => setEditing(true)}
-                variant="primary"
-                size="md"
-              >
-                Edit Profile
-              </Button>
-            )}
-          </div>
-
-          {editing ? (
-            <div className="space-y-6">
-              {/* Full Name */}
-              <Input
-                label="Full Name *"
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <input
                 type="text"
-                name="fullName"
-                value={formData.fullName || ''}
-                onChange={handleChange}
-                placeholder="Enter your full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="John Doe"
               />
+            </div>
 
-              {/* Email (read-only in edit) */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Email</label>
-                <p className="text-gray-600">{userData?.email || user?.email}</p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">University</label>
+              <select
+                value={university}
+                onChange={(e) => setUniversity(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Select University</option>
+                {UNIVERSITIES.map(uni => (
+                  <option key={uni} value={uni}>{uni}</option>
+                ))}
+              </select>
+            </div>
 
-              {/* University */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">University *</label>
-                <select
-                  name="university"
-                  value={formData.university || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                >
-                  <option value="">Select a university</option>
-                  {NIGERIAN_UNIVERSITIES.map((uni) => (
-                    <option key={uni.code} value={uni.code}>
-                      {uni.name} ({uni.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Department *</label>
-                <select
-                  name="department"
-                  value={formData.department || ''}
-                  onChange={handleChange}
-                  disabled={!formData.university}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">
-                    {formData.university ? 'Select a department' : 'Select university first'}
-                  </option>
-                  {availableDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Course */}
-              <Input
-                label="Course/Level *"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+              <input
                 type="text"
-                name="course"
-                value={formData.course || ''}
-                onChange={handleChange}
-                placeholder="e.g., 300L, 2nd Year"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Computer Science"
               />
-
-              {/* Actions */}
-              <div className="flex gap-4 pt-6 border-t">
-                <Button
-                  onClick={handleSave}
-                  variant="primary"
-                  size="md"
-                  loading={isSaving}
-                >
-                  Save Changes
-                </Button>
-                <Button
-                  onClick={() => {
-                    setEditing(false);
-                    setFormData(userData);
-                  }}
-                  variant="secondary"
-                  size="md"
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-              </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Full Name */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
-                <p className="text-gray-600">{userData?.fullName || userData?.full_name || 'Not set'}</p>
-              </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Email</label>
-                <p className="text-gray-600">{userData?.email || user?.email}</p>
-              </div>
-
-              {/* University */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">University</label>
-                <p className="text-gray-600">
-                  {userData?.university
-                    ? NIGERIAN_UNIVERSITIES.find(u => u.code === userData.university)?.name || userData.university
-                    : 'Not set'}
-                </p>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Department</label>
-                <p className="text-gray-600">{userData?.department || 'Not set'}</p>
-              </div>
-
-              {/* Course */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Course/Level</label>
-                <p className="text-gray-600">{userData?.course || 'Not set'}</p>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-6 pt-6 border-t">
-                <div>
-                  <p className="text-gray-500 text-sm">Total Points</p>
-                  <p className="text-2xl font-bold text-primary">{userData?.points || 0}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-sm">Wallet Balance</p>
-                  <p className="text-2xl font-bold text-primary">₦{userData?.wallet || 0}</p>
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Course / Level</label>
+              <input
+                type="text"
+                value={course}
+                onChange={(e) => setCourse(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="200L"
+              />
             </div>
-          )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-purple-600 text-white font-bold py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
+            >
+              {loading ? 'Saving...' : 'Continue to Dashboard'}
+            </button>
+          </form>
         </div>
       </div>
     </div>

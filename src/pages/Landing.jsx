@@ -1,69 +1,65 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { useEffect } from 'react';
 
 export default function Landing() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary to-secondary">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-2xl font-bold text-primary">HASKE</h1>
-            <div className="flex gap-4">
-              <Link to="/login" className="text-primary hover:text-secondary">
-                Login
-              </Link>
-              <Link
-                to="/signup"
-                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-              >
-                Sign Up
-              </Link>
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex flex-col justify-center items-center px-4">
+      <div className="text-center max-w-md">
+        <h1 className="text-5xl font-bold text-white mb-6">HASKii</h1>
+        <p className="text-xl text-purple-100 mb-8">Earn points. Spend wisely. Climb higher.</p>
+
+        <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-2xl p-8 border border-white border-opacity-20">
+          <h2 className="text-2xl font-bold text-white mb-6">Welcome</h2>
+
+          <div className="space-y-4">
+            <div className="flex items-start space-x-4">
+              <span className="text-3xl">🎯</span>
+              <div className="text-left">
+                <p className="font-semibold text-white">Earn Daily</p>
+                <p className="text-sm text-purple-100">Check in, complete tasks, watch ads</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <span className="text-3xl">💰</span>
+              <div className="text-left">
+                <p className="font-semibold text-white">Spend Points</p>
+                <p className="text-sm text-purple-100">Redeem for airtime, data, gift cards</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <span className="text-3xl">👥</span>
+              <div className="text-left">
+                <p className="font-semibold text-white">Earn Referrals</p>
+                <p className="text-sm text-purple-100">Invite friends, get bonuses</p>
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-5xl font-bold text-white mb-6">
-          The Operating System for Campus Life
-        </h2>
-        <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-          Connect with students, access opportunities, earn rewards, and manage
-          your campus experience all in one place.
-        </p>
-
-        <div className="flex gap-4 justify-center">
-          <Link
-            to="/signup"
-            className="bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-gray-100"
-          >
-            Get Started
-          </Link>
-          <a
-            href="#features"
-            className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary transition"
-          >
-            Learn More
-          </a>
-        </div>
-
-        <div id="features" className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h3 className="text-xl font-bold text-primary mb-2">Earn Rewards</h3>
-            <p className="text-gray-600">
-              Get points for daily check-ins, referrals, and completing tasks.
-            </p>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h3 className="text-xl font-bold text-primary mb-2">Secure Wallet</h3>
-            <p className="text-gray-600">
-              Manage your funds safely with our blockchain-backed wallet system.
-            </p>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h3 className="text-xl font-bold text-primary mb-2">Campus Market</h3>
-            <p className="text-gray-600">
-              Buy, sell, and trade with other students in your campus.
-            </p>
+          <div className="mt-8 space-y-3">
+            <button
+              onClick={() => navigate('/signup')}
+              className="w-full bg-white text-purple-600 font-bold py-3 rounded-lg hover:bg-opacity-90 transition"
+            >
+              Sign Up
+            </button>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full border-2 border-white text-white font-bold py-3 rounded-lg hover:bg-white hover:bg-opacity-10 transition"
+            >
+              Log In
+            </button>
           </div>
         </div>
       </div>
