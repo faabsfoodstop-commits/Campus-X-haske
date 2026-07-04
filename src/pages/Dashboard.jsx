@@ -42,7 +42,7 @@ export default function Dashboard() {
 
         const { data: user, error } = await supabase
           .from('users')
-          .select('*')
+          .select('*, is_admin')
           .eq('id', session.user.id)
           .single();
 
@@ -216,6 +216,15 @@ export default function Dashboard() {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-2xl font-bold text-primary">HASKE</h1>
             <div className="flex gap-4 items-center">
+              {userData?.is_admin && (
+                <Button
+                  onClick={() => navigate('/admin')}
+                  variant="primary"
+                  size="md"
+                >
+                  🔒 Admin
+                </Button>
+              )}
               <Button
                 onClick={() => navigate('/profile')}
                 variant="ghost"
