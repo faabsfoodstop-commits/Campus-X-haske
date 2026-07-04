@@ -121,6 +121,26 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Spend Points</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate('/rewards')}
+              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">🎁</p>
+              <p className="font-semibold text-sm">Rewards</p>
+            </button>
+            <button
+              onClick={() => navigate('/redemption-history')}
+              className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">📜</p>
+              <p className="font-semibold text-sm">History</p>
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-xl font-bold mb-4 text-gray-800">Account</h2>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -151,9 +171,9 @@ export default function Dashboard() {
               <p className="font-semibold text-gray-800">🏆 Leaderboards</p>
               <p className="text-sm text-gray-600">Compete with other students</p>
             </div>
-            <div className="text-left p-4 border-l-4 border-indigo-500">
-              <p className="font-semibold text-gray-800">🎁 Rewards</p>
-              <p className="text-sm text-gray-600">Redeem points for real items</p>
+            <div className="text-left p-4 border-l-4 border-cyan-500">
+              <p className="font-semibold text-gray-800">💱 Point Market</p>
+              <p className="text-sm text-gray-600">Trade points with other users</p>
             </div>
           </div>
         </div>

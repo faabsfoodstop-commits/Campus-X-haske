@@ -97,6 +97,22 @@ CREATE TABLE IF NOT EXISTS video_ads_watched (
   UNIQUE(user_id, ad_id, watch_date)
 );
 
+-- Create redemptions table
+CREATE TABLE IF NOT EXISTS redemptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reward_id VARCHAR(50) NOT NULL,
+  points_spent BIGINT NOT NULL,
+  status VARCHAR(50) DEFAULT 'pending',
+  provider VARCHAR(100),
+  reward_name VARCHAR(255),
+  reward_code VARCHAR(100),
+  failure_reason TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Create indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_referral_code ON users(referral_code);
@@ -108,6 +124,9 @@ CREATE INDEX idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX idx_getting_started_tasks_user_id ON getting_started_tasks(user_id);
 CREATE INDEX idx_video_ads_watched_user_id ON video_ads_watched(user_id);
 CREATE INDEX idx_video_ads_watched_date ON video_ads_watched(watch_date);
+CREATE INDEX idx_redemptions_user_id ON redemptions(user_id);
+CREATE INDEX idx_redemptions_status ON redemptions(status);
+CREATE INDEX idx_redemptions_created_at ON redemptions(created_at);
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -117,6 +136,7 @@ ALTER TABLE daily_missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE getting_started_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE video_ads_watched ENABLE ROW LEVEL SECURITY;
+ALTER TABLE redemptions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
 CREATE POLICY "Users can view own profile" ON users
@@ -161,6 +181,13 @@ CREATE POLICY "Users can view own watched ads" ON video_ads_watched
   FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert ad watches" ON video_ads_watched
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for redemptions
+CREATE POLICY "Users can view own redemptions" ON redemptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert redemptions" ON redemptions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Missions seed data

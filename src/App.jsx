@@ -15,6 +15,8 @@ import Wallet from './pages/Wallet';
 import GettingStarted from './pages/GettingStarted';
 import DailyMissions from './pages/DailyMissions';
 import VideoAds from './pages/VideoAds';
+import Rewards from './pages/Rewards';
+import RedemptionHistory from './pages/RedemptionHistory';
 
 export default function App() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/getting-started" element={<PrivateRoute><GettingStarted /></PrivateRoute>} />
             <Route path="/daily-missions" element={<PrivateRoute><DailyMissions /></PrivateRoute>} />
             <Route path="/video-ads" element={<PrivateRoute><VideoAds /></PrivateRoute>} />
+            <Route path="/rewards" element={<PrivateRoute><Rewards /></PrivateRoute>} />
+            <Route path="/redemption-history" element={<PrivateRoute><RedemptionHistory /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>
