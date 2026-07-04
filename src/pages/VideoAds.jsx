@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { supabase } from '../config/supabase';
@@ -57,11 +57,17 @@ export default function VideoAds() {
   const [playing, setPlaying] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [totalEarnedToday, setTotalEarnedToday] = useState(0);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     if (user) {
       loadWatchedAds();
     }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [user]);
 
   const loadWatchedAds = async () => {
@@ -94,15 +100,23 @@ export default function VideoAds() {
       return;
     }
 
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     setSelectedAd(ad);
     setPlaying(true);
     setTimeRemaining(ad.duration);
 
     // Simulate video playback
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           completeAd(ad);
           return 0;
         }
@@ -111,7 +125,21 @@ export default function VideoAds() {
     }, 1000);
   };
 
+  const handleCancelAd = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setSelectedAd(null);
+    setPlaying(false);
+    setTimeRemaining(0);
+  };
+
   const completeAd = async (ad) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setPlaying(false);
 
     try {
@@ -191,7 +219,14 @@ export default function VideoAds() {
         {/* Video Player Modal */}
         {selectedAd && playing && (
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 px-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
+              <button
+                onClick={handleCancelAd}
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
+                title="Cancel video"
+              >
+                ✕
+              </button>
               <div className="bg-gray-900 rounded-lg h-64 flex items-center justify-center mb-4 relative">
                 <span className="text-6xl">{selectedAd.thumbnail}</span>
                 <div className="absolute bottom-4 right-4 bg-red-600 text-white px-3 py-1 rounded text-sm font-bold">
@@ -206,8 +241,11 @@ export default function VideoAds() {
                   style={{ width: `${((selectedAd.duration - timeRemaining) / selectedAd.duration) * 100}%` }}
                 />
               </div>
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-gray-600 mb-4">
                 Please watch the entire video to earn +{selectedAd.points} points
+              </p>
+              <p className="text-center text-xs text-gray-500">
+                Time remaining: {timeRemaining}s
               </p>
             </div>
           </div>
