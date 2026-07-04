@@ -212,6 +212,192 @@ CREATE POLICY "Users can view own referrals" ON referrals
 CREATE POLICY "Users can insert referrals" ON referrals
   FOR INSERT WITH CHECK (auth.uid() = referrer_id);
 
+-- Create point market table (Phase 7)
+CREATE TABLE IF NOT EXISTS point_market (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  buyer_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  points_amount BIGINT NOT NULL,
+  price_per_point DECIMAL(5,2) NOT NULL,
+  wallet_cost BIGINT NOT NULL,
+  status VARCHAR(50) DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create cosmetics table (Phase 7)
+CREATE TABLE IF NOT EXISTS cosmetics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  type VARCHAR(50) NOT NULL,
+  rarity VARCHAR(50),
+  points_cost BIGINT NOT NULL,
+  wallet_cost BIGINT,
+  icon VARCHAR(255),
+  background_color VARCHAR(10),
+  is_limited BOOLEAN DEFAULT FALSE,
+  available_until TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user cosmetics table (Phase 7)
+CREATE TABLE IF NOT EXISTS user_cosmetics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  cosmetic_id UUID NOT NULL REFERENCES cosmetics(id) ON DELETE CASCADE,
+  acquired_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  is_equipped BOOLEAN DEFAULT FALSE,
+  UNIQUE(user_id, cosmetic_id)
+);
+
+-- Create premium tiers table (Phase 7)
+CREATE TABLE IF NOT EXISTS premium_tiers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  monthly_price BIGINT NOT NULL,
+  yearly_price BIGINT,
+  benefits JSONB,
+  tier_level INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user subscriptions table (Phase 7)
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tier_id UUID NOT NULL REFERENCES premium_tiers(id) ON DELETE CASCADE,
+  subscription_type VARCHAR(50) DEFAULT 'monthly',
+  status VARCHAR(50) DEFAULT 'active',
+  points_deducted BIGINT,
+  wallet_deducted BIGINT,
+  starts_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create admin logs table (Phase 7)
+CREATE TABLE IF NOT EXISTS admin_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action VARCHAR(100) NOT NULL,
+  target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  details JSONB,
+  ip_address VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create admin settings table (Phase 7)
+CREATE TABLE IF NOT EXISTS admin_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  setting_key VARCHAR(255) NOT NULL UNIQUE,
+  setting_value JSONB,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for Phase 7 tables
+CREATE INDEX idx_point_market_seller_id ON point_market(seller_id);
+CREATE INDEX idx_point_market_buyer_id ON point_market(buyer_id);
+CREATE INDEX idx_point_market_status ON point_market(status);
+CREATE INDEX idx_cosmetics_type ON cosmetics(type);
+CREATE INDEX idx_cosmetics_rarity ON cosmetics(rarity);
+CREATE INDEX idx_user_cosmetics_user_id ON user_cosmetics(user_id);
+CREATE INDEX idx_user_cosmetics_cosmetic_id ON user_cosmetics(cosmetic_id);
+CREATE INDEX idx_premium_tiers_level ON premium_tiers(tier_level);
+CREATE INDEX idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+CREATE INDEX idx_user_subscriptions_status ON user_subscriptions(status);
+CREATE INDEX idx_user_subscriptions_expires_at ON user_subscriptions(expires_at);
+CREATE INDEX idx_admin_logs_admin_id ON admin_logs(admin_id);
+CREATE INDEX idx_admin_logs_target_user_id ON admin_logs(target_user_id);
+CREATE INDEX idx_admin_logs_created_at ON admin_logs(created_at);
+
+-- Enable RLS for Phase 7 tables
+ALTER TABLE point_market ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cosmetics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_cosmetics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE premium_tiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_settings ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for point_market
+CREATE POLICY "Users can view all market listings" ON point_market
+  FOR SELECT USING (true);
+
+CREATE POLICY "Sellers can insert their listings" ON point_market
+  FOR INSERT WITH CHECK (auth.uid() = seller_id);
+
+CREATE POLICY "Admins can update market listings" ON point_market
+  FOR UPDATE USING (EXISTS (
+    SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = TRUE
+  ));
+
+-- RLS Policies for cosmetics
+CREATE POLICY "Users can view cosmetics" ON cosmetics
+  FOR SELECT USING (true);
+
+-- RLS Policies for user_cosmetics
+CREATE POLICY "Users can view own cosmetics" ON user_cosmetics
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own cosmetics" ON user_cosmetics
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own cosmetics" ON user_cosmetics
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- RLS Policies for premium_tiers
+CREATE POLICY "Users can view premium tiers" ON premium_tiers
+  FOR SELECT USING (true);
+
+-- RLS Policies for user_subscriptions
+CREATE POLICY "Users can view own subscriptions" ON user_subscriptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert subscriptions" ON user_subscriptions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for admin_logs
+CREATE POLICY "Admins can view admin logs" ON admin_logs
+  FOR SELECT USING (EXISTS (
+    SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = TRUE
+  ));
+
+CREATE POLICY "Admins can insert admin logs" ON admin_logs
+  FOR INSERT WITH CHECK (EXISTS (
+    SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = TRUE
+  ));
+
+-- RLS Policies for admin_settings
+CREATE POLICY "Admins can view settings" ON admin_settings
+  FOR SELECT USING (EXISTS (
+    SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = TRUE
+  ));
+
+CREATE POLICY "Admins can update settings" ON admin_settings
+  FOR UPDATE USING (EXISTS (
+    SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = TRUE
+  ));
+
+-- Seed premium tiers
+INSERT INTO premium_tiers (name, description, monthly_price, yearly_price, benefits, tier_level) VALUES
+  ('Gold', 'Standard premium tier with extra perks', 500, 5000, '{"daily_bonus": 5, "ad_limit": 10, "market_fee": "2%"}', 1),
+  ('Platinum', 'Premium tier with advanced features', 1000, 10000, '{"daily_bonus": 10, "ad_limit": 20, "market_fee": "1%", "cosmetics": 5}', 2),
+  ('Diamond', 'Ultimate premium tier with all benefits', 2000, 20000, '{"daily_bonus": 20, "ad_limit": 30, "market_fee": "0%", "cosmetics": "unlimited", "early_access": true}', 3)
+ON CONFLICT DO NOTHING;
+
+-- Seed cosmetics
+INSERT INTO cosmetics (name, description, type, rarity, points_cost, wallet_cost, icon, background_color, is_limited) VALUES
+  ('Gold Frame', 'Exclusive gold profile frame', 'frame', 'rare', 1000, 100, '🟨', '#FFD700', FALSE),
+  ('Diamond Badge', 'Elite diamond achievement badge', 'badge', 'epic', 2000, 200, '💎', '#00BFFF', FALSE),
+  ('Fire Halo', 'Animated fire halo effect', 'effect', 'legendary', 5000, 500, '🔥', '#FF6347', TRUE),
+  ('Star Crown', 'Exclusive star crown title', 'title', 'epic', 1500, 150, '👑', '#FFD700', FALSE),
+  ('Mystic Aura', 'Mystical aura particle effect', 'effect', 'legendary', 4000, 400, '✨', '#9370DB', TRUE)
+ON CONFLICT DO NOTHING;
+
 -- Missions seed data
 INSERT INTO missions (title, description, points_reward, difficulty, type, icon) VALUES
   ('Watch Ad', 'Watch a 30-second video ad', 5, 'easy', 'video', '▶️'),

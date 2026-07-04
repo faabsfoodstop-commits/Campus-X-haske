@@ -187,23 +187,54 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Coming Soon</h2>
-          <div className="space-y-3 opacity-50">
-            <div className="text-left p-4 border-l-4 border-cyan-500">
-              <p className="font-semibold text-gray-800">💱 Point Market</p>
-              <p className="text-sm text-gray-600">Trade points with other users</p>
-            </div>
-            <div className="text-left p-4 border-l-4 border-violet-500">
-              <p className="font-semibold text-gray-800">👗 Cosmetics</p>
-              <p className="text-sm text-gray-600">Collect badges and titles</p>
-            </div>
-            <div className="text-left p-4 border-l-4 border-fuchsia-500">
-              <p className="font-semibold text-gray-800">💎 Premium Tier</p>
-              <p className="text-sm text-gray-600">Unlock exclusive benefits</p>
-            </div>
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Advanced Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => navigate('/point-market')}
+              className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">💱</p>
+              <p className="font-semibold text-sm">Point Market</p>
+            </button>
+            <button
+              onClick={() => navigate('/cosmetics-shop')}
+              className="bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">👗</p>
+              <p className="font-semibold text-sm">Cosmetics</p>
+            </button>
+            <button
+              onClick={() => navigate('/premium-tier')}
+              className="bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">💎</p>
+              <p className="font-semibold text-sm">Premium</p>
+            </button>
           </div>
         </div>
+
+        {profile?.is_admin && (
+          <div className="bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-500 rounded-xl p-6">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">🔐 Admin Tools</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate('/admin-dashboard')}
+                className="bg-gradient-to-br from-red-500 to-orange-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+              >
+                <p className="text-2xl mb-1">⚙️</p>
+                <p className="font-semibold text-sm">Admin Panel</p>
+              </button>
+              <button
+                onClick={() => navigate('/admin-analytics')}
+                className="bg-gradient-to-br from-orange-500 to-yellow-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+              >
+                <p className="text-2xl mb-1">📊</p>
+                <p className="font-semibold text-sm">Analytics</p>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

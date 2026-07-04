@@ -20,6 +20,11 @@ import RedemptionHistory from './pages/RedemptionHistory';
 import Referrals from './pages/Referrals';
 import Leaderboards from './pages/Leaderboards';
 import Achievements from './pages/Achievements';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminAnalytics from './pages/AdminAnalytics';
+import PointMarket from './pages/PointMarket';
+import CosmeticsShop from './pages/CosmeticsShop';
+import PremiumTier from './pages/PremiumTier';
 
 export default function App() {
   return (
@@ -44,6 +49,11 @@ export default function App() {
             <Route path="/referrals" element={<PrivateRoute><Referrals /></PrivateRoute>} />
             <Route path="/leaderboards" element={<PrivateRoute><Leaderboards /></PrivateRoute>} />
             <Route path="/achievements" element={<PrivateRoute><Achievements /></PrivateRoute>} />
+            <Route path="/admin-dashboard" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+            <Route path="/admin-analytics" element={<PrivateRoute><AdminAnalytics /></PrivateRoute>} />
+            <Route path="/point-market" element={<PrivateRoute><PointMarket /></PrivateRoute>} />
+            <Route path="/cosmetics-shop" element={<PrivateRoute><CosmeticsShop /></PrivateRoute>} />
+            <Route path="/premium-tier" element={<PrivateRoute><PremiumTier /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>
