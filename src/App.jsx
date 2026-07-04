@@ -17,6 +17,9 @@ import DailyMissions from './pages/DailyMissions';
 import VideoAds from './pages/VideoAds';
 import Rewards from './pages/Rewards';
 import RedemptionHistory from './pages/RedemptionHistory';
+import Referrals from './pages/Referrals';
+import Leaderboards from './pages/Leaderboards';
+import Achievements from './pages/Achievements';
 
 export default function App() {
   return (
@@ -38,6 +41,9 @@ export default function App() {
             <Route path="/video-ads" element={<PrivateRoute><VideoAds /></PrivateRoute>} />
             <Route path="/rewards" element={<PrivateRoute><Rewards /></PrivateRoute>} />
             <Route path="/redemption-history" element={<PrivateRoute><RedemptionHistory /></PrivateRoute>} />
+            <Route path="/referrals" element={<PrivateRoute><Referrals /></PrivateRoute>} />
+            <Route path="/leaderboards" element={<PrivateRoute><Leaderboards /></PrivateRoute>} />
+            <Route path="/achievements" element={<PrivateRoute><Achievements /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>

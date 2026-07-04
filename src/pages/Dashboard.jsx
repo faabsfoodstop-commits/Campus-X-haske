@@ -160,20 +160,47 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Social & Community</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => navigate('/referrals')}
+              className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">👥</p>
+              <p className="font-semibold text-sm">Referrals</p>
+            </button>
+            <button
+              onClick={() => navigate('/leaderboards')}
+              className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">🏆</p>
+              <p className="font-semibold text-sm">Rankings</p>
+            </button>
+            <button
+              onClick={() => navigate('/achievements')}
+              className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">🎖️</p>
+              <p className="font-semibold text-sm">Badges</p>
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-800">Coming Soon</h2>
           <div className="space-y-3 opacity-50">
-            <div className="text-left p-4 border-l-4 border-pink-500">
-              <p className="font-semibold text-gray-800">👥 Referrals</p>
-              <p className="text-sm text-gray-600">Invite friends and earn bonuses</p>
-            </div>
-            <div className="text-left p-4 border-l-4 border-yellow-500">
-              <p className="font-semibold text-gray-800">🏆 Leaderboards</p>
-              <p className="text-sm text-gray-600">Compete with other students</p>
-            </div>
             <div className="text-left p-4 border-l-4 border-cyan-500">
               <p className="font-semibold text-gray-800">💱 Point Market</p>
               <p className="text-sm text-gray-600">Trade points with other users</p>
+            </div>
+            <div className="text-left p-4 border-l-4 border-violet-500">
+              <p className="font-semibold text-gray-800">👗 Cosmetics</p>
+              <p className="text-sm text-gray-600">Collect badges and titles</p>
+            </div>
+            <div className="text-left p-4 border-l-4 border-fuchsia-500">
+              <p className="font-semibold text-gray-800">💎 Premium Tier</p>
+              <p className="text-sm text-gray-600">Unlock exclusive benefits</p>
             </div>
           </div>
         </div>

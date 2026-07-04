@@ -113,6 +113,19 @@ CREATE TABLE IF NOT EXISTS redemptions (
   completed_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Create referrals table
+CREATE TABLE IF NOT EXISTS referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  referee_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  referee_email VARCHAR(255),
+  referee_name VARCHAR(255),
+  status VARCHAR(50) DEFAULT 'pending',
+  referrer_points BIGINT DEFAULT 500,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Create indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_referral_code ON users(referral_code);
@@ -127,6 +140,8 @@ CREATE INDEX idx_video_ads_watched_date ON video_ads_watched(watch_date);
 CREATE INDEX idx_redemptions_user_id ON redemptions(user_id);
 CREATE INDEX idx_redemptions_status ON redemptions(status);
 CREATE INDEX idx_redemptions_created_at ON redemptions(created_at);
+CREATE INDEX idx_referrals_referrer_id ON referrals(referrer_id);
+CREATE INDEX idx_referrals_status ON referrals(status);
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -189,6 +204,13 @@ CREATE POLICY "Users can view own redemptions" ON redemptions
 
 CREATE POLICY "Users can insert redemptions" ON redemptions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for referrals
+CREATE POLICY "Users can view own referrals" ON referrals
+  FOR SELECT USING (auth.uid() = referrer_id);
+
+CREATE POLICY "Users can insert referrals" ON referrals
+  FOR INSERT WITH CHECK (auth.uid() = referrer_id);
 
 -- Missions seed data
 INSERT INTO missions (title, description, points_reward, difficulty, type, icon) VALUES
