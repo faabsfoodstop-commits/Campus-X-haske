@@ -45,30 +45,55 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Getting Started</h2>
-          <div className="space-y-3">
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => navigate('/daily-check-in')}
-              className="w-full text-left p-4 border-l-4 border-blue-500 hover:bg-gray-50 transition"
+              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 hover:shadow-lg transition"
             >
-              <p className="font-semibold text-gray-800">📅 Daily Check-In</p>
-              <p className="text-sm text-gray-600">Come back every day to maintain your streak</p>
+              <p className="text-2xl mb-1">📅</p>
+              <p className="font-semibold text-sm">Check-In</p>
             </button>
             <button
-              onClick={() => navigate('/daily-missions')}
-              className="w-full text-left p-4 border-l-4 border-green-500 hover:bg-gray-50 transition"
+              onClick={() => navigate('/wallet')}
+              className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4 hover:shadow-lg transition"
             >
+              <p className="text-2xl mb-1">💰</p>
+              <p className="font-semibold text-sm">Wallet</p>
+            </button>
+            <button
+              onClick={() => navigate('/transactions')}
+              className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">📊</p>
+              <p className="font-semibold text-sm">Ledger</p>
+            </button>
+            <button
+              onClick={() => navigate('/activity-log')}
+              className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4 hover:shadow-lg transition"
+            >
+              <p className="text-2xl mb-1">📝</p>
+              <p className="font-semibold text-sm">Activity</p>
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Coming Soon</h2>
+          <div className="space-y-3 opacity-50">
+            <div className="text-left p-4 border-l-4 border-blue-500">
               <p className="font-semibold text-gray-800">✅ Daily Missions</p>
               <p className="text-sm text-gray-600">Complete tasks to earn extra points</p>
-            </button>
-            <button
-              onClick={() => navigate('/video-ads')}
-              className="w-full text-left p-4 border-l-4 border-purple-500 hover:bg-gray-50 transition"
-            >
+            </div>
+            <div className="text-left p-4 border-l-4 border-green-500">
               <p className="font-semibold text-gray-800">▶️ Watch Ads</p>
               <p className="text-sm text-gray-600">Earn points by watching short videos</p>
-            </button>
+            </div>
+            <div className="text-left p-4 border-l-4 border-purple-500">
+              <p className="font-semibold text-gray-800">🧑‍🤝‍🧑 Referrals</p>
+              <p className="text-sm text-gray-600">Invite friends and earn bonuses</p>
+            </div>
           </div>
         </div>
       </div>
