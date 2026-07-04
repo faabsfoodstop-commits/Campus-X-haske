@@ -7,7 +7,6 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { useConfirm } from '../hooks/useConfirm';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
-import { recordGettingStartedActivity, updateUserPoints } from '../utils/databaseHelpers';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -36,17 +35,19 @@ export default function Profile() {
 
         if (error) throw error;
         setUser(session.user);
+        // Recover name saved at signup in case the initial DB row wasn't written
+        const pendingName = sessionStorage.getItem('pendingFullName') || '';
         if (user) {
           const normalizedUser = {
             ...user,
-            fullName: user.full_name,
+            fullName: user.full_name || pendingName,
             email: user.email || session.user.email
           };
           setUserData(normalizedUser);
           setFormData(normalizedUser);
         } else {
-          // New user — no DB row yet; open edit mode immediately
-          setFormData({ email: session.user.email });
+          // New user — no DB row yet; open edit mode and pre-fill the name
+          setFormData({ email: session.user.email, fullName: pendingName });
           setEditing(true);
         }
       } catch (err) {
@@ -91,75 +92,102 @@ export default function Profile() {
 
       const profileWasIncomplete = !isProfileComplete;
 
-      // Check if the user row exists — new signups have no row in users table
-      const { data: existingRow } = await supabase
+      // Determine if bonus should be awarded (check before touching any rows)
+      let bonusPoints = 0;
+      if (profileWasIncomplete) {
+        const { data: existingTask } = await supabase
+          .from('getting_started_tasks')
+          .select('id, points_awarded')
+          .eq('user_id', session.user.id)
+          .eq('task_id', 'profile')
+          .maybeSingle();
+        if (!existingTask?.points_awarded) {
+          bonusPoints = 1000;
+        }
+      }
+
+      // Always fetch fresh user row so we have accurate points/wallet/streak values
+      const { data: freshUser } = await supabase
         .from('users')
-        .select('id, points, wallet')
+        .select('points, wallet, current_streak, weekly_points, monthly_points, referral_code')
         .eq('id', session.user.id)
         .maybeSingle();
 
-      if (existingRow) {
-        const { error } = await supabase
-          .from('users')
-          .update({
-            full_name: formData.fullName,
-            university: formData.university,
-            department: formData.department,
-            course: formData.course,
-            profile_complete: true
-          })
-          .eq('id', session.user.id);
-        if (error) throw error;
-      } else {
-        // First save for this user — INSERT the row
-        const { error } = await supabase
-          .from('users')
-          .insert({
-            id: session.user.id,
-            email: session.user.email,
-            full_name: formData.fullName,
-            university: formData.university,
-            department: formData.department,
-            course: formData.course,
-            profile_complete: true,
-            points: 0,
-            wallet: 0,
-            current_streak: 0,
-            weekly_points: 0,
-            monthly_points: 0,
-            referral_code: session.user.id.substring(0, 8).toUpperCase(),
-          });
-        if (error) throw error;
+      const currentPoints = freshUser?.points ?? 0;
+
+      // One upsert: profile fields + points update — atomic, no separate UPDATE step
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: formData.fullName,
+          university: formData.university,
+          department: formData.department,
+          course: formData.course,
+          profile_complete: true,
+          points: currentPoints + bonusPoints,
+          wallet: freshUser?.wallet ?? 0,
+          current_streak: freshUser?.current_streak ?? 0,
+          weekly_points: freshUser?.weekly_points ?? 0,
+          monthly_points: freshUser?.monthly_points ?? 0,
+          referral_code: freshUser?.referral_code || session.user.id.substring(0, 8).toUpperCase(),
+        }, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+
+      // Verify the write actually landed — RLS can silently no-op an update
+      const { data: savedRow, error: verifyError } = await supabase
+        .from('users')
+        .select('full_name, university, department, course, points')
+        .eq('id', session.user.id)
+        .single();
+      if (verifyError) throw verifyError;
+      if (savedRow?.full_name !== formData.fullName || savedRow?.university !== formData.university) {
+        throw new Error('Profile save did not persist. Please try again or contact support.');
       }
 
-      // Award profile completion bonus on first-time completion
+      // Record the bonus task + transaction now that the points are committed
       let bonusAwarded = false;
-      if (profileWasIncomplete) {
+      if (bonusPoints > 0) {
         try {
-          const taskResult = await recordGettingStartedActivity(
-            session.user.id, 'profile', 'Complete Your Profile', 1000
-          );
-          if (taskResult.success) {
-            const { data: freshUser } = await supabase
-              .from('users').select('points').eq('id', session.user.id).single();
-            if (freshUser) {
-              await updateUserPoints(session.user.id, freshUser.points + 1000);
-            }
+          const { error: taskInsertError } = await supabase
+            .from('getting_started_tasks')
+            .insert({
+              user_id: session.user.id,
+              task_id: 'profile',
+              task_name: 'Complete Your Profile',
+              reward_points: 1000,
+              completed: true,
+              completed_at: new Date().toISOString(),
+              points_awarded: true,
+            });
+
+          if (!taskInsertError) {
+            await supabase.from('transactions').insert({
+              user_id: session.user.id,
+              type: 'getting_started',
+              amount: 1000,
+              description: 'Getting Started: Complete Your Profile',
+              timestamp: new Date().toISOString(),
+            });
             bonusAwarded = true;
           }
         } catch (err) {
-          console.error('Error awarding profile task:', err);
+          console.error('Error recording profile bonus (non-fatal):', err);
         }
       }
+
+      sessionStorage.removeItem('pendingFullName');
 
       const updatedData = {
         ...userData,
         full_name: formData.fullName,
+        fullName: formData.fullName,
         university: formData.university,
         department: formData.department,
         course: formData.course,
         profile_complete: true,
-        points: bonusAwarded ? (userData?.points || 0) + 1000 : (userData?.points || 0),
+        points: savedRow?.points ?? currentPoints + bonusPoints,
       };
       setUserData(updatedData);
       setFormData(updatedData);

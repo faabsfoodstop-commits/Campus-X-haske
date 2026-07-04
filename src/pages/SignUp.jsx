@@ -52,8 +52,11 @@ export default function SignUp() {
       const newUserId = authData.user.id;
       const myReferralCode = newUserId.substring(0, 8).toUpperCase();
 
+      // Always persist the name before any async work so Profile can recover it
+      sessionStorage.setItem('pendingFullName', formData.fullName);
+
       // Save name + email immediately so profile page can pre-populate them
-      await supabase.from('users').upsert({
+      const { error: upsertError } = await supabase.from('users').upsert({
         id: newUserId,
         email: formData.email,
         full_name: formData.fullName,
@@ -65,6 +68,10 @@ export default function SignUp() {
         monthly_points: 0,
         profile_complete: false,
       }, { onConflict: 'id' });
+      if (upsertError) {
+        // Non-fatal: user row will be created on first Profile save
+        console.warn('[SignUp] Initial user row upsert failed:', upsertError.message);
+      }
 
       // If signed up via referral link, create the referral record
       if (refCode) {
