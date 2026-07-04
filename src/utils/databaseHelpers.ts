@@ -1,9 +1,3 @@
-/**
- * CENTRALIZED DATABASE HELPERS - Permanent Solution
- * All database operations go through these typed functions
- * This ensures schema consistency and prevents mismatches
- */
-
 import { supabase } from '../config/supabase';
 import type {
   Transaction,
@@ -16,7 +10,36 @@ import type {
 } from '../types/database';
 
 // ============================================================================
-// TRANSACTION LOGGING (Activity Log Source)
+// TRANSACTION LOGGING
+// ============================================================================
+
+// Call ONLY after the corresponding users.points UPDATE succeeds.
+// Non-fatal — logs a warning on failure so the caller can still show success.
+export async function insertTransaction(
+  userId: string,
+  type: string,
+  amount: number,
+  description: string
+): Promise<void> {
+  const { error } = await supabase.from('transactions').insert({
+    user_id: userId,
+    type,
+    amount,
+    description,
+    timestamp: new Date().toISOString(),
+  });
+  if (error) {
+    console.error('[insertTransaction] Failed to log transaction:', error.message);
+  }
+}
+
+// ============================================================================
+// ACTIVITY RECORDING
+// Each function inserts ONLY the activity-specific row and returns its id.
+// The caller must:
+//   1. Use activityId to rollback (delete the row) if points update fails.
+//   2. Call insertTransaction() after points update succeeds.
+// This guarantees the transactions table is always consistent with users.points.
 // ============================================================================
 
 export async function recordSpinActivity(
@@ -24,31 +47,17 @@ export async function recordSpinActivity(
   result: string,
   pointsEarned: number,
   isFree: boolean
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
-    const { error: spinError } = await supabase.from('spin_history').insert({
-      user_id: userId,
-      result,
-      points_earned: pointsEarned,
-      multiplier: '1',
-      cost: isFree ? 0 : 50
-    });
-
-    if (spinError) throw spinError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'spin_wheel',
-      amount: pointsEarned,
-      description: `${result}${isFree ? ' (free)' : ' (purchased)'}`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    const { data, error } = await supabase
+      .from('spin_history')
+      .insert({ user_id: userId, result, points_earned: pointsEarned, multiplier: '1', cost: isFree ? 0 : 50 })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { success: true, activityId: data.id };
   } catch (err: any) {
-    console.error('[recordSpinActivity] Error:', err);
+    console.error('[recordSpinActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
@@ -58,31 +67,17 @@ export async function recordTriviaActivity(
   score: number,
   correctAnswers: number,
   totalReward: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
-    const { error: triviaError } = await supabase.from('trivia_results').insert({
-      user_id: userId,
-      score,
-      correct_answers: correctAnswers,
-      total_questions: 10,
-      points_earned: totalReward
-    });
-
-    if (triviaError) throw triviaError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'trivia',
-      amount: totalReward,
-      description: `Trivia Game: ${correctAnswers}/10 correct`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    const { data, error } = await supabase
+      .from('trivia_results')
+      .insert({ user_id: userId, score, correct_answers: correctAnswers, total_questions: 10, points_earned: totalReward })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { success: true, activityId: data.id };
   } catch (err: any) {
-    console.error('[recordTriviaActivity] Error:', err);
+    console.error('[recordTriviaActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
@@ -92,30 +87,17 @@ export async function recordVideoAdActivity(
   adId: string,
   adTitle: string,
   pointsEarned: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
-    const { error: videoError } = await supabase.from('video_ads_watched').insert({
-      user_id: userId,
-      ad_id: adId,
-      points_earned: pointsEarned,
-      watched_at: new Date().toISOString()
-    });
-
-    if (videoError) throw videoError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'video_ad',
-      amount: pointsEarned,
-      description: `Watched ad: ${adTitle}`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    const { data, error } = await supabase
+      .from('video_ads_watched')
+      .insert({ user_id: userId, ad_id: adId, points_earned: pointsEarned, watched_at: new Date().toISOString() })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { success: true, activityId: data.id };
   } catch (err: any) {
-    console.error('[recordVideoAdActivity] Error:', err);
+    console.error('[recordVideoAdActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
@@ -126,31 +108,17 @@ export async function recordInstagramFollowActivity(
   brandName: string,
   brandHandle: string,
   pointsEarned: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
-    const { error: igError } = await supabase.from('instagram_follows').insert({
-      user_id: userId,
-      brand_id: brandId,
-      brand_name: brandName,
-      brand_handle: brandHandle,
-      verified: true
-    });
-
-    if (igError) throw igError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'instagram_follow',
-      amount: pointsEarned,
-      description: `Followed ${brandName} on Instagram`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    const { data, error } = await supabase
+      .from('instagram_follows')
+      .insert({ user_id: userId, brand_id: brandId, brand_name: brandName, brand_handle: brandHandle, verified: true })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { success: true, activityId: data.id };
   } catch (err: any) {
-    console.error('[recordInstagramFollowActivity] Error:', err);
+    console.error('[recordInstagramFollowActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
@@ -158,31 +126,18 @@ export async function recordInstagramFollowActivity(
 export async function recordCheckInActivity(
   userId: string,
   pointsEarned: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
     const today = new Date().toISOString().split('T')[0];
-
-    const { error: checkInError } = await supabase.from('streak_check_ins').insert({
-      user_id: userId,
-      check_in_date: today,
-      points_earned: pointsEarned
-    });
-
-    if (checkInError) throw checkInError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'check_in',
-      amount: pointsEarned,
-      description: 'Daily Check-In',
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    const { data, error } = await supabase
+      .from('streak_check_ins')
+      .insert({ user_id: userId, check_in_date: today, points_earned: pointsEarned })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { success: true, activityId: data.id };
   } catch (err: any) {
-    console.error('[recordCheckInActivity] Error:', err);
+    console.error('[recordCheckInActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
@@ -192,9 +147,8 @@ export async function recordGettingStartedActivity(
   taskId: string,
   taskName: string,
   pointsEarned: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
   try {
-    // Check if already completed to prevent double-award
     const { data: existing, error: checkError } = await supabase
       .from('getting_started_tasks')
       .select('id, points_awarded')
@@ -203,22 +157,21 @@ export async function recordGettingStartedActivity(
       .maybeSingle();
 
     if (checkError) throw checkError;
+    if (existing?.points_awarded) return { success: false, error: 'Task already completed' };
 
-    if (existing?.points_awarded) {
-      return { success: false, error: 'Task already completed' };
-    }
-
-    // Use explicit INSERT or UPDATE — avoids upsert conflict issues
-    let taskError;
+    let taskId_db: string;
     if (existing?.id) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('getting_started_tasks')
         .update({ completed: true, completed_at: new Date().toISOString(), points_awarded: true })
         .eq('id', existing.id)
-        .eq('user_id', userId);
-      taskError = error;
+        .eq('user_id', userId)
+        .select('id')
+        .single();
+      if (error) throw error;
+      taskId_db = data.id;
     } else {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('getting_started_tasks')
         .insert({
           user_id: userId,
@@ -227,32 +180,23 @@ export async function recordGettingStartedActivity(
           reward_points: pointsEarned,
           completed: true,
           completed_at: new Date().toISOString(),
-          points_awarded: true
-        });
-      taskError = error;
+          points_awarded: true,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      taskId_db = data.id;
     }
 
-    if (taskError) throw taskError;
-
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'getting_started',
-      amount: pointsEarned,
-      description: `Getting Started: ${taskName}`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
-
-    return { success: true };
+    return { success: true, activityId: taskId_db };
   } catch (err: any) {
-    console.error('[recordGettingStartedActivity] Error:', err);
+    console.error('[recordGettingStartedActivity]', err.message);
     return { success: false, error: err.message };
   }
 }
 
 // ============================================================================
-// DATA FETCHING (with type safety)
+// DATA FETCHING
 // ============================================================================
 
 export async function fetchSpinHistory(userId: string, limit: number = 10): Promise<SpinHistory[]> {
@@ -263,11 +207,10 @@ export async function fetchSpinHistory(userId: string, limit: number = 10): Prom
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
-
     if (error) throw error;
     return (data || []) as SpinHistory[];
   } catch (err: any) {
-    console.error('[fetchSpinHistory] Error:', err);
+    console.error('[fetchSpinHistory]', err.message);
     return [];
   }
 }
@@ -280,11 +223,10 @@ export async function fetchTransactions(userId: string, limit: number = 50): Pro
       .eq('user_id', userId)
       .order('timestamp', { ascending: false })
       .limit(limit);
-
     if (error) throw error;
     return (data || []) as Transaction[];
   } catch (err: any) {
-    console.error('[fetchTransactions] Error:', err);
+    console.error('[fetchTransactions]', err.message);
     return [];
   }
 }
@@ -296,17 +238,16 @@ export async function fetchStreakCheckIns(userId: string): Promise<StreakCheckIn
       .select('*')
       .eq('user_id', userId)
       .order('check_in_date', { ascending: false });
-
     if (error) throw error;
     return (data || []) as StreakCheckIn[];
   } catch (err: any) {
-    console.error('[fetchStreakCheckIns] Error:', err);
+    console.error('[fetchStreakCheckIns]', err.message);
     return [];
   }
 }
 
 // ============================================================================
-// POINTS MANAGEMENT (single source of truth)
+// POINTS & WALLET MANAGEMENT
 // ============================================================================
 
 export async function updateUserPoints(userId: string, newPoints: number): Promise<boolean> {
@@ -316,15 +257,27 @@ export async function updateUserPoints(userId: string, newPoints: number): Promi
       .update({ points: newPoints })
       .eq('id', userId)
       .select('id');
-
     if (error) throw error;
-    // RLS can silently block the UPDATE — detect 0-row writes explicitly
-    if (!data || data.length === 0) {
-      throw new Error(`updateUserPoints: 0 rows affected for user ${userId}`);
-    }
+    if (!data || data.length === 0) throw new Error(`0 rows affected for user ${userId}`);
     return true;
   } catch (err: any) {
-    console.error('[updateUserPoints] Error:', err);
+    console.error('[updateUserPoints]', err.message);
+    return false;
+  }
+}
+
+export async function updateUserWallet(userId: string, newWallet: number): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ wallet: newWallet })
+      .eq('id', userId)
+      .select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error(`0 rows affected for user ${userId}`);
+    return true;
+  } catch (err: any) {
+    console.error('[updateUserWallet]', err.message);
     return false;
   }
 }
@@ -343,61 +296,31 @@ export async function recordCosmeticPurchaseActivity(
       .maybeSingle();
 
     if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
-
-    if ((freshUser.cosmetics_purchased || []).includes(cosmeticId)) {
-      return { success: false, error: 'Already owned' };
-    }
-
-    if (freshUser.points < price) {
-      return { success: false, error: 'Insufficient points' };
-    }
+    if ((freshUser.cosmetics_purchased || []).includes(cosmeticId)) return { success: false, error: 'Already owned' };
+    if (freshUser.points < price) return { success: false, error: 'Insufficient points' };
 
     const newPoints = freshUser.points - price;
     const updatedCosmetics = [...(freshUser.cosmetics_purchased || []), cosmeticId];
 
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from('users')
       .update({ points: newPoints, cosmetics_purchased: updatedCosmetics })
-      .eq('id', userId);
-
+      .eq('id', userId)
+      .select('id');
     if (updateError) throw updateError;
+    if (!updated?.length) throw new Error('Points update blocked by RLS');
 
-    const { error: auditError } = await supabase.from('cosmetics_purchases').insert({
-      user_id: userId,
-      cosmetic_id: cosmeticId,
-      cosmetic_name: cosmeticName,
-      price
-    });
-    if (auditError) console.error('[recordCosmeticPurchaseActivity] Audit insert failed:', auditError);
+    const { error: auditError } = await supabase
+      .from('cosmetics_purchases')
+      .insert({ user_id: userId, cosmetic_id: cosmeticId, cosmetic_name: cosmeticName, price });
+    if (auditError) console.error('[recordCosmeticPurchaseActivity] Audit insert failed:', auditError.message);
 
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'cosmetic_purchase',
-      amount: -price,
-      description: `Purchased: ${cosmeticName}`,
-      timestamp: new Date().toISOString()
-    });
-
-    if (txError) throw txError;
+    // Transaction logged after points update (already correct order)
+    await insertTransaction(userId, 'cosmetic_purchase', -price, `Purchased: ${cosmeticName}`);
 
     return { success: true, newPoints };
   } catch (err: any) {
-    console.error('[recordCosmeticPurchaseActivity] Error:', err);
+    console.error('[recordCosmeticPurchaseActivity]', err.message);
     return { success: false, error: err.message };
-  }
-}
-
-export async function updateUserWallet(userId: string, newWallet: number): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('users')
-      .update({ wallet: newWallet })
-      .eq('id', userId);
-
-    if (error) throw error;
-    return true;
-  } catch (err: any) {
-    console.error('[updateUserWallet] Error:', err);
-    return false;
   }
 }

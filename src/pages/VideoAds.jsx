@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { recordVideoAdActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordVideoAdActivity, updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function VideoAds() {
@@ -246,7 +246,16 @@ export default function VideoAds() {
       const newPoints = freshUser.points + finalPoints;
 
       const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
+      if (!updated) {
+        // Rollback the video ad row so it isn't orphaned
+        if (recorded.activityId) {
+          await supabase.from('video_ads_watched').delete().eq('id', recorded.activityId);
+        }
+        throw new Error('Failed to update points. Please try again.');
+      }
+
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'video_ad', finalPoints, `Watch & Earn: ${ad.title}`);
 
       // Optimistic updates — no need to re-fetch
       setUserData(prev => ({ ...prev, points: newPoints }));

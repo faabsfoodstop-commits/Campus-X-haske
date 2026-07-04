@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { ToastContext } from '../context/ToastContext';
 import Button from './Button';
-import { recordGettingStartedActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordGettingStartedActivity, updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
 import './GettingStartedChecklist.css';
 
 // Icon Components
@@ -196,7 +196,17 @@ export default function GettingStartedChecklist() {
       if (fetchError || !freshUser) throw new Error('Failed to fetch current points');
 
       const updated = await updateUserPoints(session.user.id, freshUser.points + item.reward);
-      if (!updated) throw new Error('Failed to update points');
+      if (!updated) {
+        // Rollback the getting_started_tasks row
+        if (result.activityId) {
+          await supabase.from('getting_started_tasks').delete().eq('id', result.activityId);
+        }
+        throw new Error('Failed to update points. Please try again.');
+      }
+
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'getting_started', item.reward,
+        `Getting Started: ${item.title}`);
 
       // Update local state
       const newChecklist = checklist.map(task =>

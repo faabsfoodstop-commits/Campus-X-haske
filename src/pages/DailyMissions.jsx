@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { updateUserPoints } from '../utils/databaseHelpers';
+import { updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
+import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import Modal from '../components/Modal';
-import { useConfirm } from '../hooks/useConfirm';
 import {
   IconSun,
   IconVideoAds,
@@ -32,7 +31,7 @@ export default function DailyMissions() {
   const [comboBonus, setComboBonus] = useState(0);
   const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
-  const { alert: showAlert, confirm, modal, closeModal } = useConfirm();
+  const { addToast } = useContext(ToastContext);
 
   const missionIcons = {
     checkin: IconSun,
@@ -248,14 +247,7 @@ export default function DailyMissions() {
           console.error('[awardMissionBonus] Points update failed:', updateError?.message || '0 rows');
           return;
         }
-        const { error: txError } = await supabase.from('transactions').insert({
-          user_id: session.user.id,
-          type: 'mission',
-          amount: reward,
-          description: `Daily Mission: ${missionName}`,
-          timestamp: new Date().toISOString()
-        });
-        if (txError) console.error('[awardMissionBonus] Transaction insert failed:', txError.message);
+        await insertTransaction(session.user.id, 'mission', reward, `Daily Mission: ${missionName}`);
       };
 
       if (adsData.length > 0 && !completed.includes('video_ad')) {
@@ -386,14 +378,7 @@ export default function DailyMissions() {
       const updated = await updateUserPoints(session.user.id, newPoints);
       if (!updated) throw new Error('Failed to update points');
 
-      const { error: txError } = await supabase.from('transactions').insert({
-        user_id: session.user.id,
-        type: 'mission',
-        amount: mission.reward,
-        description: `Daily Mission: ${mission.name}`,
-        timestamp: new Date().toISOString()
-      });
-      if (txError) console.error('[completeMission] Transaction insert failed:', txError.message);
+      await insertTransaction(session.user.id, 'mission', mission.reward, `Daily Mission: ${mission.name}`);
 
       setCompletedToday(prev => [...prev, mission.id]);
       setUserData(prev => ({ ...prev, points: newPoints }));
@@ -436,15 +421,7 @@ export default function DailyMissions() {
   };
 
   const clearTestData = async () => {
-    const confirmed = await confirm({
-      title: 'Clear Test Data?',
-      message: 'Delete all test missions for today? This resets the daily missions so you can test fresh.',
-      type: 'warning',
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel'
-    });
-
-    if (!confirmed) return;
+    if (!window.confirm('Delete all test missions for today? This resets the daily missions so you can test fresh.')) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -475,18 +452,10 @@ export default function DailyMissions() {
 
       setCompletedToday([]);
       setComboBonus(0);
-      await showAlert({
-        title: 'Success',
-        message: `Deleted ${missions.length} test missions. Refresh the page to see the clean slate.`,
-        type: 'success'
-      });
+      addToast(`Deleted ${missions.length} test missions. Page will refresh.`, 'success');
     } catch (err) {
       console.error('Error deleting test data:', err);
-      await showAlert({
-        title: 'Error',
-        message: err.message || 'Failed to delete test data',
-        type: 'error'
-      });
+      addToast(err.message || 'Failed to delete test data', 'error');
     }
   };
 
@@ -734,7 +703,6 @@ export default function DailyMissions() {
           </div>
         </div>
       </div>
-      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import { ToastContext } from '../context/ToastContext';
 import { NIGERIAN_UNIVERSITIES, DEPARTMENTS_BY_UNIVERSITY } from '../constants/universities';
+import { insertTransaction } from '../utils/databaseHelpers';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -101,16 +102,9 @@ export default function Profile() {
         }
       }
 
-      // Always fetch fresh user row so we have accurate points/wallet/streak values
-      const { data: freshUser } = await supabase
-        .from('users')
-        .select('points, wallet, current_streak, referral_code')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      const currentPoints = freshUser?.points ?? 0;
-
-      // Upsert and SELECT in one call — if RLS blocks the write, data[] returns empty
+      // Step 1: Upsert ONLY profile identity fields — keeps points/wallet out of this write
+      // so that column-level RLS restrictions on points don't block the profile save.
+      const referralCode = session.user.id.substring(0, 8).toUpperCase();
       const { data: upsertedRows, error: upsertError } = await supabase
         .from('users')
         .upsert({
@@ -121,44 +115,49 @@ export default function Profile() {
           department: formData.department,
           course: formData.course,
           profile_complete: true,
-          points: currentPoints + bonusPoints,
-          wallet: freshUser?.wallet ?? 0,
-          current_streak: freshUser?.current_streak ?? 0,
-          referral_code: freshUser?.referral_code || session.user.id.substring(0, 8).toUpperCase(),
+          referral_code: referralCode,
         }, { onConflict: 'id' })
-        .select('id, full_name, university, department, course, points');
+        .select('id, full_name, university, department, course');
 
       if (upsertError) throw upsertError;
       if (!upsertedRows?.length) {
-        throw new Error('Save blocked by database permissions. Please contact support.');
+        throw new Error('Profile save did not persist. Please try again or contact support.');
       }
       const savedRow = upsertedRows[0];
 
-      // Record the bonus task + transaction now that the points are committed
+      // Step 2: Award bonus points in a separate UPDATE — isolated so a points-column
+      // RLS restriction doesn't fail the profile save above.
       let bonusAwarded = false;
       if (bonusPoints > 0) {
         try {
-          const { error: taskInsertError } = await supabase
-            .from('getting_started_tasks')
-            .insert({
-              user_id: session.user.id,
-              task_id: 'profile',
-              task_name: 'Complete Your Profile',
-              reward_points: 1000,
-              completed: true,
-              completed_at: new Date().toISOString(),
-              points_awarded: true,
-            });
+          const { data: freshUser } = await supabase
+            .from('users').select('points').eq('id', session.user.id).maybeSingle();
+          const currentPoints = freshUser?.points ?? 0;
+          const newPoints = currentPoints + bonusPoints;
 
-          if (!taskInsertError) {
-            await supabase.from('transactions').insert({
-              user_id: session.user.id,
-              type: 'getting_started',
-              amount: 1000,
-              description: 'Getting Started: Complete Your Profile',
-              timestamp: new Date().toISOString(),
-            });
-            bonusAwarded = true;
+          const { data: pointsRows } = await supabase
+            .from('users')
+            .update({ points: newPoints })
+            .eq('id', session.user.id)
+            .select('id');
+
+          if (pointsRows?.length) {
+            const { error: taskInsertError } = await supabase
+              .from('getting_started_tasks')
+              .insert({
+                user_id: session.user.id,
+                task_id: 'profile',
+                task_name: 'Complete Your Profile',
+                reward_points: 1000,
+                completed: true,
+                completed_at: new Date().toISOString(),
+                points_awarded: true,
+              });
+
+            if (!taskInsertError) {
+              await insertTransaction(session.user.id, 'getting_started', 1000, 'Getting Started: Complete Your Profile');
+              bonusAwarded = true;
+            }
           }
         } catch (err) {
           console.error('Error recording profile bonus (non-fatal):', err);
@@ -166,6 +165,10 @@ export default function Profile() {
       }
 
       sessionStorage.removeItem('pendingFullName');
+
+      // Fetch final points to reflect in UI (may have bonus applied)
+      const { data: finalUser } = await supabase
+        .from('users').select('points').eq('id', session.user.id).maybeSingle();
 
       const updatedData = {
         ...userData,
@@ -175,7 +178,7 @@ export default function Profile() {
         department: savedRow.department,
         course: savedRow.course,
         profile_complete: true,
-        points: savedRow.points,
+        points: finalUser?.points ?? userData?.points ?? 0,
       };
       setUserData(updatedData);
       setFormData(updatedData);

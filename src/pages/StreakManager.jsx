@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { recordCheckInActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordCheckInActivity, updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
 import { ToastContext } from '../context/ToastContext';
 import Button from '../components/Button';
 import { IconArrowLeft, IconFire, IconStar, IconRocket } from '../components/Icons';
@@ -143,8 +143,17 @@ export default function StreakManager() {
         .update({ current_streak: newStreak, points: newPoints })
         .eq('id', session.user.id)
         .select('id');
-      if (updateError) throw updateError;
-      if (!updatedRows?.length) throw new Error('Points update blocked — check RLS policy for users table');
+      if (updateError || !updatedRows?.length) {
+        // Rollback check-in row
+        if (recorded.activityId) {
+          await supabase.from('streak_check_ins').delete().eq('id', recorded.activityId);
+        }
+        throw new Error('Points update blocked. Please try again.');
+      }
+
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'streak_checkin', totalPoints,
+        `Daily Check-In – Day ${newStreak}${streakBonus > 0 ? ` (+${streakBonus} milestone bonus)` : ''}`);
 
       localStorage.setItem('lastCheckIn', todayString);
       setUserData(prev => ({ ...prev, current_streak: newStreak, points: newPoints }));

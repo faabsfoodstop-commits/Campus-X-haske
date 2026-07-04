@@ -6,9 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import GettingStartedChecklist from '../components/GettingStartedChecklist';
 import ActivityCard from '../components/ActivityCard';
 import Button from '../components/Button';
-import Modal from '../components/Modal';
-import { useConfirm } from '../hooks/useConfirm';
-import { recordCheckInActivity, updateUserPoints, recordGettingStartedActivity } from '../utils/databaseHelpers';
+import { recordCheckInActivity, updateUserPoints, recordGettingStartedActivity, insertTransaction } from '../utils/databaseHelpers';
 import { COSMETICS_LOOKUP } from '../constants/cosmetics';
 import {
   IconSpinWheel,
@@ -33,7 +31,6 @@ export default function Dashboard() {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { alert: showAlert, modal, closeModal } = useConfirm();
   const { addToast } = useContext(ToastContext);
 
   useEffect(() => {
@@ -153,6 +150,9 @@ export default function Dashboard() {
       if (error) throw error;
       if (!updated?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'streak_checkin', pointsEarned, `Daily Check-In – Day ${newStreak}`);
+
       // Award 7-day getting started task if reached
       try {
         const { data: allCheckIns } = await supabase
@@ -161,14 +161,16 @@ export default function Dashboard() {
         if (uniqueDates.size >= 7) {
           const taskResult = await recordGettingStartedActivity(session.user.id, 'checkin', 'Check In 7 Days', 70);
           if (taskResult.success) {
-            // recordGettingStartedActivity logs the transaction but does NOT update users.points
             const { data: latestUser } = await supabase
               .from('users').select('points').eq('id', session.user.id).single();
             if (latestUser) {
-              await supabase.from('users')
+              const { data: bonusRows } = await supabase.from('users')
                 .update({ points: latestUser.points + 70 })
                 .eq('id', session.user.id)
                 .select('id');
+              if (bonusRows?.length) {
+                await insertTransaction(session.user.id, 'getting_started', 70, 'Getting Started: Check In 7 Days');
+              }
             }
             addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
           }
@@ -180,19 +182,10 @@ export default function Dashboard() {
       localStorage.setItem('lastCheckIn', todayString);
       setUserData(prev => ({ ...prev, points: newPoints, current_streak: newStreak }));
       setCheckedInToday(true);
-
-      await showAlert({
-        title: 'Success',
-        message: `Check-in successful! You earned ${pointsEarned} points!`,
-        type: 'success'
-      });
+      addToast(`Check-in successful! You earned ${pointsEarned} points!`, 'success');
     } catch (err) {
       console.error('Error checking in:', err);
-      await showAlert({
-        title: 'Error',
-        message: err.message || 'Failed to check in. Please try again.',
-        type: 'error'
-      });
+      addToast(err.message || 'Failed to check in. Please try again.', 'error');
     }
   };
 
@@ -540,7 +533,6 @@ export default function Dashboard() {
         </section>
 
       </div>
-      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }

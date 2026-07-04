@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { recordInstagramFollowActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordInstagramFollowActivity, updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function InstagramFollow() {
@@ -148,7 +148,17 @@ export default function InstagramFollow() {
       if (!freshUser) throw new Error('Failed to fetch user points');
       const newPoints = freshUser.points + pointsAwarded;
       const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
+      if (!updated) {
+        // Rollback the instagram follow row
+        if (recorded.activityId) {
+          await supabase.from('instagram_follows').delete().eq('id', recorded.activityId);
+        }
+        throw new Error('Failed to update points. Please try again.');
+      }
+
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'instagram_follow', pointsAwarded,
+        `Follow & Earn: ${brand.name} (${brand.handle})`);
 
       setUserData(prev => ({ ...prev, points: newPoints }));
 

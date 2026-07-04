@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { recordTriviaActivity, updateUserPoints } from '../utils/databaseHelpers';
+import { recordTriviaActivity, updateUserPoints, insertTransaction } from '../utils/databaseHelpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   IconTrivia,
@@ -226,7 +226,17 @@ export default function Trivia() {
       if (!freshUser) throw new Error('Failed to fetch user points');
       const newPoints = freshUser.points + totalReward;
       const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
+      if (!updated) {
+        // Rollback trivia row
+        if (recorded.activityId) {
+          await supabase.from('trivia_results').delete().eq('id', recorded.activityId);
+        }
+        throw new Error('Failed to update points');
+      }
+
+      // Log transaction after points are confirmed
+      await insertTransaction(session.user.id, 'trivia', totalReward,
+        `Trivia: ${correctAnswers}/10 correct (+500 completion bonus)`);
 
       setUserData(prev => ({ ...prev, points: newPoints }));
 

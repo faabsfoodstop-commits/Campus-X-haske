@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import Modal from '../components/Modal';
-import { useConfirm } from '../hooks/useConfirm';
 import { ToastContext } from '../context/ToastContext';
-import { recordSpinActivity, fetchSpinHistory as fetchSpinHistoryFromDB } from '../utils/databaseHelpers';
+import { recordSpinActivity, fetchSpinHistory as fetchSpinHistoryFromDB, insertTransaction } from '../utils/databaseHelpers';
 import {
   IconSpinWheel,
   IconStar,
@@ -23,7 +21,6 @@ export default function SpinWheel() {
   const [spinHistory, setSpinHistory] = useState([]);
   const [showBuySpins, setShowBuySpins] = useState(false);
   const navigate = useNavigate();
-  const { alert: showAlert, modal, closeModal } = useConfirm();
   const { addToast } = useContext(ToastContext);
 
   const wheelOptions = [
@@ -197,8 +194,13 @@ export default function SpinWheel() {
         .eq('id', session.user.id)
         .select('id');
 
-      if (updateError) throw updateError;
-      if (!updatedRows?.length) throw new Error('Points update blocked — check RLS policy for users table');
+      if (updateError || !updatedRows?.length) {
+        // Rollback the spin history row so it isn't orphaned
+        if (spinRecordResult.activityId) {
+          await supabase.from('spin_history').delete().eq('id', spinRecordResult.activityId);
+        }
+        throw new Error('Points update failed. Please try again.');
+      };
 
       // Optimistically update UI immediately
       if (useFreeSpins) {
@@ -225,8 +227,12 @@ export default function SpinWheel() {
       // Sync from DB in background (replaces temp entry with real one)
       fetchSpinHistory();
 
+      // Log transaction only after points confirmed
+      await insertTransaction(session.user.id, 'spin_wheel', earnedPoints,
+        `Spin Wheel: ${result.label}${earnedPoints > result.points ? ' (streak bonus)' : ''}`);
+
       if (earnedPoints > 0) {
-        addToast(`🎉 You won ${earnedPoints} points!`, 'success');
+        addToast(`You won ${earnedPoints} points!`, 'success');
       }
     } catch (err) {
       console.error('Error processing spin:', err);
@@ -251,11 +257,7 @@ export default function SpinWheel() {
       if (fetchError || !freshUser) throw new Error('Failed to fetch wallet balance');
 
       if ((freshUser.wallet || 0) < cost) {
-        showAlert({
-          title: 'Insufficient Balance',
-          message: `You need ${cost} tokens but only have ${freshUser.wallet || 0}. Complete more tasks to earn tokens.`,
-          type: 'warning'
-        });
+        addToast(`You need ${cost} tokens but only have ${freshUser.wallet || 0}. Complete more tasks to earn tokens.`, 'warning');
         return;
       }
 
@@ -267,16 +269,12 @@ export default function SpinWheel() {
         .select('id');
 
       if (error) throw error;
-      if (!updatedRows?.length) throw new Error('Wallet update blocked — check RLS policy for users table');
+      if (!updatedRows?.length) throw new Error('Wallet update blocked by permissions. Please try again.');
 
       setUserData(prev => ({ ...prev, wallet: newWallet }));
       setPurchasedSpin(prev => prev + quantity);
       setShowBuySpins(false);
-      showAlert({
-        title: 'Success!',
-        message: `You've purchased ${quantity} spin${quantity > 1 ? 's' : ''}! Now you have ${purchasedSpin + quantity} paid spins available.`,
-        type: 'success'
-      });
+      addToast(`Purchased ${quantity} spin${quantity > 1 ? 's' : ''}! You now have ${purchasedSpin + quantity} paid spins.`, 'success');
     } catch (err) {
       console.error('Error buying spins:', err);
       addToast('Failed to buy spins. Please try again.', 'error');
@@ -492,8 +490,6 @@ export default function SpinWheel() {
         </div>
       </div>
 
-      {/* Modal for alerts */}
-      <Modal {...modal} onClose={closeModal} />
     </div>
   );
 }
