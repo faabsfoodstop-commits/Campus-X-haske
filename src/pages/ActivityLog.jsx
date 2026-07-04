@@ -97,10 +97,10 @@ export default function ActivityLog() {
         return {
           id: tx.id,
           type: info.type,
-          title: `${info.label}${tx.description ? ': ' + tx.description : ''}`,
+          title: tx.description || info.label,
           points: tx.amount || 0,
           timestamp: tx.timestamp,
-          details: tx.description || '',
+          details: '',
         };
       });
 

@@ -128,7 +128,7 @@ export default function GettingStartedChecklist() {
         let progress = 0;
 
         // Check if task should be marked complete based on user data
-        if (item.id === 'profile' && userData?.profile_complete) {
+        if (item.id === 'profile' && (userData?.profile_complete || (userData?.university && userData?.department && userData?.course))) {
           completed = true;
         } else if (item.id === 'checkin') {
           progress = checkInProgress;
