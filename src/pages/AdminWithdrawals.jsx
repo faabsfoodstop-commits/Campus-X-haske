@@ -60,19 +60,22 @@ export default function AdminWithdrawals() {
     setProcessing(prev => ({ ...prev, [withdrawalId]: true }));
 
     try {
-      // Call Edge Function to process withdrawal
-      const { data, error } = await supabase.functions.invoke('adminProcessWithdrawal', {
-        body: {
-          withdrawalId,
-          approved
-        },
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('withdrawals')
+        .update({
+          status: approved ? 'approved' : 'rejected',
+          processed_at: new Date().toISOString(),
+          processed_by: session.user.email
+        })
+        .eq('id', withdrawalId);
 
       if (error) throw error;
 
-      // Refresh list
       await fetchWithdrawals();
-      alert(approved ? 'Withdrawal approved and processed!' : 'Withdrawal rejected');
+      alert(approved ? 'Withdrawal approved!' : 'Withdrawal rejected');
     } catch (err) {
       console.error('Error processing withdrawal:', err);
       alert('Error: ' + err.message);
@@ -187,8 +190,8 @@ export default function AdminWithdrawals() {
                   <tr key={withdrawal.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-semibold text-gray-800">User {withdrawal.userId.slice(0, 8)}</p>
-                        <p className="text-xs text-gray-500">{withdrawal.userId}</p>
+                        <p className="font-semibold text-gray-800">User {withdrawal.user_id.slice(0, 8)}</p>
+                        <p className="text-xs text-gray-500">{withdrawal.user_id}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -198,18 +201,18 @@ export default function AdminWithdrawals() {
                       <p className="text-gray-700 capitalize">{withdrawal.method.replace('_', ' ')}</p>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      {withdrawal.bankDetails ? (
+                      {withdrawal.bank_details ? (
                         <div className="text-gray-700">
-                          <p className="font-semibold">{withdrawal.bankDetails.accountName}</p>
-                          <p>{withdrawal.bankDetails.bankName}</p>
-                          <p>•••• {withdrawal.bankDetails.accountNumber.slice(-4)}</p>
+                          <p className="font-semibold">{withdrawal.bank_details.accountName}</p>
+                          <p>{withdrawal.bank_details.bankName}</p>
+                          <p>•••• {withdrawal.bank_details.accountNumber?.slice(-4)}</p>
                         </div>
                       ) : (
                         <p className="text-gray-500">N/A</p>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {withdrawal.createdAt.toLocaleDateString()}
+                      {new Date(withdrawal.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
@@ -247,7 +250,7 @@ export default function AdminWithdrawals() {
                       )}
                       {withdrawal.status !== 'pending' && (
                         <p className="text-sm text-gray-600">
-                          {withdrawal.processedAt ? `Processed ${new Date(withdrawal.processedAt).toLocaleDateString()}` : 'N/A'}
+                          {withdrawal.processed_at ? `Processed ${new Date(withdrawal.processed_at).toLocaleDateString()}` : 'N/A'}
                         </p>
                       )}
                     </td>

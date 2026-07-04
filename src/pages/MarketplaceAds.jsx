@@ -191,16 +191,16 @@ export default function MarketplaceAds() {
                   </div>
 
                   {/* Contact Info */}
-                  {(ad.contactPhone || ad.contactEmail) && (
+                  {(ad.contact_phone || ad.contact_email) && (
                     <div className="bg-gray-50 rounded p-3 mb-4">
-                      {ad.contactPhone && (
+                      {ad.contact_phone && (
                         <p className="text-sm text-gray-700">
-                          <strong>Phone:</strong> {ad.contactPhone}
+                          <strong>Phone:</strong> {ad.contact_phone}
                         </p>
                       )}
-                      {ad.contactEmail && (
+                      {ad.contact_email && (
                         <p className="text-sm text-gray-700">
-                          <strong>Email:</strong> {ad.contactEmail}
+                          <strong>Email:</strong> {ad.contact_email}
                         </p>
                       )}
                     </div>
@@ -208,16 +208,16 @@ export default function MarketplaceAds() {
 
                   {/* Posted By */}
                   <p className="text-xs text-gray-500 mb-4">
-                    Posted by {ad.userName} on {new Date(ad.createdAt?.toDate?.() || ad.createdAt).toLocaleDateString()}
+                    Posted by {ad.user_name} on {new Date(ad.created_at).toLocaleDateString()}
                   </p>
 
                   {/* Action Button */}
                   <Button
                     onClick={() => {
-                      if (ad.contactPhone) {
-                        window.location.href = `tel:${ad.contactPhone}`;
-                      } else if (ad.contactEmail) {
-                        window.location.href = `mailto:${ad.contactEmail}`;
+                      if (ad.contact_phone) {
+                        window.location.href = `tel:${ad.contact_phone}`;
+                      } else if (ad.contact_email) {
+                        window.location.href = `mailto:${ad.contact_email}`;
                       }
                     }}
                     variant="primary"

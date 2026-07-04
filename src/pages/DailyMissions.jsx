@@ -496,13 +496,6 @@ export default function DailyMissions() {
               >
                 Dashboard
               </Button>
-              <button
-                onClick={clearTestData}
-                className="p-2 hover:bg-gray-100 rounded transition"
-                title="Clear test data"
-              >
-                <IconSettings2 className="w-5 h-5 text-gray-600" />
-              </button>
               <div className="flex items-center gap-2 text-lg font-bold text-primary">
                 <IconStar className="w-5 h-5" />
                 {userData?.points || 0} pts
@@ -716,17 +709,17 @@ export default function DailyMissions() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-2">Complete All Easy</p>
-              <p className="text-3xl font-bold text-yellow-600">+50 pts</p>
+              <p className="text-3xl font-bold text-yellow-600">+250 pts</p>
               <p className="text-xs text-gray-500 mt-2">{3 - Math.min(3, easyMissions.filter(m => completedToday.includes(m.id)).length)} more</p>
             </div>
             <div className="bg-white rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-2">Complete All Medium</p>
-              <p className="text-3xl font-bold text-orange-600">+100 pts</p>
+              <p className="text-3xl font-bold text-orange-600">+500 pts</p>
               <p className="text-xs text-gray-500 mt-2">{3 - Math.min(3, mediumMissions.filter(m => completedToday.includes(m.id)).length)} more</p>
             </div>
             <div className="bg-white rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-2">Complete All Missions</p>
-              <p className="text-3xl font-bold text-red-600">+250 pts</p>
+              <p className="text-3xl font-bold text-red-600">+1250 pts</p>
               <p className="text-xs text-gray-500 mt-2">{8 - completedToday.length} more</p>
             </div>
           </div>

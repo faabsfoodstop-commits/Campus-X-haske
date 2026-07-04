@@ -47,12 +47,12 @@ export default function StreakManager() {
           const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
           const sortedDates = checkIns.map(ci => ci.check_in_date).sort().reverse();
           if (sortedDates[0] === today || sortedDates[0] === yesterday) {
-            let currentDate = new Date(sortedDates[0]);
             for (let i = 0; i < sortedDates.length; i++) {
-              const checkInDate = new Date(sortedDates[i]);
-              const expectedDate = new Date(currentDate);
-              expectedDate.setDate(expectedDate.getDate() - i);
-              if (checkInDate.toISOString().split('T')[0] === expectedDate.toISOString().split('T')[0]) {
+              // Use noon UTC to avoid local-timezone date boundary issues
+              const d = new Date(sortedDates[0] + 'T12:00:00Z');
+              d.setUTCDate(d.getUTCDate() - i);
+              const expectedDate = d.toISOString().split('T')[0];
+              if (sortedDates[i] === expectedDate) {
                 streak++;
               } else {
                 break;

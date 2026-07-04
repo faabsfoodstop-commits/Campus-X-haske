@@ -67,11 +67,11 @@ export default function UserAdsPosting() {
   };
 
   const canPostAd = () => {
-    if (!userData?.profileComplete) {
+    if (!userData?.profile_complete) {
       return { allowed: false, reason: 'Complete your profile first' };
     }
 
-    const isPremium = userData?.premiumActive;
+    const isPremium = userData?.premium_active;
     const thisMonth = new Date();
     thisMonth.setDate(1);
 
@@ -138,7 +138,7 @@ export default function UserAdsPosting() {
         contact_email: formData.contactEmail,
         user_id: session.user.id,
         university: userData?.university,
-        user_name: userData?.name,
+        user_name: userData?.full_name,
         status: 'pending',
         created_at: new Date().toISOString()
       };
@@ -155,10 +155,15 @@ export default function UserAdsPosting() {
 
         if (insertError) throw insertError;
 
-        if (!userData?.premiumActive) {
+        if (!userData?.premium_active) {
+          const { data: freshUser } = await supabase
+            .from('users')
+            .select('points')
+            .eq('id', session.user.id)
+            .single();
           await supabase
             .from('users')
-            .update({ points: (userData?.points || 0) - POSTING_COST })
+            .update({ points: (freshUser?.points || 0) - POSTING_COST })
             .eq('id', session.user.id);
         }
       }
@@ -253,7 +258,7 @@ export default function UserAdsPosting() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Profile Status Alert */}
-        {!userData?.profileComplete && (
+        {!userData?.profile_complete && (
           <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 mb-6">
             <p className="text-yellow-700 font-semibold">Complete Your Profile</p>
             <p className="text-sm text-yellow-600 mt-1">You must complete your profile (university, department, course) before posting ads.</p>
@@ -349,7 +354,7 @@ export default function UserAdsPosting() {
                 <p className="text-xs text-gray-500 mt-1">{formData.description.length}/1000</p>
               </div>
 
-              {!userData?.premiumActive && (
+              {!userData?.premium_active && (
                 <div className="bg-blue-50 border-l-4 border-primary rounded p-4">
                   <p className="text-blue-700 font-semibold">Cost: {POSTING_COST} points</p>
                   <p className="text-sm text-blue-600">You have {userData?.points || 0} points available</p>
@@ -380,7 +385,7 @@ export default function UserAdsPosting() {
         )}
 
         {/* Stats */}
-        {userData?.profileComplete && (
+        {userData?.profile_complete && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-gray-500 text-sm">Active Ads</p>
@@ -469,8 +474,8 @@ export default function UserAdsPosting() {
                           category: ad.category,
                           price: ad.price?.toString() || '',
                           image: ad.image || '',
-                          contactPhone: ad.contactPhone || '',
-                          contactEmail: ad.contactEmail || ''
+                          contactPhone: ad.contact_phone || '',
+                          contactEmail: ad.contact_email || ''
                         });
                         setEditingAdId(ad.id);
                         setShowPostForm(true);

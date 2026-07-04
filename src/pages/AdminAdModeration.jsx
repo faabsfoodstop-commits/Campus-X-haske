@@ -28,8 +28,19 @@ export default function AdminAdModeration() {
   ];
 
   useEffect(() => {
+    checkAdminAndFetch();
+  }, []);
+
+  useEffect(() => {
     fetchAds();
   }, [filter]);
+
+  const checkAdminAndFetch = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { navigate('/login'); return; }
+    const { data: user } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+    if (!user?.is_admin) { navigate('/dashboard'); }
+  };
 
   const fetchAds = async () => {
     try {
@@ -244,7 +255,7 @@ export default function AdminAdModeration() {
           <div className="bg-blue-50 border-l-4 border-primary rounded p-4">
             <p className="text-primary text-sm font-semibold">Total Reviewed</p>
             <p className="text-3xl font-bold text-primary">
-              {ads.filter(ad => ad.reviewedAt).length}
+              {ads.filter(ad => ad.reviewed_at).length}
             </p>
           </div>
         </div>
@@ -336,7 +347,7 @@ export default function AdminAdModeration() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
                       <div>
                         <p className="text-gray-500">Posted by</p>
-                        <p className="font-semibold text-gray-800">{ad.userName}</p>
+                        <p className="font-semibold text-gray-800">{ad.user_name}</p>
                       </div>
                       <div>
                         <p className="text-gray-500">University</p>
@@ -345,20 +356,20 @@ export default function AdminAdModeration() {
                       <div>
                         <p className="text-gray-500">Posted</p>
                         <p className="font-semibold text-gray-800">
-                          {new Date(ad.createdAt?.toDate?.() || ad.createdAt).toLocaleDateString()}
+                          {new Date(ad.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-500">Contact</p>
-                        <p className="font-semibold text-gray-800">{ad.contactPhone || ad.contactEmail || 'N/A'}</p>
+                        <p className="font-semibold text-gray-800">{ad.contact_phone || ad.contact_email || 'N/A'}</p>
                       </div>
                     </div>
 
                     {/* Rejection Reason Display */}
-                    {ad.rejectionReason && (
+                    {ad.rejection_reason && (
                       <div className="bg-red-50 border-l-4 border-red-500 rounded p-3 mb-4">
                         <p className="text-sm text-red-600">
-                          <strong>Reason:</strong> {ad.rejectionReason}
+                          <strong>Reason:</strong> {ad.rejection_reason}
                         </p>
                       </div>
                     )}

@@ -19,13 +19,15 @@ export default function BrandPartnershipPortal() {
   const fetchUserAndCampaigns = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) { navigate('/login'); return; }
 
       const { data: user } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single();
+
+      if (!user?.is_admin) { navigate('/dashboard'); return; }
 
       if (user) {
         setUserData(user);

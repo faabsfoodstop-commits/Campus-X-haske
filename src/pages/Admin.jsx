@@ -20,9 +20,17 @@ export default function Admin() {
   useEffect(() => {
     const fetchAdminData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) { navigate('/login'); return; }
 
       try {
+        const { data: adminCheck } = await supabase
+          .from('users')
+          .select('is_admin')
+          .eq('id', session.user.id)
+          .single();
+
+        if (!adminCheck?.is_admin) { navigate('/dashboard'); return; }
+
         const { data: usersList, error } = await supabase
           .from('users')
           .select('*');

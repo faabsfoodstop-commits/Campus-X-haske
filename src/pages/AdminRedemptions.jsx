@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -19,10 +19,24 @@ export default function AdminRedemptions() {
   const [filter, setFilter] = useState('pending'); // pending, completed, rejected
   const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
+  const adminChecked = useRef(false);
 
   useEffect(() => {
-    fetchRedemptions();
+    if (!adminChecked.current) {
+      adminChecked.current = true;
+      checkAdmin();
+    } else {
+      fetchRedemptions();
+    }
   }, [filter]);
+
+  const checkAdmin = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { navigate('/login'); return; }
+    const { data: user } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+    if (!user?.is_admin) { navigate('/dashboard'); return; }
+    fetchRedemptions();
+  };
 
   const fetchRedemptions = async () => {
     try {
@@ -32,7 +46,7 @@ export default function AdminRedemptions() {
         query = query.eq('status', filter);
       }
 
-      const { data, error } = await query.order('timestamp', { ascending: false });
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (!error && data) {
         setRedemptions(data);
@@ -222,25 +236,25 @@ export default function AdminRedemptions() {
                   {redemptions.map(redemption => (
                     <tr key={redemption.id} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm">
-                        <div className="font-semibold text-gray-800">{redemption.userEmail}</div>
-                        <div className="text-xs text-gray-500">{redemption.userId.slice(0, 8)}...</div>
+                        <div className="font-semibold text-gray-800">{redemption.user_email}</div>
+                        <div className="text-xs text-gray-500">{redemption.user_id?.slice(0, 8)}...</div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-mono text-gray-700">{redemption.phoneNumber}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">{redemption.rewardName}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-gray-700">{redemption.phone_number}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">{redemption.reward_name}</td>
                       <td className="px-6 py-4 text-sm">
-                        <span className="font-bold text-primary">{redemption.pointsRedeemed}</span>
+                        <span className="font-bold text-primary">{redemption.points_redeemed}</span>
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                          {redemption.rewardType === 'airtime' && <IconMobile className="w-4 h-4" />}
-                          {redemption.rewardType === 'data' && <IconWifi className="w-4 h-4" />}
-                          {redemption.rewardType === 'giftcard' && <IconGift className="w-4 h-4" />}
-                          <span className="capitalize">{redemption.rewardType}</span>
+                          {redemption.reward_type === 'airtime' && <IconMobile className="w-4 h-4" />}
+                          {redemption.reward_type === 'data' && <IconWifi className="w-4 h-4" />}
+                          {redemption.reward_type === 'giftcard' && <IconGift className="w-4 h-4" />}
+                          <span className="capitalize">{redemption.reward_type}</span>
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">{redemption.provider}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(redemption.timestamp).toLocaleDateString()}
+                        {new Date(redemption.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${

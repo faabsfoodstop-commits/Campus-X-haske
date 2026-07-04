@@ -140,10 +140,10 @@ export default function UniversityChat() {
             messages.map((msg) => (
               <div key={msg.id} className="border-l-4 border-primary pl-4 py-2">
                 <div className="flex items-baseline gap-2 mb-1">
-                  <p className="font-bold text-gray-800">{msg.userName}</p>
+                  <p className="font-bold text-gray-800">{msg.user_name}</p>
                   <p className="text-xs text-gray-500">{msg.department}</p>
                   <p className="text-xs text-gray-400">
-                    {new Date(msg.timestamp?.toDate?.() || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <p className="text-gray-700">{msg.message}</p>

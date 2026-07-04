@@ -228,12 +228,41 @@ export default function Achievements() {
             isUnlocked = true;
             break;
 
-          case 'marketplace_seller':
-          case 'instagram_follows':
-          case 'successful_referrals':
           case 'checkin_streak':
+            isUnlocked = (userData?.current_streak || 0) >= achievement.threshold;
+            break;
+
+          case 'instagram_follows': {
+            const { count: igCount } = await supabase
+              .from('instagram_follows')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', session.user.id)
+              .eq('verified', true);
+            isUnlocked = (igCount || 0) >= achievement.threshold;
+            break;
+          }
+
+          case 'successful_referrals': {
+            const { count: refCount } = await supabase
+              .from('referrals')
+              .select('id', { count: 'exact', head: true })
+              .eq('referrer_id', session.user.id)
+              .eq('status', 'completed');
+            isUnlocked = (refCount || 0) >= achievement.threshold;
+            break;
+          }
+
+          case 'marketplace_seller': {
+            const { count: adsCount } = await supabase
+              .from('user_ads')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', session.user.id);
+            isUnlocked = (adsCount || 0) >= achievement.threshold;
+            break;
+          }
+
           case 'achievements_unlocked':
-            isUnlocked = (userData?.[achievement.requirement] || 0) >= achievement.threshold;
+            isUnlocked = unlocked.length >= achievement.threshold;
             break;
 
           default:

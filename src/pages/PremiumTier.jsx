@@ -130,7 +130,7 @@ export default function PremiumTier() {
   };
 
   const isPremium = userData?.premium_tier && userData?.premium_until &&
-    new Date(userData.premiumUntil) > new Date();
+    new Date(userData.premium_until) > new Date();
 
   if (loading) {
     return <LoadingSpinner size="lg" />;
@@ -162,7 +162,7 @@ export default function PremiumTier() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isPremium && (
           <div className="bg-green-100 border-2 border-green-500 text-green-800 rounded-lg p-4 mb-8">
-            <p className="font-bold">✓ You have an active premium subscription until {new Date(userData.premiumUntil).toLocaleDateString()}</p>
+            <p className="font-bold">✓ You have an active premium subscription until {new Date(userData.premium_until).toLocaleDateString()}</p>
           </div>
         )}
 

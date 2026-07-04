@@ -150,9 +150,7 @@ export default function Marketplace() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const newPoints = currentPoints - pointsNeeded;
-      setUserData(prev => ({ ...prev, points: newPoints }));
-
+      // Insert purchase record first — acts as idempotency guard
       const { error: insertError } = await supabase
         .from('purchases')
         .insert({
@@ -172,6 +170,17 @@ export default function Marketplace() {
 
       if (insertError) throw insertError;
 
+      // Fetch fresh points to avoid stale-state double spend
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users')
+        .select('points')
+        .eq('id', session.user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newPoints = (freshUser.points || 0) - pointsNeeded;
+
       const { error: updateError } = await supabase
         .from('users')
         .update({ points: newPoints })
@@ -179,6 +188,7 @@ export default function Marketplace() {
 
       if (updateError) throw updateError;
 
+      setUserData(prev => ({ ...prev, points: newPoints }));
       setNotification({ type: 'success', message: `✓ Purchase confirmed! ${reward.name} will be delivered within 24 hours.` });
       setSelectedPhone('');
       await fetchPurchases();
@@ -350,14 +360,14 @@ export default function Marketplace() {
               {purchases.slice(0, 5).map((purchase, idx) => (
                 <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded border-l-4 border-blue-500">
                   <div>
-                    <p className="font-semibold text-gray-800">{purchase.rewardName}</p>
-                    <p className="text-sm text-gray-600">Phone: {purchase.phoneNumber}</p>
+                    <p className="font-semibold text-gray-800">{purchase.reward_name}</p>
+                    <p className="text-sm text-gray-600">Phone: {purchase.phone_number}</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(purchase.timestamp.toDate?.() || purchase.timestamp).toLocaleDateString()}
+                      {new Date(purchase.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-primary">-{purchase.pointsSpent} pts</p>
+                    <p className="font-bold text-primary">-{purchase.points_spent} pts</p>
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                       purchase.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>

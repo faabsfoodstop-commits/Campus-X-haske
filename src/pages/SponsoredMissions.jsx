@@ -141,15 +141,7 @@ export default function SponsoredMissions() {
 
       const pointsAwarded = mission.reward;
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          points: (userData?.points || 0) + pointsAwarded,
-        })
-        .eq('id', session.user.id);
-
-      if (updateError) throw updateError;
-
+      // Insert completion record first — acts as duplicate guard
       const { error: recordError } = await supabase
         .from('sponsored_mission_completions')
         .insert({
@@ -157,14 +149,30 @@ export default function SponsoredMissions() {
           mission_id: mission.id,
           brand: mission.brand,
           base_reward: mission.reward,
-          completed_at: new Date()
+          completed_at: new Date().toISOString()
         });
 
       if (recordError) throw recordError;
 
+      // Fetch fresh points to avoid stale state race
+      const { data: freshUser, error: fetchError } = await supabase
+        .from('users')
+        .select('points')
+        .eq('id', session.user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ points: (freshUser.points || 0) + pointsAwarded })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
+
       setUserData(prev => ({
         ...prev,
-        points: (prev?.points || 0) + pointsAwarded,
+        points: (freshUser.points || 0) + pointsAwarded,
       }));
 
       setCompletedMissions([...completedMissions, mission.id]);

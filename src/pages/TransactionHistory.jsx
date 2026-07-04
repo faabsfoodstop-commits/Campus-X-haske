@@ -25,7 +25,7 @@ export default function TransactionHistory() {
         .from('transactions')
         .select('*')
         .eq('user_id', session.user.id)
-        .order('timestamp', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (!error && transactions) {
         setTransactions(transactions);
@@ -54,8 +54,7 @@ export default function TransactionHistory() {
     : transactions.filter(t => t.type === filter);
 
   const stats = {
-    totalSpent: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
-    totalPoints: transactions.reduce((sum, t) => sum + (t.points || 0), 0),
+    totalPoints: transactions.reduce((sum, t) => sum + (t.amount || 0), 0),
     transactionCount: transactions.length
   };
 
@@ -85,23 +84,17 @@ export default function TransactionHistory() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-l-4 border-blue-500">
-            <p className="text-gray-600 text-sm mb-2">Total Spent</p>
-            <p className="text-4xl font-bold text-blue-600">₦{stats.totalSpent.toLocaleString()}</p>
-            <p className="text-xs text-gray-600 mt-2">on point purchases</p>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border-l-4 border-green-500">
-            <p className="text-gray-600 text-sm mb-2">Points Purchased</p>
-            <p className="text-4xl font-bold text-green-600">{stats.totalPoints.toLocaleString()}</p>
-            <p className="text-xs text-gray-600 mt-2">total acquired</p>
+            <p className="text-gray-600 text-sm mb-2">Total Points Earned</p>
+            <p className="text-4xl font-bold text-green-600">{stats.totalPoints.toLocaleString()} pts</p>
+            <p className="text-xs text-gray-600 mt-2">across all activities</p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-l-4 border-purple-500">
             <p className="text-gray-600 text-sm mb-2">Transactions</p>
             <p className="text-4xl font-bold text-purple-600">{stats.transactionCount}</p>
-            <p className="text-xs text-gray-600 mt-2">total purchases</p>
+            <p className="text-xs text-gray-600 mt-2">total records</p>
           </div>
         </div>
 
@@ -135,17 +128,15 @@ export default function TransactionHistory() {
                   <tr>
                     <th className="px-6 py-3 text-left text-gray-700 font-semibold">Date & Time</th>
                     <th className="px-6 py-3 text-left text-gray-700 font-semibold">Type</th>
-                    <th className="px-6 py-3 text-right text-gray-700 font-semibold">Amount</th>
                     <th className="px-6 py-3 text-right text-gray-700 font-semibold">Points</th>
-                    <th className="px-6 py-3 text-left text-gray-700 font-semibold">Status</th>
-                    <th className="px-6 py-3 text-left text-gray-700 font-semibold">Reference</th>
+                    <th className="px-6 py-3 text-left text-gray-700 font-semibold">Description</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filteredTransactions.map((transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-gray-800">
-                        {formatDate(transaction.timestamp)}
+                        {formatDate(transaction.created_at)}
                       </td>
                       <td className="px-6 py-4 text-gray-700">
                         <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">
@@ -153,24 +144,10 @@ export default function TransactionHistory() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-semibold text-primary">
-                        ₦{transaction.amount?.toLocaleString() || '0'}
+                        +{transaction.amount?.toLocaleString() || '0'} pts
                       </td>
-                      <td className="px-6 py-4 text-right font-semibold text-gray-800">
-                        {transaction.points?.toLocaleString() || '0'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                          transaction.status === 'completed'
-                            ? 'bg-green-100 text-green-700'
-                            : transaction.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {transaction.status?.charAt(0).toUpperCase() + transaction.status?.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 text-sm font-mono">
-                        {transaction.reference?.substring(0, 12)}...
+                      <td className="px-6 py-4 text-gray-600 text-sm">
+                        {transaction.description || '—'}
                       </td>
                     </tr>
                   ))}

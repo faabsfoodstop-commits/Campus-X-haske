@@ -163,6 +163,12 @@ export default function Menu() {
           >
             💳 Wallet
           </button>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); navigate('/'); }}
+            className="w-full bg-red-50 hover:bg-red-100 text-red-600 rounded-lg p-4 shadow hover:shadow-lg transition text-left font-semibold"
+          >
+            🚪 Sign Out
+          </button>
         </div>
       </div>
     </div>

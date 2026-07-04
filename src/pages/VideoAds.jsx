@@ -237,11 +237,11 @@ export default function VideoAds() {
       const finalPoints = ad.reward;
       const newPoints = freshUser.points + finalPoints;
 
-      const updated = await updateUserPoints(session.user.id, newPoints);
-      if (!updated) throw new Error('Failed to update points');
-
       const recorded = await recordVideoAdActivity(session.user.id, ad.id, ad.title, finalPoints);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record ad');
+
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
       // Optimistic updates — no need to re-fetch
       setUserData(prev => ({ ...prev, points: newPoints }));
