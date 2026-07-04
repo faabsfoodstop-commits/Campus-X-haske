@@ -38,8 +38,8 @@ export default function SpinWheel() {
   useEffect(() => {
     fetchUserData();
 
-    // Refetch user data every 3 seconds to keep points updated
-    const interval = setInterval(fetchUserData, 3000);
+    // Refetch every 30 seconds — points are updated optimistically after each spin
+    const interval = setInterval(fetchUserData, 30000);
     return () => clearInterval(interval);
   }, []);
 

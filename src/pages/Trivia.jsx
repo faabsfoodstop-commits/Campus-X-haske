@@ -18,6 +18,7 @@ export default function Trivia() {
   const [gameState, setGameState] = useState('menu'); // menu, playing, finished
   const [loading, setLoading] = useState(true);
   const [triviaStats, setTriviaStats] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(10);
   const navigate = useNavigate();
 
   const triviaQuestions = [
@@ -85,11 +86,35 @@ export default function Trivia() {
 
   useEffect(() => {
     fetchUserData();
-
-    // Refetch user data every 3 seconds to keep points updated
-    const interval = setInterval(fetchUserData, 3000);
-    return () => clearInterval(interval);
   }, []);
+
+  // Per-question 10-second countdown
+  useEffect(() => {
+    if (gameState !== 'playing' || selectedAnswer !== null) return;
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          // Time's up — auto-advance without awarding points
+          setTimeout(() => {
+            setSelectedAnswer(-1); // sentinel: timed out
+            setTimeout(() => {
+              if (currentQuestion < questions.length - 1) {
+                setCurrentQuestion(q => q + 1);
+                setSelectedAnswer(null);
+              } else {
+                finishGame();
+              }
+            }, 800);
+          }, 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameState, currentQuestion]);
 
   const fetchUserData = async () => {
     try {
@@ -154,6 +179,7 @@ export default function Trivia() {
     setCurrentQuestion(0);
     setScore(0);
     setSelectedAnswer(null);
+    setTimeLeft(10);
     setGameState('playing');
   };
 
@@ -300,12 +326,24 @@ export default function Trivia() {
             <div className="mb-8">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600 font-semibold">Question {currentQuestion + 1}/{questions.length}</span>
-                <span className="text-gray-600 font-semibold">Score: {score}</span>
+                <div className="flex items-center gap-3">
+                  <span className={`font-bold text-lg ${timeLeft <= 3 ? 'text-red-500' : 'text-purple-600'}`}>
+                    ⏱ {timeLeft}s
+                  </span>
+                  <span className="text-gray-600 font-semibold">Score: {score}</span>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
                 <div
                   className="bg-purple-600 h-2 rounded-full transition-all"
                   style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+                ></div>
+              </div>
+              {/* Timer bar */}
+              <div className="w-full bg-gray-200 rounded-full h-1">
+                <div
+                  className={`h-1 rounded-full transition-all ${timeLeft <= 3 ? 'bg-red-500' : 'bg-purple-400'}`}
+                  style={{ width: `${(timeLeft / 10) * 100}%` }}
                 ></div>
               </div>
             </div>
@@ -327,7 +365,7 @@ export default function Trivia() {
                         ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
                         : idx === questions[currentQuestion].correct
                         ? 'bg-green-500 text-white'
-                        : selectedAnswer === idx
+                        : selectedAnswer === idx && selectedAnswer !== -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 text-gray-800'
                     }`}

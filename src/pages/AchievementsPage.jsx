@@ -84,13 +84,13 @@ export default function AchievementsPage() {
 
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-l-4 border-blue-500">
             <p className="text-gray-600 text-sm mb-2">Current Streak</p>
-            <p className="text-4xl font-bold text-blue-600">{userData?.currentStreak || 0}</p>
+            <p className="text-4xl font-bold text-blue-600">{userData?.current_streak || 0}</p>
             <p className="text-xs text-gray-600 mt-2">days earning points</p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-l-4 border-purple-500">
-            <p className="text-gray-600 text-sm mb-2">Lifetime Points</p>
-            <p className="text-4xl font-bold text-purple-600">{(userData?.lifetimePoints || 0).toLocaleString()}</p>
+            <p className="text-gray-600 text-sm mb-2">Total Points</p>
+            <p className="text-4xl font-bold text-purple-600">{(userData?.points || 0).toLocaleString()}</p>
             <p className="text-xs text-gray-600 mt-2">all-time earned</p>
           </div>
         </div>

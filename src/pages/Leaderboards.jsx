@@ -15,6 +15,7 @@ export default function Leaderboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [leaderboardType, setLeaderboardType] = useState('global');
   const [selectedUniversity, setSelectedUniversity] = useState('');
+  const [uniSearch, setUniSearch] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -189,18 +190,28 @@ export default function Leaderboard() {
 
           {/* University Selector (when viewing university leaderboard) */}
           {leaderboardType === 'university' && (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <input
+                type="text"
+                value={uniSearch}
+                onChange={(e) => setUniSearch(e.target.value)}
+                placeholder="Search university..."
+                className="w-full max-w-xs px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
               <select
                 value={selectedUniversity}
                 onChange={(e) => setSelectedUniversity(e.target.value)}
-                className="px-4 py-2 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                size={uniSearch ? Math.min(6, NIGERIAN_UNIVERSITIES.filter(u => u.name.toLowerCase().includes(uniSearch.toLowerCase())).length + 1) : 1}
+                className="w-full max-w-xs px-4 py-2 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
               >
                 <option value="">Select your university</option>
-                {NIGERIAN_UNIVERSITIES.map((uni) => (
-                  <option key={uni.code} value={uni.code}>
-                    {uni.name}
-                  </option>
-                ))}
+                {NIGERIAN_UNIVERSITIES
+                  .filter(u => !uniSearch || u.name.toLowerCase().includes(uniSearch.toLowerCase()))
+                  .map((uni) => (
+                    <option key={uni.code} value={uni.code}>
+                      {uni.name}
+                    </option>
+                  ))}
               </select>
             </div>
           )}

@@ -69,8 +69,8 @@ export default function Dashboard() {
 
     fetchUserData();
 
-    // Refetch user data every 3 seconds to keep points updated
-    const interval = setInterval(fetchUserData, 3000);
+    // Refetch every 30 seconds — 3s generates excessive DB reads per session
+    const interval = setInterval(fetchUserData, 30000);
     return () => clearInterval(interval);
   }, []);
 

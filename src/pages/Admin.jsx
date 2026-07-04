@@ -33,7 +33,9 @@ export default function Admin() {
 
         const { data: usersList, error } = await supabase
           .from('users')
-          .select('*');
+          .select('id, full_name, email, points, wallet, university, is_admin, created_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
 
         if (!error && usersList) {
           setUsers(usersList);

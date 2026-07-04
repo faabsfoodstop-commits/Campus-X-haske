@@ -17,8 +17,8 @@ export default function StreakManager() {
   useEffect(() => {
     fetchUserData();
 
-    // Refetch every 3 seconds to keep streak updated
-    const interval = setInterval(fetchUserData, 3000);
+    // Refetch every 30 seconds — streak data changes at most once per day
+    const interval = setInterval(fetchUserData, 30000);
     return () => clearInterval(interval);
   }, []);
 
