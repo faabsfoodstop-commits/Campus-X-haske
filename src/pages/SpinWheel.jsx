@@ -191,15 +191,14 @@ export default function SpinWheel() {
       const newPoints = freshUser.points + earnedPoints;
       const newWallet = useFreeSpins ? freshUser.wallet : ((freshUser.wallet || 0) - 50);
 
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('users')
-        .update({
-          points: newPoints,
-          wallet: newWallet
-        })
-        .eq('id', session.user.id);
+        .update({ points: newPoints, wallet: newWallet })
+        .eq('id', session.user.id)
+        .select('id');
 
       if (updateError) throw updateError;
+      if (!updatedRows?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
       // Optimistically update UI immediately
       if (useFreeSpins) {
@@ -261,12 +260,14 @@ export default function SpinWheel() {
       }
 
       const newWallet = (freshUser.wallet || 0) - cost;
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('users')
         .update({ wallet: newWallet })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .select('id');
 
       if (error) throw error;
+      if (!updatedRows?.length) throw new Error('Wallet update blocked — check RLS policy for users table');
 
       setUserData(prev => ({ ...prev, wallet: newWallet }));
       setPurchasedSpin(prev => prev + quantity);

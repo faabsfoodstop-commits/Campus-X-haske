@@ -145,11 +145,13 @@ export default function Dashboard() {
 
       // Safe to update points now — check-in row is committed
       const newPoints = freshUser.points + pointsEarned;
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from('users')
         .update({ points: newPoints, current_streak: newStreak })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .select('id');
       if (error) throw error;
+      if (!updated?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
       // Award 7-day getting started task if reached
       try {
@@ -158,7 +160,18 @@ export default function Dashboard() {
         const uniqueDates = new Set((allCheckIns || []).map(ci => ci.check_in_date));
         if (uniqueDates.size >= 7) {
           const taskResult = await recordGettingStartedActivity(session.user.id, 'checkin', 'Check In 7 Days', 70);
-          if (taskResult.success) addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
+          if (taskResult.success) {
+            // recordGettingStartedActivity logs the transaction but does NOT update users.points
+            const { data: latestUser } = await supabase
+              .from('users').select('points').eq('id', session.user.id).single();
+            if (latestUser) {
+              await supabase.from('users')
+                .update({ points: latestUser.points + 70 })
+                .eq('id', session.user.id)
+                .select('id');
+            }
+            addToast('🎉 Completed 7-Day Check-In Challenge! +70 bonus points', 'success');
+          }
         }
       } catch (err) {
         console.error('Error awarding 7-day task:', err);

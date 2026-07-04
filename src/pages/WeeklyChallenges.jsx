@@ -178,17 +178,19 @@ export default function WeeklyChallenges() {
       if (!freshUser) throw new Error('Could not fetch user points');
 
       const newPoints = freshUser.points + challenge.bonus;
-      const { error: updateError } = await supabase
-        .from('users').update({ points: newPoints }).eq('id', userId);
+      const { data: updated, error: updateError } = await supabase
+        .from('users').update({ points: newPoints }).eq('id', userId).select('id');
       if (updateError) throw updateError;
+      if (!updated?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
-      await supabase.from('transactions').insert({
+      const { error: txError } = await supabase.from('transactions').insert({
         user_id: userId,
         type: 'weekly_challenge',
         amount: challenge.bonus,
         description: `Weekly Challenge: ${challenge.title}`,
         timestamp: new Date().toISOString(),
       });
+      if (txError) console.error('[WeeklyChallenges] Transaction insert failed:', txError.message);
 
       setClaimedIds(prev => new Set([...prev, challenge.id]));
       setUserData(prev => ({ ...prev, points: newPoints }));

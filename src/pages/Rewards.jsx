@@ -114,11 +114,13 @@ export default function Rewards() {
       if (insertError) throw insertError;
 
       // Deduct using the balance already verified above (fresh, pre-insert fetch)
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('users')
         .update({ points: currentPoints - reward.points })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .select('id');
       if (updateError) throw updateError;
+      if (!updatedRows?.length) throw new Error('Points deduction blocked — check RLS policy for users table');
 
       await fetchUserData();
       setSelectedPhone('');

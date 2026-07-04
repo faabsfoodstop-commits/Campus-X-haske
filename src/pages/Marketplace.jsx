@@ -181,12 +181,14 @@ export default function Marketplace() {
 
       const newPoints = (freshUser.points || 0) - pointsNeeded;
 
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('users')
         .update({ points: newPoints })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .select('id');
 
       if (updateError) throw updateError;
+      if (!updatedRows?.length) throw new Error('Points deduction blocked — check RLS policy for users table');
 
       setUserData(prev => ({ ...prev, points: newPoints }));
       setNotification({ type: 'success', message: `✓ Purchase confirmed! ${reward.name} will be delivered within 24 hours.` });

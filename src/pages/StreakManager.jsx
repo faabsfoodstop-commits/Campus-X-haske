@@ -138,11 +138,13 @@ export default function StreakManager() {
 
       // Safe to update points now — check-in row is committed
       const newPoints = freshUser.points + totalPoints;
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('users')
         .update({ current_streak: newStreak, points: newPoints })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .select('id');
       if (updateError) throw updateError;
+      if (!updatedRows?.length) throw new Error('Points update blocked — check RLS policy for users table');
 
       localStorage.setItem('lastCheckIn', todayString);
       setUserData(prev => ({ ...prev, current_streak: newStreak, points: newPoints }));

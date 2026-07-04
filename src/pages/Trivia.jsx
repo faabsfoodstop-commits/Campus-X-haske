@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { recordTriviaActivity, updateUserPoints } from '../utils/databaseHelpers';
@@ -14,6 +14,7 @@ export default function Trivia() {
   const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
+  const scoreRef = useRef(0); // sync ref to avoid stale closure in finishGame
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [gameState, setGameState] = useState('menu'); // menu, playing, finished
   const [loading, setLoading] = useState(true);
@@ -178,6 +179,7 @@ export default function Trivia() {
     setQuestions(shuffled);
     setCurrentQuestion(0);
     setScore(0);
+    scoreRef.current = 0;
     setSelectedAnswer(null);
     setTimeLeft(10);
     setGameState('playing');
@@ -188,7 +190,8 @@ export default function Trivia() {
 
     setSelectedAnswer(index);
     if (index === questions[currentQuestion].correct) {
-      setScore(score + 100); // 100 points per correct answer (10x increase)
+      scoreRef.current += 100;
+      setScore(scoreRef.current);
     }
 
     setTimeout(() => {
@@ -208,11 +211,13 @@ export default function Trivia() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const correctAnswers = Math.round(score / 100); // score is 100 per correct answer
-      const totalReward = score + 500;
+      // Use ref to avoid stale closure — score state may not have updated yet
+      const finalScore = scoreRef.current;
+      const correctAnswers = Math.round(finalScore / 100);
+      const totalReward = finalScore + 500;
 
       // Record activity FIRST — if this fails, abort before touching points
-      const recorded = await recordTriviaActivity(session.user.id, score, correctAnswers, totalReward);
+      const recorded = await recordTriviaActivity(session.user.id, finalScore, correctAnswers, totalReward);
       if (!recorded.success) throw new Error(recorded.error || 'Failed to record trivia');
 
       // Fetch fresh points then update

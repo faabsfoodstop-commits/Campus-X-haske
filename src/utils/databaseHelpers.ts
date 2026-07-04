@@ -311,12 +311,17 @@ export async function fetchStreakCheckIns(userId: string): Promise<StreakCheckIn
 
 export async function updateUserPoints(userId: string, newPoints: number): Promise<boolean> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('users')
       .update({ points: newPoints })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select('id');
 
     if (error) throw error;
+    // RLS can silently block the UPDATE — detect 0-row writes explicitly
+    if (!data || data.length === 0) {
+      throw new Error(`updateUserPoints: 0 rows affected for user ${userId}`);
+    }
     return true;
   } catch (err: any) {
     console.error('[updateUserPoints] Error:', err);
@@ -357,12 +362,13 @@ export async function recordCosmeticPurchaseActivity(
 
     if (updateError) throw updateError;
 
-    await supabase.from('cosmetics_purchases').insert({
+    const { error: auditError } = await supabase.from('cosmetics_purchases').insert({
       user_id: userId,
       cosmetic_id: cosmeticId,
       cosmetic_name: cosmeticName,
       price
     });
+    if (auditError) console.error('[recordCosmeticPurchaseActivity] Audit insert failed:', auditError);
 
     const { error: txError } = await supabase.from('transactions').insert({
       user_id: userId,

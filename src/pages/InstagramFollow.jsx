@@ -152,7 +152,7 @@ export default function InstagramFollow() {
 
       setUserData(prev => ({ ...prev, points: newPoints }));
 
-      setFollowedBrands([...followedBrands, brand.id]);
+      setFollowedBrands(prev => [...prev, brand.id]);
 
       setVerificationResult({
         success: true,

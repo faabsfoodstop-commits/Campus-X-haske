@@ -235,26 +235,33 @@ export default function DailyMissions() {
 
       if (adsError) throw adsError;
 
-      // Helper: award mission bonus points for newly auto-detected completions
+      // Helper: award mission bonus points for newly auto-detected completions.
+      // write-first: insert mission row FIRST; only update points if insert succeeded.
       const awardMissionBonus = async (missionId, missionName, reward) => {
         const { data: freshUser } = await supabase
           .from('users').select('points').eq('id', session.user.id).single();
         if (!freshUser) return;
         const newPoints = freshUser.points + reward;
-        await supabase.from('users').update({ points: newPoints }).eq('id', session.user.id);
-        await supabase.from('transactions').insert({
+        const { data: updated, error: updateError } = await supabase
+          .from('users').update({ points: newPoints }).eq('id', session.user.id).select('id');
+        if (updateError || !updated?.length) {
+          console.error('[awardMissionBonus] Points update failed:', updateError?.message || '0 rows');
+          return;
+        }
+        const { error: txError } = await supabase.from('transactions').insert({
           user_id: session.user.id,
           type: 'mission',
           amount: reward,
           description: `Daily Mission: ${missionName}`,
           timestamp: new Date().toISOString()
         });
+        if (txError) console.error('[awardMissionBonus] Transaction insert failed:', txError.message);
       };
 
       if (adsData.length > 0 && !completed.includes('video_ad')) {
         completed.push('video_ad');
         if (!existingCompleted.includes('video_ad')) {
-          await supabase.from('daily_missions').insert({
+          const { error: insertError } = await supabase.from('daily_missions').insert({
             user_id: session.user.id,
             mission_id: 'video_ad',
             mission_name: 'Watch an Ad',
@@ -262,14 +269,14 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
-          await awardMissionBonus('video_ad', 'Watch an Ad', 250);
+          if (!insertError) await awardMissionBonus('video_ad', 'Watch an Ad', 250);
         }
       }
 
       if (adsData.length >= 3 && !completed.includes('watch_videos')) {
         completed.push('watch_videos');
         if (!existingCompleted.includes('watch_videos')) {
-          await supabase.from('daily_missions').insert({
+          const { error: insertError } = await supabase.from('daily_missions').insert({
             user_id: session.user.id,
             mission_id: 'watch_videos',
             mission_name: 'Watch 3 Videos',
@@ -277,7 +284,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
-          await awardMissionBonus('watch_videos', 'Watch 3 Videos', 1000);
+          if (!insertError) await awardMissionBonus('watch_videos', 'Watch 3 Videos', 1000);
         }
       }
 
@@ -293,7 +300,7 @@ export default function DailyMissions() {
       if (igData.length > 0 && !completed.includes('instagram')) {
         completed.push('instagram');
         if (!existingCompleted.includes('instagram')) {
-          await supabase.from('daily_missions').insert({
+          const { error: insertError } = await supabase.from('daily_missions').insert({
             user_id: session.user.id,
             mission_id: 'instagram',
             mission_name: 'Follow a Brand',
@@ -301,7 +308,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
-          await awardMissionBonus('instagram', 'Follow a Brand', 375);
+          if (!insertError) await awardMissionBonus('instagram', 'Follow a Brand', 375);
         }
       }
 
@@ -316,7 +323,7 @@ export default function DailyMissions() {
       if (!checkInError && checkInData?.length > 0 && !completed.includes('checkin')) {
         completed.push('checkin');
         if (!existingCompleted.includes('checkin')) {
-          await supabase.from('daily_missions').insert({
+          const { error: insertError } = await supabase.from('daily_missions').insert({
             user_id: session.user.id,
             mission_id: 'checkin',
             mission_name: 'Morning Check-In',
@@ -324,7 +331,7 @@ export default function DailyMissions() {
             completed: true,
             completed_at: new Date().toISOString()
           });
-          await awardMissionBonus('checkin', 'Morning Check-In', 250);
+          if (!insertError) await awardMissionBonus('checkin', 'Morning Check-In', 250);
         }
       }
 
@@ -376,15 +383,17 @@ export default function DailyMissions() {
       if (fetchError || !freshUser) throw new Error('Failed to fetch user data');
 
       const newPoints = freshUser.points + mission.reward;
-      await updateUserPoints(session.user.id, newPoints);
+      const updated = await updateUserPoints(session.user.id, newPoints);
+      if (!updated) throw new Error('Failed to update points');
 
-      await supabase.from('transactions').insert({
+      const { error: txError } = await supabase.from('transactions').insert({
         user_id: session.user.id,
         type: 'mission',
         amount: mission.reward,
         description: `Daily Mission: ${mission.name}`,
         timestamp: new Date().toISOString()
       });
+      if (txError) console.error('[completeMission] Transaction insert failed:', txError.message);
 
       setCompletedToday(prev => [...prev, mission.id]);
       setUserData(prev => ({ ...prev, points: newPoints }));

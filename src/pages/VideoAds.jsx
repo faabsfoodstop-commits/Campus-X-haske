@@ -142,7 +142,9 @@ export default function VideoAds() {
         .from('users').select('points').eq('id', session.user.id).single();
       if (user) setUserData(prev => ({ ...prev, points: user.points }));
       await checkDailyAdStats();
-    } catch (_) {}
+    } catch (err) {
+      console.error('[VideoAds] refreshStats failed:', err);
+    }
   };
 
   const checkDailyAdStats = async () => {
