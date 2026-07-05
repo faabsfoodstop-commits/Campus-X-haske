@@ -7,66 +7,22 @@ const { detectTypingAnomalies } = require('../utils/fraud');
 // POST /api/typing/match/create - Create new match
 router.post('/match/create', async (req, res) => {
   try {
-    const { difficulty, tournament_id } = req.body;
+    const { difficulty } = req.body;
     const userId = req.headers['x-user-id'];
 
-    console.log('📝 Create match request:', { userId, difficulty, headers: req.headers });
+    console.log('📝 Create match request:', { userId, difficulty });
 
     if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
-    // Create tournament if not provided
-    let tournamentId = tournament_id;
-    if (!tournamentId) {
-      const { data: tournament, error: tournamentError } = await req.supabase
-        .from('typing_tournaments')
-        .insert({
-          tournament_type: 'quick_match',
-          difficulty_level: difficulty || 'medium',
-          status: 'open'
-        })
-        .select()
-        .single();
-
-      if (tournamentError) {
-        console.error('Tournament insert error:', tournamentError);
-        return res.status(400).json({ status: 'error', message: 'Failed to create tournament: ' + tournamentError.message });
-      }
-
-      if (!tournament) {
-        console.error('Tournament insert returned null');
-        return res.status(400).json({ status: 'error', message: 'Tournament creation returned no data' });
-      }
-
-      tournamentId = tournament.id;
-    }
-
-    // Find or create match for two players (simplified - in production use matchmaking queue)
-    const { data: match, error: matchError } = await req.supabase
-      .from('typing_matches')
-      .insert({
-        tournament_id: tournamentId,
-        player1_id: userId,
-        player2_id: uuidv4(), // Placeholder - would be actual opponent
-        text_prompt_id: Math.floor(Math.random() * 50) + 1 // Random prompt
-      })
-      .select()
-      .single();
-
-    if (matchError) {
-      console.error('Match insert error:', matchError);
-      return res.status(400).json({ status: 'error', message: 'Failed to create match: ' + matchError.message });
-    }
-
-    if (!match) {
-      console.error('Match insert returned null');
-      return res.status(400).json({ status: 'error', message: 'Match creation returned no data' });
-    }
+    // MOCK DATA FOR TESTING - Will connect to real database later
+    const matchId = uuidv4();
+    const tournamentId = uuidv4();
 
     res.json({
       status: 'success',
       data: {
-        match_id: match.id,
-        player1_id: match.player1_id,
+        match_id: matchId,
+        player1_id: userId,
         tournament_id: tournamentId,
         timer: 600000 // 10 minutes
       }
@@ -228,23 +184,18 @@ router.post('/match/:matchId/complete', async (req, res) => {
 // GET /api/typing/leaderboard/global - Global rankings
 router.get('/leaderboard/global', async (req, res) => {
   try {
-    const { limit = 100, offset = 0 } = req.query;
-
-    const { data: leaderboard, error } = await req.supabase
-      .from('typing_leaderboard')
-      .select('user_id, total_matches, total_wins, win_rate_percent, best_wpm, current_rank')
-      .eq('period_type', 'all_time')
-      .order('current_rank', { ascending: true })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
+    // MOCK DATA FOR TESTING
+    const mockLeaderboard = [
+      { user_id: 'user1', best_wpm: 95, total_matches: 15, win_rate_percent: 75 },
+      { user_id: 'user2', best_wpm: 88, total_matches: 12, win_rate_percent: 70 },
+      { user_id: 'user3', best_wpm: 82, total_matches: 10, win_rate_percent: 65 },
+      { user_id: 'user4', best_wpm: 78, total_matches: 8, win_rate_percent: 60 },
+      { user_id: 'user5', best_wpm: 75, total_matches: 6, win_rate_percent: 55 },
+    ];
 
     res.json({
       status: 'success',
-      data: leaderboard,
-      total: leaderboard.length,
-      limit,
-      offset
+      data: mockLeaderboard
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -281,17 +232,16 @@ router.get('/user/stats', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
 
-    const { data: stats, error } = await req.supabase
-      .from('typing_user_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) throw error;
-
+    // MOCK DATA FOR TESTING
     res.json({
       status: 'success',
-      data: stats
+      data: {
+        user_id: userId,
+        total_matches: 5,
+        best_wpm: 75,
+        win_rate_percent: 60,
+        total_tokens_earned: 450
+      }
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
