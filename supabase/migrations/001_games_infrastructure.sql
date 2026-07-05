@@ -120,8 +120,7 @@ CREATE TABLE IF NOT EXISTS game_notifications (
   metadata JSONB,
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_user_notifications (user_id, is_read),
-  INDEX idx_unread_notifications (user_id, is_read) WHERE is_read = false
+  INDEX idx_user_notifications (user_id, is_read)
 );
 
 -- ============================================================================
