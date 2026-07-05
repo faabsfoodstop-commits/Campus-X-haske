@@ -17,7 +17,7 @@ router.post('/match/create', async (req, res) => {
     // Create tournament if not provided
     let tournamentId = tournament_id;
     if (!tournamentId) {
-      const { data: tournament } = await req.supabase
+      const { data: tournament, error: tournamentError } = await req.supabase
         .from('typing_tournaments')
         .insert({
           tournament_type: 'quick_match',
@@ -26,11 +26,22 @@ router.post('/match/create', async (req, res) => {
         })
         .select()
         .single();
+
+      if (tournamentError) {
+        console.error('Tournament insert error:', tournamentError);
+        return res.status(400).json({ status: 'error', message: 'Failed to create tournament: ' + tournamentError.message });
+      }
+
+      if (!tournament) {
+        console.error('Tournament insert returned null');
+        return res.status(400).json({ status: 'error', message: 'Tournament creation returned no data' });
+      }
+
       tournamentId = tournament.id;
     }
 
     // Find or create match for two players (simplified - in production use matchmaking queue)
-    const { data: match } = await req.supabase
+    const { data: match, error: matchError } = await req.supabase
       .from('typing_matches')
       .insert({
         tournament_id: tournamentId,
@@ -40,6 +51,16 @@ router.post('/match/create', async (req, res) => {
       })
       .select()
       .single();
+
+    if (matchError) {
+      console.error('Match insert error:', matchError);
+      return res.status(400).json({ status: 'error', message: 'Failed to create match: ' + matchError.message });
+    }
+
+    if (!match) {
+      console.error('Match insert returned null');
+      return res.status(400).json({ status: 'error', message: 'Match creation returned no data' });
+    }
 
     res.json({
       status: 'success',
