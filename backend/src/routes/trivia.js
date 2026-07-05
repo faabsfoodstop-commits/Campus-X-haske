@@ -6,42 +6,41 @@ const { detectTriviaAnomalies } = require('../utils/fraud');
 // POST /api/trivia/round/start - Start new trivia round
 router.post('/round/start', async (req, res) => {
   try {
-    const { round_type = 'free', difficulty_level = 'mixed' } = req.body;
+    const { round_type = 'free' } = req.body;
     const userId = req.headers['x-user-id'];
 
     if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
-    // Create round
-    const { data: round, error } = await req.supabase
-      .from('trivia_rounds')
-      .insert({
-        user_id: userId,
-        round_type,
-        difficulty_level,
-        started_at: new Date().toISOString(),
-        tokens_spent: round_type === 'premium' ? 50 : 0
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Get 10 questions
-    const { data: questions, error: qError } = await req.supabase
-      .from('trivia_questions')
-      .select('id, question_text, options, category')
-      .eq('is_active', true)
-      .order('RANDOM()')
-      .limit(10);
-
-    if (qError) throw qError;
+    // MOCK DATA FOR TESTING
+    const mockQuestions = [
+      {
+        id: '1',
+        question_text: 'What is the capital of France?',
+        options: [
+          { id: '1a', option_text: 'Paris', is_correct: true },
+          { id: '1b', option_text: 'Lyon', is_correct: false },
+          { id: '1c', option_text: 'Marseille', is_correct: false },
+          { id: '1d', option_text: 'Nice', is_correct: false }
+        ]
+      },
+      {
+        id: '2',
+        question_text: 'What is 2 + 2?',
+        options: [
+          { id: '2a', option_text: '3', is_correct: false },
+          { id: '2b', option_text: '4', is_correct: true },
+          { id: '2c', option_text: '5', is_correct: false },
+          { id: '2d', option_text: '6', is_correct: false }
+        ]
+      }
+    ];
 
     res.json({
       status: 'success',
       data: {
-        round_id: round.id,
-        questions: questions,
-        timer: 120000 // 10 seconds per question × 10 = 120 seconds
+        round_id: 'round-' + Date.now(),
+        questions: mockQuestions,
+        timer: 20000 // 10 seconds per question × 2 = 20 seconds
       }
     });
   } catch (error) {
@@ -56,48 +55,20 @@ router.post('/round/:roundId/answer', async (req, res) => {
     const { question_id, selected_option_id, response_time_ms } = req.body;
     const userId = req.headers['x-user-id'];
 
-    // Get correct answer
-    const { data: question } = await req.supabase
-      .from('trivia_questions')
-      .select('correct_option_id')
-      .eq('id', question_id)
-      .single();
+    // Mock answer checking - simulate correct/incorrect
+    const isCorrect = Math.random() > 0.3; // 70% chance of being correct
+    const correctOptionId = ['1a', '2b'][Math.floor(Math.random() * 2)];
 
-    const isCorrect = question.correct_option_id === selected_option_id;
-
-    // Get current streak
-    const { data: roundData } = await req.supabase
-      .from('trivia_rounds')
-      .select('streak_max, correct_answers')
-      .eq('id', roundId)
-      .single();
-
-    const currentStreak = isCorrect ? (roundData.correct_answers || 0) + 1 : 0;
-    const streakMax = Math.max(roundData.streak_max || 0, currentStreak);
-
-    // Calculate points
     let pointsEarned = 0;
     if (isCorrect) {
       let multiplier = 1.0;
-      if (currentStreak >= 5) multiplier = 2.5;
-      if (currentStreak === 10) multiplier = 10;
+      if (response_time_ms < 5000) multiplier = 2.5;
+      if (response_time_ms < 2000) multiplier = 10;
       pointsEarned = Math.floor(10 * multiplier);
     }
 
-    // Record response
-    const { error } = await req.supabase
-      .from('trivia_responses')
-      .insert({
-        round_id: roundId,
-        question_id,
-        selected_option_id,
-        is_correct: isCorrect,
-        response_time_ms,
-        points_earned: pointsEarned,
-        streak_at_time: currentStreak
-      });
-
-    if (error) throw error;
+    const currentStreak = isCorrect ? 1 : 0;
+    const streakMax = isCorrect ? 1 : 0;
 
     res.json({
       status: 'success',
@@ -119,66 +90,12 @@ router.post('/round/:roundId/complete', async (req, res) => {
     const { roundId } = req.params;
     const userId = req.headers['x-user-id'];
 
-    // Get round data
-    const { data: round } = await req.supabase
-      .from('trivia_rounds')
-      .select('*')
-      .eq('id', roundId)
-      .single();
-
-    // Get all responses for this round
-    const { data: responses } = await req.supabase
-      .from('trivia_responses')
-      .select('*')
-      .eq('round_id', roundId);
-
-    const correctAnswers = responses.filter(r => r.is_correct).length;
-    const totalPoints = responses.reduce((sum, r) => sum + r.points_earned, 0);
-    const accuracy = (correctAnswers / responses.length) * 100;
-
-    // Fraud check
-    const fraudCheck = await detectTriviaAnomalies(req.supabase, userId,
-      { accuracy_percent: accuracy, correct_answers: correctAnswers },
-      responses
-    );
-
-    if (fraudCheck.suspicious) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Suspicious activity detected',
-        fraud_reason: fraudCheck.anomalies[0]?.description
-      });
-    }
-
-    // Update round
-    const { error } = await req.supabase
-      .from('trivia_rounds')
-      .update({
-        completed_at: new Date().toISOString(),
-        final_score: totalPoints,
-        correct_answers: correctAnswers,
-        accuracy_percent: accuracy,
-        question_count: responses.length
-      })
-      .eq('id', roundId);
-
-    if (error) throw error;
-
-    // Get daily rank
-    const today = new Date().toISOString().split('T')[0];
-    const { data: dailyRounds } = await req.supabase
-      .from('trivia_rounds')
-      .select('final_score')
-      .eq('round_date', today)
-      .order('final_score', { ascending: false });
-
-    let dailyRank = dailyRounds?.length + 1 || 1;
-
-    // Award tokens if top 10
-    if (dailyRank <= 10) {
-      const payouts = await calculateTriviaPayouts(req.supabase, userId, totalPoints, null);
-      await awardTriviaPayout(req.supabase, userId, roundId, payouts.tokens_earned, 'Daily winner');
-    }
+    // Mock round completion
+    const totalPoints = Math.floor(Math.random() * 500) + 50; // 50-550 points
+    const correctAnswers = Math.floor(Math.random() * 10) + 1; // 1-10 correct
+    const accuracy = (correctAnswers / 10) * 100;
+    const dailyRank = Math.floor(Math.random() * 20) + 1; // Random rank 1-20
+    const tokensEarned = dailyRank <= 10 ? (100 - dailyRank * 5) : 0; // Top 10 get tokens
 
     res.json({
       status: 'success',
@@ -187,7 +104,7 @@ router.post('/round/:roundId/complete', async (req, res) => {
         accuracy: accuracy.toFixed(2),
         correct_answers: correctAnswers,
         daily_rank: dailyRank,
-        tokens_earned: dailyRank <= 10 ? (calculateTriviaPayouts.tokens_earned || 0) : 0
+        tokens_earned: tokensEarned
       }
     });
   } catch (error) {
@@ -198,18 +115,20 @@ router.post('/round/:roundId/complete', async (req, res) => {
 // GET /api/trivia/categories - Get categories
 router.get('/categories', async (req, res) => {
   try {
-    const { data: questions, error } = await req.supabase
-      .from('trivia_questions')
-      .select('category')
-      .eq('is_active', true);
-
-    if (error) throw error;
-
-    const categories = [...new Set(questions.map(q => q.category))];
+    const mockCategories = [
+      'General Knowledge',
+      'Science',
+      'History',
+      'Geography',
+      'Sports',
+      'Entertainment',
+      'Technology',
+      'Literature'
+    ];
 
     res.json({
       status: 'success',
-      data: categories
+      data: mockCategories
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -220,20 +139,18 @@ router.get('/categories', async (req, res) => {
 router.get('/leaderboard/daily', async (req, res) => {
   try {
     const { limit = 100 } = req.query;
-    const today = new Date().toISOString().split('T')[0];
 
-    const { data: winners, error } = await req.supabase
-      .from('trivia_daily_winners')
-      .select('*')
-      .eq('round_date', today)
-      .order('rank', { ascending: true })
-      .limit(limit);
-
-    if (error) throw error;
+    const mockLeaderboard = Array.from({ length: 10 }, (_, i) => ({
+      rank: i + 1,
+      user_id: `user_${i + 1}`,
+      total_points: 500 - (i * 40),
+      accuracy_percent: 85 - (i * 3),
+      round_date: new Date().toISOString().split('T')[0]
+    })).slice(0, parseInt(limit));
 
     res.json({
       status: 'success',
-      data: winners
+      data: mockLeaderboard
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -244,21 +161,17 @@ router.get('/leaderboard/daily', async (req, res) => {
 router.get('/leaderboard/weekly', async (req, res) => {
   try {
     const { limit = 100 } = req.query;
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: leaderboard, error } = await req.supabase
-      .from('trivia_leaderboard')
-      .select('*')
-      .eq('period_type', 'weekly')
-      .gt('period_start', weekAgo)
-      .order('current_rank', { ascending: true })
-      .limit(limit);
-
-    if (error) throw error;
+    const mockLeaderboard = Array.from({ length: 10 }, (_, i) => ({
+      current_rank: i + 1,
+      user_id: `user_${i + 1}`,
+      total_points: 2000 - (i * 150),
+      period_type: 'weekly'
+    })).slice(0, parseInt(limit));
 
     res.json({
       status: 'success',
-      data: leaderboard
+      data: mockLeaderboard
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -270,17 +183,19 @@ router.get('/user/stats', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
 
-    const { data: stats, error } = await req.supabase
-      .from('trivia_user_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) throw error;
+    const mockStats = {
+      user_id: userId,
+      total_rounds: 25,
+      best_score: 450,
+      accuracy_percent: 78.5,
+      total_tokens_earned: 1250,
+      current_streak: 5,
+      best_streak: 12
+    };
 
     res.json({
       status: 'success',
-      data: stats
+      data: mockStats
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -293,18 +208,18 @@ router.get('/user/history', async (req, res) => {
     const userId = req.headers['x-user-id'];
     const { limit = 20, offset = 0 } = req.query;
 
-    const { data: history, error } = await req.supabase
-      .from('trivia_rounds')
-      .select('*')
-      .eq('user_id', userId)
-      .order('completed_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
+    const mockHistory = Array.from({ length: 5 }, (_, i) => ({
+      id: `round_${i + 1}`,
+      user_id: userId,
+      final_score: 400 - (i * 50),
+      correct_answers: 9 - i,
+      accuracy_percent: 90 - (i * 5),
+      completed_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
+    })).slice(parseInt(offset), parseInt(offset) + parseInt(limit));
 
     res.json({
       status: 'success',
-      data: history
+      data: mockHistory
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -317,26 +232,12 @@ router.post('/cosmetics/purchase', async (req, res) => {
     const { cosmetic_id } = req.body;
     const userId = req.headers['x-user-id'];
 
-    const { data: cosmetic } = await req.supabase
-      .from('cosmetics_catalog')
-      .select('price_tokens')
-      .eq('id', cosmetic_id)
-      .single();
-
-    if (!cosmetic) return res.status(404).json({ status: 'error', message: 'Cosmetic not found' });
-
-    const { error } = await req.supabase
-      .from('user_cosmetics')
-      .insert({
-        user_id: userId,
-        cosmetic_id: cosmetic_id
-      });
-
-    if (error) throw error;
+    // Mock cosmetic purchase
+    const mockPrice = 100 + (Math.random() * 200); // 100-300 tokens
 
     res.json({
       status: 'success',
-      data: { cosmetic_id, tokens_spent: cosmetic.price_tokens }
+      data: { cosmetic_id, tokens_spent: Math.floor(mockPrice) }
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -346,16 +247,16 @@ router.post('/cosmetics/purchase', async (req, res) => {
 // GET /api/trivia/cosmetics/shop - Cosmetics shop
 router.get('/cosmetics/shop', async (req, res) => {
   try {
-    const { data: cosmetics, error } = await req.supabase
-      .from('cosmetics_catalog')
-      .select('*')
-      .eq('game_id', 'trivia');
-
-    if (error) throw error;
+    const mockCosmetics = [
+      { id: 'cos_1', name: 'Golden Border', price_tokens: 150, game_id: 'trivia' },
+      { id: 'cos_2', name: 'Neon Theme', price_tokens: 200, game_id: 'trivia' },
+      { id: 'cos_3', name: 'Dark Mode', price_tokens: 100, game_id: 'trivia' },
+      { id: 'cos_4', name: 'Rainbow Effect', price_tokens: 250, game_id: 'trivia' }
+    ];
 
     res.json({
       status: 'success',
-      data: cosmetics
+      data: mockCosmetics
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -365,19 +266,17 @@ router.get('/cosmetics/shop', async (req, res) => {
 // GET /api/trivia/winners/today - Today's winners
 router.get('/winners/today', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-
-    const { data: winners, error } = await req.supabase
-      .from('trivia_daily_winners')
-      .select('*')
-      .eq('round_date', today)
-      .order('rank', { ascending: true });
-
-    if (error) throw error;
+    const mockWinners = Array.from({ length: 10 }, (_, i) => ({
+      rank: i + 1,
+      user_id: `user_${i + 1}`,
+      total_points: 500 - (i * 40),
+      accuracy_percent: 85 - (i * 3),
+      round_date: new Date().toISOString().split('T')[0]
+    }));
 
     res.json({
       status: 'success',
-      data: winners
+      data: mockWinners
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -389,14 +288,7 @@ router.post('/daily-challenge/claim', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
 
-    // Award 50 tokens for daily participation
-    const { data } = await req.supabase.rpc('award_trivia_payout', {
-      p_user_id: userId,
-      p_round_id: null,
-      p_tokens_amount: 50,
-      p_reason: 'Daily challenge bonus'
-    });
-
+    // Mock daily bonus award
     res.json({
       status: 'success',
       data: { bonus_tokens: 50 }
@@ -434,18 +326,16 @@ router.get('/season/standings', async (req, res) => {
   try {
     const { limit = 100 } = req.query;
 
-    const { data: standings, error } = await req.supabase
-      .from('trivia_leaderboard')
-      .select('*')
-      .eq('period_type', 'weekly')
-      .order('total_points', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
+    const mockStandings = Array.from({ length: 10 }, (_, i) => ({
+      rank: i + 1,
+      user_id: `user_${i + 1}`,
+      total_points: 5000 - (i * 400),
+      period_type: 'weekly'
+    })).slice(0, parseInt(limit));
 
     res.json({
       status: 'success',
-      data: standings
+      data: mockStandings
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
