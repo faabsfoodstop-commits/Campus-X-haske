@@ -50,6 +50,12 @@ export default function Dashboard() {
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-8 text-white mb-8">
           <h1 className="text-4xl font-bold mb-2">Welcome, {profile?.full_name}! 👋</h1>
           <p className="text-purple-100">{profile?.university}</p>
+          <button
+            onClick={() => navigate('/games')}
+            className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-bold hover:bg-gray-100 transition"
+          >
+            🎮 Play Games →
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
