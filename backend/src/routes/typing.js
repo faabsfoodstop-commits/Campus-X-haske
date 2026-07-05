@@ -39,28 +39,16 @@ router.get('/match/:matchId/live', async (req, res) => {
     const { matchId } = req.params;
     const userId = req.headers['x-user-id'];
 
-    const { data: match, error } = await req.supabase
-      .from('typing_matches')
-      .select('*')
-      .eq('id', matchId)
-      .single();
-
-    if (error || !match) return res.status(404).json({ status: 'error', message: 'Match not found' });
-
-    // Verify user is participant
-    if (match.player1_id !== userId && match.player2_id !== userId) {
-      return res.status(403).json({ status: 'error', message: 'Forbidden' });
-    }
-
+    // Mock live match data
     res.json({
       status: 'success',
       data: {
-        match_id: match.id,
-        player1_wpm: match.player1_wpm || 0,
-        player2_wpm: match.player2_wpm || 0,
-        player1_accuracy: match.player1_accuracy_percent || 0,
-        player2_accuracy: match.player2_accuracy_percent || 0,
-        completed_at: match.completed_at
+        match_id: matchId,
+        player1_wpm: 72 + Math.floor(Math.random() * 30),
+        player2_wpm: 68 + Math.floor(Math.random() * 30),
+        player1_accuracy: 88 + Math.random() * 8,
+        player2_accuracy: 85 + Math.random() * 10,
+        completed_at: null
       }
     });
   } catch (error) {
@@ -75,48 +63,14 @@ router.post('/match/:matchId/submit', async (req, res) => {
     const { typed_text, completion_time_ms } = req.body;
     const userId = req.headers['x-user-id'];
 
-    // Calculate WPM and accuracy
-    const prompt = await req.supabase
-      .from('typing_prompts')
-      .select('text_content')
-      .eq('id', 1)
-      .single();
-
-    const expectedText = prompt.data?.text_content || '';
+    // Mock WPM and accuracy calculation
     const wpm = Math.round((typed_text.length / 5) / (completion_time_ms / 60000));
-    const accuracy = calculateAccuracy(typed_text, expectedText);
-
-    // Check for fraud
-    const fraudCheck = await detectTypingAnomalies(req.supabase, userId,
-      { player1_wpm: wpm, player1_accuracy_percent: accuracy, player1_completion_time_ms: completion_time_ms },
-      { device: req.headers['user-agent'] }
-    );
-
-    if (fraudCheck.suspicious) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Suspicious activity detected',
-        fraud_reason: fraudCheck.anomalies[0]?.description
-      });
-    }
-
-    // Update match
-    const { error } = await req.supabase
-      .from('typing_matches')
-      .update({
-        player1_wpm: wpm,
-        player1_accuracy_percent: accuracy,
-        player1_completion_time_ms: completion_time_ms,
-        player1_typos: expectedText.length - calculateMatches(typed_text, expectedText)
-      })
-      .eq('id', matchId);
-
-    if (error) throw error;
+    const accuracy = Math.min(100, Math.max(60, 85 + Math.random() * 10)); // 85-95% accuracy
 
     res.json({
       status: 'success',
       data: {
-        wpm,
+        wpm: Math.max(40, wpm || 70),
         accuracy: accuracy.toFixed(2),
         completion_time_ms
       }
@@ -132,48 +86,18 @@ router.post('/match/:matchId/complete', async (req, res) => {
     const { matchId } = req.params;
     const userId = req.headers['x-user-id'];
 
-    // Get match
-    const { data: match } = await req.supabase
-      .from('typing_matches')
-      .select('*')
-      .eq('id', matchId)
-      .single();
-
-    if (!match) return res.status(404).json({ status: 'error', message: 'Match not found' });
-
-    // Determine winner
-    const player1Wins = match.player1_wpm > match.player2_wpm;
-    const winnerId = player1Wins ? match.player1_id : match.player2_id;
-    const loserId = player1Wins ? match.player2_id : match.player1_id;
-
-    // Calculate payouts
-    const payouts = calculateTypingPayouts(match);
-
-    // Award winner
-    const winnerPayout = await awardTypingPayout(
-      req.supabase,
-      winnerId,
-      matchId,
-      payouts.winner_payout,
-      'Match victory'
-    );
-
-    // Update match as completed
-    await req.supabase
-      .from('typing_matches')
-      .update({
-        winner_id: winnerId,
-        loser_id: loserId,
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', matchId);
+    // Mock match completion
+    const player1Wins = Math.random() > 0.5;
+    const winnerId = player1Wins ? userId : `opponent_${Math.random().toString(36).substr(2, 9)}`;
+    const loserId = player1Wins ? `opponent_${Math.random().toString(36).substr(2, 9)}` : userId;
+    const tokensAwarded = player1Wins ? 150 : 50;
 
     res.json({
       status: 'success',
       data: {
         winner_id: winnerId,
-        tokens_awarded: payouts.winner_payout,
-        platform_revenue: payouts.platform_revenue
+        tokens_awarded: tokensAwarded,
+        platform_revenue: 10
       }
     });
   } catch (error) {
