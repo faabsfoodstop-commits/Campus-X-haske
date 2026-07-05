@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS fraud_reports (
   reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_user_fraud (reported_user_id, game_id),
-  INDEX idx_fraud_severity (severity_score DESC)
+  INDEX idx_fraud_severity (severity_score)
 );
 
 -- ============================================================================
