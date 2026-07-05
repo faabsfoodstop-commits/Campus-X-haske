@@ -10,6 +10,8 @@ router.post('/match/create', async (req, res) => {
     const { difficulty, tournament_id } = req.body;
     const userId = req.headers['x-user-id'];
 
+    console.log('📝 Create match request:', { userId, difficulty, headers: req.headers });
+
     if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
     // Create tournament if not provided
@@ -49,6 +51,7 @@ router.post('/match/create', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Create match error:', error);
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
