@@ -31,6 +31,36 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Supabase connection test
+app.get('/test-supabase', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('trivia_questions')
+      .select('id, question_text')
+      .limit(1);
+
+    if (error) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Supabase query failed',
+        error: error.message
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Supabase connection working',
+      data: data
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Supabase connection error',
+      error: err.message
+    });
+  }
+});
+
 // Import routes
 const typingRoutes = require('./routes/typing');
 const triviaRoutes = require('./routes/trivia');
