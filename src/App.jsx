@@ -26,6 +26,11 @@ import PointMarket from './pages/PointMarket';
 import CosmeticsShop from './pages/CosmeticsShop';
 import PremiumTier from './pages/PremiumTier';
 
+// Game components
+import GamesHubPage from './pages/GamesHub';
+import TypingMaster from './components/games/TypingMaster';
+import QuickFireTrivia from './components/games/QuickFireTrivia';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -54,6 +59,9 @@ export default function App() {
             <Route path="/point-market" element={<PrivateRoute><PointMarket /></PrivateRoute>} />
             <Route path="/cosmetics-shop" element={<PrivateRoute><CosmeticsShop /></PrivateRoute>} />
             <Route path="/premium-tier" element={<PrivateRoute><PremiumTier /></PrivateRoute>} />
+            <Route path="/games" element={<PrivateRoute><GamesHubPage /></PrivateRoute>} />
+            <Route path="/games/typing-master" element={<PrivateRoute><TypingMaster /></PrivateRoute>} />
+            <Route path="/games/quickfire-trivia" element={<PrivateRoute><QuickFireTrivia /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </ToastProvider>
