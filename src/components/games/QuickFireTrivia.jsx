@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTriviaGame } from '../../hooks/useTriviaGame';
 import { gamesClient } from '../../api/gamesClient';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function QuickFireTrivia() {
+  const { user } = useAuth();
   const { gameState, currentQuestion, score, streak, timePerQuestion, setTimePerQuestion, loading, error, startRound, submitAnswer, completeRound } = useTriviaGame();
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -14,10 +16,13 @@ export default function QuickFireTrivia() {
 
   // Load data on mount
   useEffect(() => {
-    loadLeaderboard();
-    loadUserStats();
-    loadDailyWinners();
-  }, []);
+    if (user?.id) {
+      gamesClient.setUserId(user.id);
+      loadLeaderboard();
+      loadUserStats();
+      loadDailyWinners();
+    }
+  }, [user?.id]);
 
   // Timer countdown
   useEffect(() => {

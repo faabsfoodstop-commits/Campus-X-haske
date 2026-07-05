@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTypingGame } from '../../hooks/useTypingGame';
 import { gamesClient } from '../../api/gamesClient';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function TypingMaster() {
+  const { user } = useAuth();
   const { gameState, match, wpm, accuracy, loading, error, createMatch, startRace, updateTyping, submitMatch, completeMatch } = useTypingGame();
   const [typedText, setTypedText] = useState('');
   const [leaderboard, setLeaderboard] = useState([]);
@@ -10,11 +12,14 @@ export default function TypingMaster() {
   const [matchResult, setMatchResult] = useState(null);
   const inputRef = useRef(null);
 
-  // Load leaderboard and stats
+  // Set user ID in gamesClient and load data
   useEffect(() => {
-    loadLeaderboard();
-    loadUserStats();
-  }, []);
+    if (user?.id) {
+      gamesClient.setUserId(user.id);
+      loadLeaderboard();
+      loadUserStats();
+    }
+  }, [user?.id]);
 
   const loadLeaderboard = async () => {
     const result = await gamesClient.getTypingLeaderboard('global');
