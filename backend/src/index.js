@@ -31,6 +31,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Backend is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Supabase connection test
 app.get('/test-supabase', async (req, res) => {
   try {
