@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Handle preflight OPTIONS requests explicitly
+app.options('*', cors());
+
 // Initialize Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
