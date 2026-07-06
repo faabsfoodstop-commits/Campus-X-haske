@@ -132,19 +132,19 @@ router.get('/leaderboard/campus/:campusId', async (req, res) => {
     const { campusId } = req.params;
     const { limit = 50 } = req.query;
 
-    const { data: leaderboard, error } = await req.supabase
-      .from('typing_leaderboard')
-      .select('user_id, total_matches, total_wins, win_rate_percent, best_wpm, current_rank')
-      .eq('campus_id', campusId)
-      .eq('period_type', 'all_time')
-      .order('current_rank', { ascending: true })
-      .limit(limit);
-
-    if (error) throw error;
+    // MOCK DATA FOR TESTING
+    const mockCampusLeaderboard = Array.from({ length: Math.min(10, parseInt(limit)) }, (_, i) => ({
+      user_id: `campus_${campusId}_user_${i + 1}`,
+      total_matches: 20 - i * 2,
+      total_wins: 15 - i * 1.5,
+      win_rate_percent: 75 - (i * 3),
+      best_wpm: 95 - (i * 5),
+      current_rank: i + 1
+    }));
 
     res.json({
       status: 'success',
-      data: leaderboard
+      data: mockCampusLeaderboard
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -178,28 +178,21 @@ router.post('/cosmetics/purchase', async (req, res) => {
     const { cosmetic_id } = req.body;
     const userId = req.headers['x-user-id'];
 
-    const { data: cosmetic } = await req.supabase
-      .from('cosmetics_catalog')
-      .select('price_tokens')
-      .eq('id', cosmetic_id)
-      .single();
+    // MOCK DATA FOR TESTING
+    const mockCosmeticPrices = {
+      'theme_neon': 50,
+      'theme_dark': 50,
+      'cursor_gold': 75,
+      'cursor_custom': 100,
+      'sound_classic': 25,
+      'sound_futuristic': 50
+    };
 
-    if (!cosmetic) return res.status(404).json({ status: 'error', message: 'Cosmetic not found' });
-
-    // Insert purchase
-    const { error } = await req.supabase
-      .from('user_cosmetics')
-      .insert({
-        user_id: userId,
-        cosmetic_id: cosmetic_id,
-        is_equipped: false
-      });
-
-    if (error) throw error;
+    const tokensSpent = mockCosmeticPrices[cosmetic_id] || 50;
 
     res.json({
       status: 'success',
-      data: { cosmetic_id, tokens_spent: cosmetic.price_tokens }
+      data: { cosmetic_id, tokens_spent: tokensSpent }
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -209,17 +202,19 @@ router.post('/cosmetics/purchase', async (req, res) => {
 // GET /api/typing/cosmetics/shop - Cosmetics shop
 router.get('/cosmetics/shop', async (req, res) => {
   try {
-    const { data: cosmetics, error } = await req.supabase
-      .from('cosmetics_catalog')
-      .select('*')
-      .eq('game_id', 'typing')
-      .eq('is_active', true);
-
-    if (error) throw error;
+    // MOCK DATA FOR TESTING
+    const mockCosmeticsShop = [
+      { id: 'theme_neon', name: 'Neon Theme', category: 'theme', price_tokens: 50, is_available: true },
+      { id: 'theme_dark', name: 'Dark Theme', category: 'theme', price_tokens: 50, is_available: true },
+      { id: 'cursor_gold', name: 'Gold Cursor', category: 'cursor', price_tokens: 75, is_available: true },
+      { id: 'cursor_custom', name: 'Custom Cursor', category: 'cursor', price_tokens: 100, is_available: true },
+      { id: 'sound_classic', name: 'Classic Sounds', category: 'sound', price_tokens: 25, is_available: true },
+      { id: 'sound_futuristic', name: 'Futuristic Sounds', category: 'sound', price_tokens: 50, is_available: true }
+    ];
 
     res.json({
       status: 'success',
-      data: cosmetics
+      data: mockCosmeticsShop
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -232,18 +227,22 @@ router.get('/match/history', async (req, res) => {
     const userId = req.headers['x-user-id'];
     const { limit = 20, offset = 0 } = req.query;
 
-    const { data: matches, error } = await req.supabase
-      .from('typing_matches')
-      .select('*')
-      .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
+    // MOCK DATA FOR TESTING
+    const mockMatches = Array.from({ length: Math.min(10, parseInt(limit)) }, (_, i) => ({
+      id: `match_${i + 1}`,
+      player1_id: userId,
+      player2_id: `opponent_${i + 1}`,
+      player1_wpm: 75 + Math.random() * 20,
+      player2_wpm: 72 + Math.random() * 20,
+      player1_accuracy: 85 + Math.random() * 10,
+      player2_accuracy: 83 + Math.random() * 10,
+      winner_id: Math.random() > 0.5 ? userId : `opponent_${i + 1}`,
+      created_at: new Date(Date.now() - i * 86400000).toISOString()
+    }));
 
     res.json({
       status: 'success',
-      data: matches
+      data: mockMatches
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
