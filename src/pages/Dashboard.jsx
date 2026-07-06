@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import { supabase } from '../config/supabase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
+  const { addToast } = useToast();
   const [gettingStartedProgress, setGettingStartedProgress] = useState(0);
 
   useEffect(() => {
@@ -34,6 +36,16 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      addToast('Logged out successfully', 'success');
+      navigate('/');
+    } catch (error) {
+      addToast(error.message || 'Logout failed', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -47,14 +59,22 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-8 text-white mb-8">
-          <h1 className="text-4xl font-bold mb-2">Welcome, {profile?.full_name}! 👋</h1>
-          <p className="text-purple-100">{profile?.university}</p>
+        <div className="flex justify-between items-start mb-8">
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-8 text-white flex-1 mr-4">
+            <h1 className="text-4xl font-bold mb-2">Welcome, {profile?.full_name}! 👋</h1>
+            <p className="text-purple-100">{profile?.university}</p>
+            <button
+              onClick={() => navigate('/games')}
+              className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-bold hover:bg-gray-100 transition"
+            >
+              🎮 Play Games →
+            </button>
+          </div>
           <button
-            onClick={() => navigate('/games')}
-            className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-bold hover:bg-gray-100 transition"
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600 transition h-fit"
           >
-            🎮 Play Games →
+            Logout
           </button>
         </div>
 
