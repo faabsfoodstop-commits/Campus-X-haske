@@ -232,7 +232,8 @@ class GamesClient {
   }
 
   getApiUrl() {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Use local Vercel API routes (no external backend needed)
+    return '';
   }
 }
 
