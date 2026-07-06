@@ -14,6 +14,15 @@ app.use(express.json());
 // Handle preflight OPTIONS requests explicitly
 app.options('*', cors());
 
+// Debug: log every request
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  res.on('finish', () => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} -> ${res.statusCode}`);
+  });
+  next();
+});
+
 // Initialize Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -106,6 +115,7 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`✅ HASKii Games Backend running on http://localhost:${PORT}`);
+  console.log(`🔓 CORS enabled for all origins`);
   console.log(`📊 Supabase connected: ${process.env.SUPABASE_URL}`);
   console.log(`🎮 Ready for: Typing Master + QuickFire Trivia`);
 });
