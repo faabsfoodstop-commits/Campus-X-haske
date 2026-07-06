@@ -7,17 +7,17 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for all routes and origins
-app.use(cors());
-app.use(express.json());
-
-// Manually handle preflight OPTIONS requests
+// Manually handle preflight OPTIONS requests FIRST
 app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, Accept');
   res.sendStatus(200);
 });
+
+// Enable CORS for all routes and origins
+app.use(cors());
+app.use(express.json());
 
 // Debug: log every request
 app.use((req, res, next) => {
