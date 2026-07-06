@@ -11,8 +11,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Handle preflight OPTIONS requests explicitly
-app.options('*', cors());
+// Manually handle preflight OPTIONS requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, Accept');
+  res.sendStatus(200);
+});
 
 // Debug: log every request
 app.use((req, res, next) => {
