@@ -81,15 +81,15 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow p-6">
             <p className="text-gray-600 text-sm mb-1">Points Balance</p>
-            <p className="text-4xl font-bold text-purple-600">{profile?.points || 0}</p>
+            <p className="text-4xl font-bold text-purple-600">0</p>
           </div>
           <div className="bg-white rounded-xl shadow p-6">
             <p className="text-gray-600 text-sm mb-1">Wallet Balance</p>
-            <p className="text-4xl font-bold text-green-600">₦{profile?.wallet || 0}</p>
+            <p className="text-4xl font-bold text-green-600">₦0</p>
           </div>
           <div className="bg-white rounded-xl shadow p-6">
             <p className="text-gray-600 text-sm mb-1">Current Streak</p>
-            <p className="text-4xl font-bold text-orange-600">{profile?.current_streak || 0} 🔥</p>
+            <p className="text-4xl font-bold text-orange-600">0 🔥</p>
           </div>
         </div>
 
