@@ -65,6 +65,12 @@ export function AuthProvider({ children }) {
           id: data.user.id,
           email,
           full_name: fullName,
+          points: 0,
+          wallet: 0,
+          current_streak: 0,
+          is_admin: false,
+          is_banned: false,
+          profile_complete: false,
         }]);
 
       if (profileError) {
